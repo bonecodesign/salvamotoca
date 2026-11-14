@@ -17,6 +17,7 @@ on:
       - 'tests/f2-stage-rls.sql'
       - 'tests/f2-concurrency-setup.sql'
       - 'tests/f2-concurrency.sh'
+      - 'tests/f2-rollback-guard.sh'
       - 'supabase/drafts/f2_backend_candidate.sql'
       - 'supabase/rollback/f2_only_if_empty.sql'
       - '.github/workflows/f2-tests.yml'
@@ -38,6 +39,7 @@ on:
       - 'tests/f2-stage-rls.sql'
       - 'tests/f2-concurrency-setup.sql'
       - 'tests/f2-concurrency.sh'
+      - 'tests/f2-rollback-guard.sh'
       - 'supabase/drafts/f2_backend_candidate.sql'
       - 'supabase/rollback/f2_only_if_empty.sql'
       - '.github/workflows/f2-tests.yml'
@@ -130,6 +132,8 @@ jobs:
         run: |
           psql -X -v ON_ERROR_STOP=1 -Atqc "select not enabled from private.f2_release_gate where singleton" | grep -qx t
           psql -X -v ON_ERROR_STOP=1 -Atqc "select count(*) from public.f2_request_offers" | grep -qx 0
+      - name: Garantir que rollback recusa gate ativo e tabelas com dados
+        run: bash tests/f2-rollback-guard.sh
       - name: Homologar rollback F2 apenas com dados zerados
         run: |
           psql -X -v ON_ERROR_STOP=1 -f supabase/rollback/f2_only_if_empty.sql
