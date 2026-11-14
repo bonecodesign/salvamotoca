@@ -180,7 +180,7 @@
       '<label class="fieldrow"><input type="checkbox" name="services" value="' + esc(code) + '">' +
       esc(title) + (code === "reboque_moto" ? ' — integração em desenvolvimento (não envia)' : '') + '</label>').join('');
     return header("Solicitar orçamento", p.display_name + " — ambiente de testes, sem atendimento real") +
-      (!f1Enabled ? '<div class="notice" role="status">F1 em revisão: o envio de fotos e pedidos está desativado até a homologação da migração e da segurança em ambiente separado.</div>' : '') +
+      (!f1Enabled ? '<div class="notice" role="status">F1 em revisão: o envio de fotos e pedidos está desativado até a homologação de autenticação, fotos privadas e segurança no Supabase existente.</div>' : '') +
       '<form id="request-form" class="card form">' +
       '<fieldset><legend><b>Qual serviço você precisa?</b> (selecione um ou mais)</legend>' + options + '</fieldset>' +
       '<label class="fieldrow"><span class="label">Marca da moto</span><input class="field" type="text" name="brand" maxlength="70" placeholder="Ex.: Honda" required></label>' +
