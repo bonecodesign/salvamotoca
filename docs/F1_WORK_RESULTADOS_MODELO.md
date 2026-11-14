@@ -15,6 +15,7 @@
 | --- | --- | --- | --- |
 | Estado main / feature flag off | NÃO EXECUTADO | — | Consultar main |
 | CI Node/Chrome/Postgres | NÃO EXECUTADO | — | Executar/verificar GitHub Actions |
+| Reconstrução técnica do banco vazio (migrations + rollback) | NÃO EXECUTADO | — | Não confundir com backup restaurado |
 | Backup privado exportado | NÃO EXECUTADO | — | Verificar escopo, criptografia, hashes |
 | Restauração em ambiente local descartável | NÃO EXECUTADO | — | Demonstrar recuperação e diferenças |
 | Inspeção de notificações/triggers/despachos | NÃO EXECUTADO | — | Não gravar antes |
@@ -64,6 +65,6 @@
 
 **Status:** HOMOLOGAÇÃO TÉCNICA PARCIAL — LIBERAÇÃO PÚBLICA BLOQUEADA.
 
-**Pendências impeditivas:** backup restaurável, Auth/Storage remoto A/C/B, pedido seguro isolado, Android físico e limites operacionais. Atualizar somente após provas.
+**Pendências impeditivas de liberação pública:** backup restaurável, Auth/Storage remoto A/C/B, pedido seguro isolado, Android físico e limites operacionais. A reconstrução técnica aceita em `docs/F1_PRELIBERACAO_FINAL.md` só pode ser usada para preparar o ensaio; não substitui backup restaurado antes de dados reais ou lançamento. Atualizar somente após provas.
 
 **Recomendação:** manter f1TestRequestsEnabled=false até todos os gates necessários serem aprovados.

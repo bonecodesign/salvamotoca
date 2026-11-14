@@ -13,7 +13,7 @@ Este arquivo é a instrução de continuidade para o Work. Comece aqui; não ref
 1. **Não contratar serviços, trocar de plano, habilitar cobrança/PITR, criar novo Supabase, gerar atendimento real, chamar motoboy/prestador, disparar notificações externas, realizar pagamentos, liberar chat, publicar F1 ou alterar f1TestRequestsEnabled.**
 2. **Não reaplicar** migration F1 já presente no banco e não executar rollback remoto. As alterações de código devem ser branch e PR próprios, com CI. Não modificar main diretamente sem revisão.
 3. Nunca colocar segredos, JWT, senha, URLs assinadas, dumps de banco ou dados pessoais no GitHub, logs, anotações ou conversas. Usar sessão de login do Work e ambiente privado/segredos do próprio operador. No teste HTTP, somente publishable key e login normal; **nunca service_role**.
-4. **Backup + teste de restauração são bloqueio obrigatório para qualquer gravação no Supabase.** Não substituir por simples inspeção de esquema nem por uma afirmação de que o projeto está vazio.
+4. **Backup + teste de restauração são bloqueio obrigatório para dados reais ou liberação pública.** Para a pré-liberação técnica de um projeto F1 comprovadamente vazio, a única exceção aceita é a reconstrução técnica descrita em `docs/F1_PRELIBERACAO_FINAL.md`; ela permite preparar e revisar o ensaio, mas não ativa a F1 nem substitui a recuperação real antes de lançamento.
 5. Se um teste falhar, registrar **FALHOU** ou **BLOQUEADO**, corrigir no ramo isolado e repetir; não marcar como aprovado por suposição.
 6. No plano Free, acompanhar consumo de cotas. O teste A/C envia **no máximo um JPEG sintético pequeno**, sem imagem pessoal. O script não cria pedidos, usuários ou prestadores.
 
@@ -103,6 +103,8 @@ Com backup restaurado e contas fictícias sob controle, sem atendimentos reais:
 Registrar os resultados em branch/PR no GitHub, usando a estrutura de docs/F1_WORK_RESULTADOS_MODELO.md. Em cada gate: **PASSOU**, **FALHOU**, **BLOQUEADO** ou **NÃO EXECUTADO** com data, ferramenta, resultado e referência (sem credenciais). 
 
 A F1 só pode ser classificada **HOMOLOGADA PONTA A PONTA** após backup com restauração, HTTP Auth/Storage A/B/C, fluxo seguro com pedido, Android físico, segurança operacional de órfãos/upload, análise de RPCs e aprovação do responsável. Até lá, a classificação permanece **HOMOLOGAÇÃO TÉCNICA PARCIAL** e f1TestRequestsEnabled=false.
+
+Para preparar o projeto até o último instante anterior à ativação, seguir também `docs/F1_PRELIBERACAO_FINAL.md`. Esse checklist separa claramente a reconstrução técnica já comprovável dos gates que dependem de execução real, sem afrouxar os requisitos de lançamento.
 
 ## Prompt operacional curto para entregar ao Work
 
