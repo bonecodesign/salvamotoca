@@ -155,7 +155,7 @@
   });
   $("tick").addEventListener("click",()=>{
     if(!providerId){say("Nenhuma oferta ativa.",true);return}
-    elapsed=5*60*1000;
+    elapsed=5*60*1000+1000; // 5min desde a entrega fictícia em +1s
     const state=F2.notificationDecision({
       offeredAt:start,now:start+elapsed,deliveredAt:delivered?start+1000:null
     });
