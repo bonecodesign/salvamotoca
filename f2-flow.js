@@ -141,17 +141,22 @@
     if (responseAt != null) {
       const r = toTime(responseAt, "Resposta");
       invariant(r >= start, "Resposta anterior à oferta.");
-      return { status: r <= start + RESPONSE_MS ? "responded" : "late_response",
+      const deadlineStart = delivered && toTimeSafe(deliveredAt) >= start
+        ? toTimeSafe(deliveredAt) : start;
+      return { status: r <= deadlineStart + RESPONSE_MS ? "responded" : "late_response",
         canCountAbsence: false, remindersDue: [] };
     }
     if (!delivered || toTimeSafe(deliveredAt) < start || toTimeSafe(deliveredAt) > current)
       return { status: "delivery_unverified", canCountAbsence: false, remindersDue: [] };
-    const elapsed = current - start;
+    // O relógio só começa quando a entrega é confirmada. Se o aviso chegou
+    // atrasado, não penalizar o profissional por tempo que ele não teve.
+    const elapsed = current - toTimeSafe(deliveredAt);
     if (elapsed >= RESPONSE_MS)
       return { status: "timeout", canCountAbsence: true, remindersDue: [] };
     return { status: "waiting", canCountAbsence: false,
-      remindersDue: REMINDERS_MS.map((delay, i) => ({ number: i + 1, at: start + delay }))
-        .filter(x => elapsed >= x.at - start) };
+      remindersDue: REMINDERS_MS.map((delay, i) => ({ number: i + 1,
+        at: toTimeSafe(deliveredAt) + delay }))
+        .filter(x => elapsed >= x.at - toTimeSafe(deliveredAt)) };
   }
   function absenceReview(events, now) {
     invariant(Array.isArray(events), "Histórico de ausências inválido.");
