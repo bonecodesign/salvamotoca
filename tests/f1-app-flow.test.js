@@ -32,7 +32,7 @@ async function flush() {
 function makeHarness({ confirm=true, uploadFails=false, insertFails=false, f1Enabled=true,
   switchDuringUpload=false, duplicateAfterLostResponse=false,
   lostUploadResponse=false, conflictingUpload=false, delayedSignedUrl=false,
-  navigateDuringUpload=false }={}) {
+  navigateDuringUpload=false, gpsDuringUpload=false }={}) {
   const sent={ uploads:[], requests:[], quotes:[], errors:[], signed:[], downloads:[],
     orderSelects:[], requestFilters:[], confirmCalls:0 };
   let rejectUpload=uploadFails;
@@ -124,6 +124,11 @@ function makeHarness({ confirm=true, uploadFails=false, insertFails=false, f1Ena
         return {
           async upload(name,body,options) {
             sent.uploads.push({name,body,options});
+            if(gpsDuringUpload && pendingGps) {
+              gpsDuringUpload=false;
+              const callback=pendingGps; pendingGps=null;
+              callback({coords:{latitude:-19.92,longitude:-43.94}});
+            }
             if(navigateDuringUpload) {
               navigateDuringUpload=false;
               docListeners.click({target:{closest:()=>({dataset:{page:"home"}})}});
@@ -481,4 +486,14 @@ test("F1: sair da tela durante upload impede INSERT assíncrono do pedido abando
   assert.equal(h.sent.requests.length,0);
   assert.match(form.notice.textContent,/tentativa foi interrompida/);
   assert.match(h.container.innerHTML,/Explorar borracharias/);
+});
+
+
+test("F1: GPS recebido após confirmação não modifica local do pedido durante upload", async()=>{
+  const h=makeHarness({gpsDuringUpload:true}); await h.prepare();
+  await h.requestGps();
+  await h.submit(validFields());
+  assert.equal(h.sent.requests.length,1);
+  assert.equal(h.sent.requests[0].latitude,null);
+  assert.equal(h.sent.requests[0].longitude,null);
 });
