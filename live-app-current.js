@@ -546,6 +546,16 @@
       } else render();
     }
   }
+  function f2AmountCents(value, allowZero = false) {
+    const raw = String(value ?? "").trim().replace(",", ".");
+    if (!/^\d{1,4}(?:\.\d{1,2})?$/.test(raw))
+      throw new Error("Informe valores em reais com até duas casas decimais.");
+    const [whole,decimal = ""] = raw.split(".");
+    const cents = Number(whole) * 100 + Number((decimal + "00").slice(0,2));
+    if (!Number.isSafeInteger(cents) || cents < (allowZero ? 0 : 1))
+      throw new Error("Valor do serviço precisa ser positivo.");
+    return cents;
+  }
   async function preparePrivatePhoto(file) {
     return F1.preparePrivatePhoto(file, {
       createImageBitmap: typeof createImageBitmap === "function" ? createImageBitmap : null,
@@ -731,6 +741,64 @@
       })));
       if (services.error) throw services.error;
       await refreshIdentity(); nav("profile"); state.message = "Cadastro e serviços enviados. Aguarde homologação.";
+    });
+    if (form.id === "f2-capacity-form") submitForm(form, async data => {
+      if (!f2Active() || !state.user || !state.ownProvider)
+        throw new Error("Configuração F2 indisponível.");
+      const generation = identityGeneration, uid = state.user.id;
+      const services = window.SMF2Flow.serviceTypes(data.getAll("services"));
+      const coverage = Number(String(data.get("coverage") || "").replace(",", "."));
+      if (!Number.isFinite(coverage) || coverage < 0.1 || coverage > 30)
+        throw new Error("Raio de cobertura precisa ficar entre 0,1 e 30 km.");
+      const result = await db.rpc("f2_set_capacity", {
+        p_services: services, p_coverage_km: coverage
+      });
+      if (identityGeneration !== generation || state.user?.id !== uid) return;
+      if (result.error) throw result.error;
+      await refreshIdentity();
+      if (identityGeneration !== generation || state.user?.id !== uid) return;
+      state.message = "Capacidades registradas para testes. O cadastro ainda exige homologação.";
+    });
+    if (form.classList.contains("f2-quote-form")) submitForm(form, async data => {
+      if (!f2Active() || !state.user || !state.ownProvider)
+        throw new Error("Envio F2 ainda indisponível.");
+      const offerId = form.dataset.offer, requestId = form.dataset.request;
+      const offer = state.f2Offers.find(item => item.id === offerId &&
+        item.request_id === requestId && item.provider_id === state.ownProvider.id &&
+        item.status === "delivered");
+      const order = state.orders.find(item => item.id === requestId);
+      if (!offer || !order || order.status !== "requested")
+        throw new Error("O convite não está mais disponível.");
+      const services = window.SMF2Flow.serviceTypes(order.service_types);
+      const amounts = services.map(code => ({
+        code, amountCents: f2AmountCents(data.get("service_" + code))
+      }));
+      const travelCents = f2AmountCents(data.get("travel"), true);
+      const partName = String(data.get("part_name") || "").trim();
+      const partPrice = String(data.get("part_price") || "").trim();
+      if ((partName && !partPrice) || (!partName && partPrice))
+        throw new Error("Preencha nome e valor do material, ou deixe ambos vazios.");
+      const parts = partName
+        ? [{name:partName,amountCents:f2AmountCents(partPrice)}] : [];
+      window.SMF2Flow.quoteBreakdown({
+        serviceTypes: services, services: amounts, travelCents, parts
+      });
+      const lines = amounts.map(item => ({
+        kind: "service", code: item.code, amountCents: item.amountCents
+      }));
+      lines.push({kind:"travel",code:"deslocamento",amountCents:travelCents});
+      for (const part of parts)
+        lines.push({kind:"part",code:part.name,amountCents:part.amountCents});
+      const generation = identityGeneration, uid = state.user.id;
+      const result = await db.rpc("f2_submit_quote", {
+        p_offer_id: offerId, p_items: lines,
+        p_details: String(data.get("details") || "").trim()
+      });
+      if (identityGeneration !== generation || state.user?.id !== uid) return;
+      if (result.error) throw result.error;
+      await refreshIdentity();
+      if (identityGeneration !== generation || state.user?.id !== uid) return;
+      state.message = "Proposta F2 itemizada enviada para teste, sem pagamento.";
     });
     if (form.id === "request-form") submitForm(form, async data => {
       if (config.f1TestRequestsEnabled !== true)
