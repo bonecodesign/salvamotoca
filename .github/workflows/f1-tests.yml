@@ -10,6 +10,7 @@ on:
       - 'tests/f1-app-flow.test.js'
       - 'tests/f1-preview.test.js'
       - 'tests/f1-browser.test.js'
+      - 'tests/f1-release-guard.test.js'
       - 'docs/F1_PREVIEW.html'
       - 'tests/f1-stage-setup.sql'
       - 'tests/f1-stage-rls.sql'
@@ -31,7 +32,7 @@ jobs:
         with:
           node-version: '22'
       - name: Testes da validacao de pedido
-        run: node --test tests/request-f1.test.js tests/f1-app-flow.test.js tests/f1-preview.test.js
+        run: node --test tests/request-f1.test.js tests/f1-app-flow.test.js tests/f1-preview.test.js tests/f1-release-guard.test.js
       - name: Sintaxe das telas e scripts
         run: |
           node --check request-f1.js
