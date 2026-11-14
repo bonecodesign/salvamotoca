@@ -6,5 +6,7 @@ window.BJ_CONFIG = {
   // F1 bloqueada até testes Auth/Storage reais no único Supabase e liberação específica.
   // O esquema F1 já está no banco; manter o envio desligado até a homologação.
   f1TestRequestsEnabled: false,
+  // F2: backend apenas proposto/testado localmente. Não habilitar antes da F1 e backup.
+  f2TestOffersEnabled: false,
   supabasePublishableKey: 'sb_publishable_SKToaitJDdgDAYUrwChkbg__ntPtZd3'
 };
