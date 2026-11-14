@@ -250,7 +250,7 @@ begin
   end if;
   return v_created;
 end;
-$;
+$$;
 
 -- Abrir o convite autenticado é um ACK de leitura, não prova de entrega push.
 -- Ausência só pode ser revisada após ACK + 5 minutos sem resposta.
