@@ -207,10 +207,36 @@
       ? { status: "accepted", next: "awaiting_payment", paymentAllowed: false, chatAllowed: false }
       : { status: "declined", next: "redistribute", paymentAllowed: false, chatAllowed: false };
   }
+  function selectWinningQuote({ quotes, quoteId, customerId, actingUserId, now }) {
+    invariant(actingUserId && customerId && actingUserId === customerId,
+      "Somente o motociclista titular escolhe.");
+    invariant(Array.isArray(quotes) && quotes.length > 0 && quotes.length <= 20,
+      "Lista de propostas inválida.");
+    invariant(quotes.every(q => q && q.id && q.providerId && q.requestId && q.status),
+      "Propostas incompletas.");
+    const ids = new Set(quotes.map(q => q.id));
+    invariant(ids.size === quotes.length, "Proposta duplicada.");
+    const reqs = new Set(quotes.map(q => q.requestId));
+    invariant(reqs.size === 1, "Propostas pertencem a solicitações diferentes.");
+    invariant(!quotes.some(q => q.status === "accepted"),
+      "Já existe um orçamento aceito neste pedido.");
+    const winner = quotes.find(q => q.id === quoteId);
+    invariant(winner && winner.status === "proposed", "Orçamento selecionado indisponível.");
+    const choice = quoteDecision({ quote: winner, now, actingUserId, customerId, accept: true });
+    invariant(choice.status !== "expired", "O orçamento selecionado já expirou.");
+    asCents(winner.totalCents, "Total", true);
+    return {
+      requestId: winner.requestId, winningQuoteId: winner.id, providerId: winner.providerId,
+      totalCents: winner.totalCents, status: "awaiting_payment",
+      quotes: quotes.map(q => ({...q,status:q.id === winner.id ? "accepted" :
+        q.status === "proposed" ? "not_selected" : q.status})),
+      paymentAllowed: false, chatAllowed: false, dispatchAllowed: false
+    };
+  }
   return Object.freeze({
     RESPONSE_MS, QUOTE_MS, PRESENCE_MS, REMINDERS_MS, ABSENCE_WINDOW_MS,
     ABSENCE_REVIEW_THRESHOLD, CODES, BLOCKED_CODES,
     serviceTypes, distanceKm, distribute, providerEligibility, notificationDecision,
-    absenceReview, quoteBreakdown, quoteDecision, validRings
+    absenceReview, quoteBreakdown, quoteDecision, selectWinningQuote, validRings
   });
 });
