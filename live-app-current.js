@@ -615,7 +615,7 @@
       render();
       return;
     }
-    if (["f2-distribute","f2-ack","f2-decide","f2-expire"].includes(action)) {
+    if (["f2-distribute","f2-ack","f2-decline","f2-decide","f2-expire"].includes(action)) {
       if (!f2Active()) return;
       if (state.loading || !state.user) return;
       const userAtStart = state.user.id, generation = identityGeneration;
