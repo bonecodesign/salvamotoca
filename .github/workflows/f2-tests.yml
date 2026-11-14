@@ -18,6 +18,7 @@ on:
       - 'tests/f2-concurrency-setup.sql'
       - 'tests/f2-concurrency.sh'
       - 'supabase/drafts/f2_backend_candidate.sql'
+      - 'supabase/rollback/f2_only_if_empty.sql'
       - '.github/workflows/f2-tests.yml'
   push:
     branches:
@@ -38,6 +39,7 @@ on:
       - 'tests/f2-concurrency-setup.sql'
       - 'tests/f2-concurrency.sh'
       - 'supabase/drafts/f2_backend_candidate.sql'
+      - 'supabase/rollback/f2_only_if_empty.sql'
       - '.github/workflows/f2-tests.yml'
 permissions:
   contents: read
@@ -128,3 +130,10 @@ jobs:
         run: |
           psql -X -v ON_ERROR_STOP=1 -Atqc "select not enabled from private.f2_release_gate where singleton" | grep -qx t
           psql -X -v ON_ERROR_STOP=1 -Atqc "select count(*) from public.f2_request_offers" | grep -qx 0
+      - name: Homologar rollback F2 apenas com dados zerados
+        run: |
+          psql -X -v ON_ERROR_STOP=1 -f supabase/rollback/f2_only_if_empty.sql
+          psql -X -v ON_ERROR_STOP=1 -Atqc "select to_regclass('public.f2_request_offers') is null" | grep -qx t
+          psql -X -v ON_ERROR_STOP=1 -Atqc "select to_regclass('public.f2_quote_items') is null" | grep -qx t
+          psql -X -v ON_ERROR_STOP=1 -Atqc "select to_regclass('public.service_requests') is not null" | grep -qx t
+          psql -X -v ON_ERROR_STOP=1 -Atqc "select to_regclass('public.providers') is not null" | grep -qx t
