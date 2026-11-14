@@ -55,3 +55,18 @@ O banco está vazio, mas a simples ausência de dados **não equivale a comprova
 - Roteiro de execução completa: `docs/F1_HOMOLOGACAO_SUPABASE_UNICO.md`.
 
 O status de CI da `main` após a alteração do workflow é evidência separada; preencher apenas após uma execução real.
+
+
+## 5. Resultado após integração do reforço de CI
+
+- **PR #39 integrado na `main`**: commit `c6bd7228a5b634e567c62ee8de95048f522a562b`.
+- O GitHub Actions executou o workflow **na `main`** após o merge (push), sem dados ou pagamentos reais: https://github.com/bonecodesign/salvamotoca/actions/runs/43638389661
+- Resultado confirmado no GitHub: `completed / success`. Os três jobs (`validar-f1`, `navegador-f1`, `sql-isolado-f1`) finalizaram com `success`.
+- A flag `f1TestRequestsEnabled: false` continuou no arquivo `config.js` da `main`.
+- O workflow da F1 agora dispara em alterações relevantes na `main` e verifica `config.js` quando modificada em PR. Dessa forma uma ativação precoce da flag deve ser barrada por um teste automatizado.
+
+### Revisão de código das seis funções privilegiadas
+
+Também foram consultadas as definições remotas de `bj_answer_quote`, `bj_finish_request`, `bj_get_request_location`, `bj_ping_presence`, `bj_set_presence` e `bj_submit_quote`. As seis utilizam `SECURITY DEFINER` com `search_path` vazio e checagem de `auth.uid()`/titularidade/estado no código; a função de endereço inclui exigência de pagamento `paid` para prestador. A consulta de privilégios confirmou **anon_can_execute=false** para as seis. Isso é **revisão estática**, não execução adversarial com sessão legítima. O aviso de Security Advisor para usuários autenticados permanece até teste e decisão documentada.
+
+**Conclusão:** a parte **automatizável e de leitura remota** da homologação está concluída e documentada. **Não foi possível certificar a homologação ponta a ponta em ambiente real** sem contas Auth de teste, backup recuperável, acesso HTTP real e Android físico. A liberação permanece bloqueada.
