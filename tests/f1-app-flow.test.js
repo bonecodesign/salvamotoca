@@ -29,10 +29,13 @@ async function flush() {
   for (let i=0;i<8;i++) await new Promise(resolve => setImmediate(resolve));
 }
 
-function makeHarness({ confirm=true, uploadFails=false, insertFails=false, f1Enabled=true }={}) {
+function makeHarness({ confirm=true, uploadFails=false, insertFails=false, f1Enabled=true, switchDuringUpload=false }={}) {
   const sent={ uploads:[], requests:[], quotes:[], errors:[], signed:[], orderSelects:[], confirmCalls:0 };
   let rejectUpload=uploadFails;
   let rejectInsert=insertFails;
+  let currentUserId=CLIENT;
+  let authCallback=null;
+  let pendingGps=null;
   const docListeners={}, formListeners={};
   const container={
     innerHTML:"",
@@ -84,10 +87,10 @@ function makeHarness({ confirm=true, uploadFails=false, insertFails=false, f1Ena
       throw new Error("RPC inesperada: "+name);
     },
     auth:{
-      getSession:async()=>({data:{session:{access_token:"token-teste"}},error:null}),
-      getUser:async()=>({data:{user:{id:CLIENT,email:"teste@example.invalid",
-        user_metadata:{display_name:"Teste"}}},error:null}),
-      onAuthStateChange(){return {data:{subscription:{unsubscribe(){}}}};}
+      getSession:async()=>({data:{session:currentUserId?{access_token:"token-teste",user:{id:currentUserId}}:null},error:null}),
+      getUser:async()=>({data:{user:currentUserId?{id:currentUserId,email:"teste@example.invalid",
+        user_metadata:{display_name:"Teste"}}:null},error:null}),
+      onAuthStateChange(callback){authCallback=callback;return {data:{subscription:{unsubscribe(){}}}};}
     },
     storage:{
       from(bucket) {
@@ -95,6 +98,11 @@ function makeHarness({ confirm=true, uploadFails=false, insertFails=false, f1Ena
         return {
           async upload(name,body,options) {
             sent.uploads.push({name,body,options});
+            if(switchDuringUpload){
+              switchDuringUpload=false;
+              currentUserId="22222222-2222-4222-8222-222222222222";
+              authCallback("SIGNED_IN",{user:{id:currentUserId,email:"outro@example.invalid"}});
+            }
             if(rejectUpload){
               rejectUpload=false;
               return {error:{statusCode:500,message:"Falha simulada de upload"}};
@@ -134,7 +142,11 @@ function makeHarness({ confirm=true, uploadFails=false, insertFails=false, f1Ena
     L:null
   };
   const sandbox={
-    window:win,document,navigator:{},console,
+    window:win,document,navigator:{
+      geolocation:{
+        getCurrentPosition(success){pendingGps=success;}
+      }
+    },console,
     crypto:{randomUUID:()=>KEY},
     FormData:class {
       constructor(form){this.values=form.fields;}
@@ -149,6 +161,23 @@ function makeHarness({ confirm=true, uploadFails=false, insertFails=false, f1Ena
   vm.runInNewContext(APP,sandbox,{filename:"live-app-current.js",timeout:3000});
   return {
     sent,container,docListeners,formListeners,
+    async switchUser(nextId){
+      currentUserId=nextId;
+      assert.equal(typeof authCallback,"function");
+      authCallback(nextId?"SIGNED_IN":"SIGNED_OUT",
+        nextId?{user:{id:nextId,email:"outro@example.invalid"}}:null);
+      await flush();
+    },
+    async requestGps(){
+      const target={dataset:{action:"gps"}};
+      await docListeners.click({target:{closest:()=>target}});
+    },
+    async resolveGps(lat=-19.92,lng=-43.94){
+      assert.equal(typeof pendingGps,"function","GPS não foi solicitado");
+      const callback=pendingGps; pendingGps=null;
+      callback({coords:{latitude:lat,longitude:lng}});
+      await flush();
+    },
     async prepare(){
       await flush();
       assert.match(container.innerHTML,/Prestadores aprovados/);
