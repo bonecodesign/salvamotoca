@@ -186,6 +186,12 @@ begin
   select coalesce(max(round_number),0)+1 into v_round
     from public.f2_request_offers where request_id=p_request_id;
   if v_round>20 then raise exception 'Limite de rodadas atingido.'; end if;
+  -- Na F1 há um prestador pré-atribuído. Ao entrar na fase de propostas
+  -- concorrentes, revogar essa atribuição ANTES de convidar participantes;
+  -- só destinatários autorizados poderão ver a foto. O vencedor é vinculado
+  -- novamente depois de um único aceite do cliente.
+  update public.service_requests
+  set provider_id=null,updated_at=now() where id=p_request_id;
   for v_ring in select unnest(array[1,3,10]::integer[]) loop
     for candidate in
       select p.id as provider_id,
