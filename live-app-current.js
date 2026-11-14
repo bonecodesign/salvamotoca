@@ -642,11 +642,16 @@
           const statusCode = Number(uploaded.error.statusCode || uploaded.error.status);
           const duplicate = statusCode === 409 || /already exists|duplicate|já existe/i.test(errorText(uploaded.error));
           if (!duplicate) throw new Error("Upload privado não concluído: " + errorText(uploaded.error));
-          // A resposta HTTP pode ter falhado depois da gravacao: confirma no servidor.
-          const recovered = await db.storage.from("request-photos").createSignedUrl(path, 30);
+          // Um 409 não prova que a imagem armazenada corresponde à seleção atual.
+          // Baixar apenas neste caso e comparar o JPEG real antes de continuar.
+          const recovered = await db.storage.from("request-photos").download(path);
           ensureSession();
-          if (recovered.error || !recovered.data?.signedUrl)
-            throw new Error("Não foi possível confirmar o upload. Reabra a solicitação.");
+          if (recovered.error || !recovered.data)
+            throw new Error("Não foi possível confirmar o upload privado. Volte à lista e selecione o prestador novamente.");
+          const matches = await F1.samePhotoBytes(jpeg, recovered.data);
+          ensureSession();
+          if (!matches)
+            throw new Error("Uma foto diferente já ocupa este pedido. Volte à lista e selecione o prestador novamente.");
         }
         state.uploadedPhotoKey = state.requestKey;
         state.uploadedPhotoSignature = photoSignature;
