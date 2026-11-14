@@ -1,8 +1,10 @@
 # F1 — Homologação no único Supabase | Procedimento seguro
 
+**Continuidade para o ChatGPT Work:** usar como fonte principal `docs/F1_WORK_EXECUCAO.md`, com script protegido em `scripts/f1-work-storage-e2e.mjs` e matriz de resultados `docs/F1_WORK_RESULTADOS_MODELO.md`. Este roteiro é histórico, complementar, e não comprova execução remota.
+
 **Projeto:** Salva Motoca. **Banco remoto:** PostgreSQL 17.11, Supabase ativo. **Status:** procedimento preparado; **não executado como Auth/Storage E2E remoto**.
 
-Este roteiro foi montado para **não criar outro projeto Supabase, não contratar plano pago, não usar fotos ou endereços reais e não publicar chamados**. O PR #38 está em Draft, com envio F1 desativado.
+Este roteiro foi montado para **não criar outro projeto Supabase, não contratar plano pago, não usar fotos ou endereços reais e não publicar chamados**. Os PRs #38 e #39 já foram integrados à `main`; o envio F1 continua desativado.
 
 ## 1. Verificações já feitas, sem alterar banco
 
@@ -79,7 +81,7 @@ O teste com **prestador B** exige pedido fictício, equipe de teste e barreira v
 
 ## 5. Liberação
 
-`f1TestRequestsEnabled: false` é somente proteção de interface. **Não é autorização no servidor**. Manter em `false` até cumprir os passos acima, analisar avisos de segurança e revisar PR #38.
+`f1TestRequestsEnabled: false` é somente proteção de interface. **Não é autorização no servidor**. Manter em `false` até cumprir os passos acima, analisar avisos de segurança e revisar o estado atual de `main` e a decisão de liberação da F1.
 
 **Sem backup confirmado, sem Auth/Storage HTTP reais, sem Android físico: F1 em revisão técnica, não homologada para público.**
 
