@@ -15,6 +15,8 @@ on:
       - 'tests/f2-release-guard.test.js'
       - 'tests/f2-stage-setup.sql'
       - 'tests/f2-stage-rls.sql'
+      - 'tests/f2-concurrency-setup.sql'
+      - 'tests/f2-concurrency.sh'
       - 'supabase/drafts/f2_backend_candidate.sql'
       - '.github/workflows/f2-tests.yml'
   push:
@@ -33,6 +35,8 @@ on:
       - 'tests/f2-release-guard.test.js'
       - 'tests/f2-stage-setup.sql'
       - 'tests/f2-stage-rls.sql'
+      - 'tests/f2-concurrency-setup.sql'
+      - 'tests/f2-concurrency.sh'
       - 'supabase/drafts/f2_backend_candidate.sql'
       - '.github/workflows/f2-tests.yml'
 permissions:
@@ -118,6 +122,8 @@ jobs:
         run: psql -X -v ON_ERROR_STOP=1 -f supabase/drafts/f2_backend_candidate.sql
       - name: Ensaiar RLS, convites, itens e escolha única
         run: psql -X -v ON_ERROR_STOP=1 -f tests/f2-stage-rls.sql
+      - name: Testar dois aceites concorrentes no mesmo pedido (SQL local)
+        run: bash tests/f2-concurrency.sh
       - name: Reconfirmar gate DESLIGADO em banco limpo
         run: |
           psql -X -v ON_ERROR_STOP=1 -Atqc "select not enabled from private.f2_release_gate where singleton" | grep -qx t
