@@ -82,3 +82,17 @@ Também foram consultadas as definições remotas de `bj_answer_quote`, `bj_fini
 - Executado `node tests/smoke.js`: **aprovado**; o modo conectado inicializa sem sessão e não consulta dados privados.
 
 **Bloqueio preservado:** backup restaurável efetivamente comprovado ainda não está disponível nesta sessão. Portanto não foram criadas contas fictícias, nem enviado JPEG, nem criado pedido, nem ativada a F1. Os gates 1 a 4 permanecem pendentes; classificação continua **HOMOLOGAÇÃO TÉCNICA PARCIAL — LIBERAÇÃO PÚBLICA BLOQUEADA**.
+
+
+## 7. Verificação remota atual — 14/11/2026
+
+**Status: PASSOU (somente leitura) / BLOQUEADO (backup e restauração).**
+
+- Precheck remoto no projeto `yivkqyjdeouxnwtwfekc`: PostgreSQL 17.11; **0** usuários Auth, **0** solicitações, **0** solicitações com foto F1 e **0** objetos no bucket `request-photos`.
+- A migration `20261114020317` permanece aplicada. O bucket segue privado, limitado a 5 MiB e a `image/jpeg`; RLS está habilitado em `public.service_requests` e `storage.objects`.
+- Não há Edge Functions implantadas. Nos logs das últimas 24 horas houve somente fontes de infraestrutura Postgres/PostgREST; esta leitura não substitui auditoria futura de integrações.
+- Supabase Health Advisor: nenhum alerta. Security Advisor: mantidos os seis avisos de RPC `SECURITY DEFINER` para `authenticated` e quatro avisos informativos de tabelas com RLS sem política; nenhum privilégio foi alterado.
+- Reexecutados localmente os testes definidos pelo workflow F1: **52 testes aprovados**, além da checagem de sintaxe e do modo `--plan` sem rede/escrita. O teste visual Chrome e o SQL isolado já têm execução aprovada no GitHub Actions da main; não foram repetidos nesta máquina, que não possui PostgreSQL/Docker.
+- Não há `supabase` CLI, `psql`, `pg_restore` ou Docker disponíveis nesta sessão. O painel do Supabase exige autenticação e não há sessão autenticada disponível. Assim, não foi possível obter dump privado nem restaurá-lo em ambiente descartável.
+
+**Decisão do gate:** a prova de backup + restauração continua **BLOQUEADA**. Em conformidade com o roteiro, não foram criados usuários fictícios, arquivos, pedidos ou pagamentos; a flag permanece desativada. A F1 **não está homologada ponta a ponta e não pode ser liberada publicamente**.
