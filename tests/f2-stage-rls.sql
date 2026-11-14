@@ -312,6 +312,46 @@ begin
  then raise exception 'Prestador realmente convidado não recebeu acesso'; end if;
 end $yes_photo$;
 
+-- 10 ausências confirmadas em 30 dias geram SOMENTE revisão humana.
+reset role;
+do $fixtures$
+declare i integer;
+begin
+  for i in 2..11 loop
+    insert into public.f2_request_offers(request_id,provider_id,round_number,status,
+      offered_at,delivered_at,replied_at)
+    values('55555555-5555-4555-8555-555555555555',
+           'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',
+           i,'expired',now()-interval '1 day',
+           now()-interval '1 day'+interval '1 second',now());
+  end loop;
+  -- Sem ACK: não entra no cálculo de ausência.
+  insert into public.f2_request_offers(request_id,provider_id,round_number,status,
+    offered_at,delivered_at,replied_at)
+  values('55555555-5555-4555-8555-555555555555',
+         'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',12,
+         'expired',now()-interval '2 days',null,now());
+  -- Entregue há mais de 30 dias: fora da janela de revisão.
+  insert into public.f2_request_offers(request_id,provider_id,round_number,status,
+    offered_at,delivered_at,replied_at)
+  values('55555555-5555-4555-8555-555555555555',
+         'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',13,
+         'expired',now()-interval '32 days',
+         now()-interval '32 days'+interval '1 second',now());
+end $fixtures$;
+set role authenticated;
+select set_config('request.jwt.claim.sub','22222222-2222-4222-8222-222222222222',false);
+do $review$
+declare n bigint; review boolean; suspended boolean;
+begin
+  select absences_30d,requires_human_review,automatically_suspended
+    into n,review,suspended from public.f2_absence_review();
+  if n<>11 or not review or suspended then
+    raise exception 'Revisão de 10 ausências indevida ou suspensão automática: %/%/%',
+      n,review,suspended;
+  end if;
+end $review$;
+
 -- RPCs não liberam checkout, chat, push, nem transição paid.
-select 'F2: MULTI-OFERTAS + RLS + ORÇAMENTO ITEMIZADO + VENCEDOR ÚNICO PASSARAM' as resultado;
+select 'F2: MULTI-OFERTAS + RLS + ORÇAMENTO + UMA VENCEDORA + AUSÊNCIAS PASSARAM' as resultado;
 rollback;
