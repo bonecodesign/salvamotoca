@@ -127,6 +127,47 @@ begin
    raise exception 'Destinatário sem acesso à foto'; end if;
 end $allow$;
 
+-- Mesmo sem executar a rotina de expiração, uma oferta velha NÃO dá
+-- acesso aos dados privados. Uma suspensão revoga imediatamente a foto.
+reset role;
+update public.providers set status='suspended'
+where id='bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb';
+set role authenticated;
+select set_config('request.jwt.claim.sub','33333333-3333-4333-8333-333333333333',false);
+do $suspended_photo$
+begin
+  if (select count(*) from storage.objects where bucket_id='request-photos')<>0
+    or (select count(*) from public.service_requests
+        where id='11111111-aaaa-4111-8111-111111111111')<>0
+  then raise exception 'Prestador suspenso mantém foto ou pedido'; end if;
+end $suspended_photo$;
+reset role;
+update public.providers set status='approved'
+where id='bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb';
+update public.f2_request_offers set offered_at=now()-interval '6 minutes'
+where request_id='11111111-aaaa-4111-8111-111111111111'
+  and provider_id='bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb';
+set role authenticated;
+select set_config('request.jwt.claim.sub','33333333-3333-4333-8333-333333333333',false);
+do $expired_photo$
+begin
+  if (select count(*) from storage.objects where bucket_id='request-photos')<>0
+    or (select count(*) from public.service_requests
+        where id='11111111-aaaa-4111-8111-111111111111')<>0
+  then raise exception 'Convite expirado sem cron continua expondo foto'; end if;
+end $expired_photo$;
+reset role;
+update public.f2_request_offers set offered_at=now()
+where request_id='11111111-aaaa-4111-8111-111111111111'
+  and provider_id='bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb';
+set role authenticated;
+select set_config('request.jwt.claim.sub','33333333-3333-4333-8333-333333333333',false);
+do $restored_photo$
+begin
+  if (select count(*) from storage.objects where bucket_id='request-photos')<>1
+  then raise exception 'Convite vigente não pode ler foto'; end if;
+end $restored_photo$;
+
 -- Um único prestador confirma o próprio convite: ACK autenticado.
 select public.f2_ack_offer((select id from public.f2_request_offers
   where provider_id='bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb')) as ack_beta \gset
@@ -425,6 +466,59 @@ begin
       n,review,suspended;
   end if;
 end $review$;
+
+-- Recusa voluntária autenticada: o prestador pode dizer que não atende
+-- sem esperar timeout, e só a próxima rodada pode convidar outro.
+reset role;
+insert into public.service_requests(id,customer_id,provider_id,category_id,
+  service_types,f2_mode,latitude,longitude)
+values('dddddddd-1111-4111-8111-dddddddddddd',
+ '11111111-1111-4111-8111-111111111111',
+ 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb',2,
+ array['pneu_furado'],'manual',-19.924,-43.938);
+set role authenticated;
+select set_config('request.jwt.claim.sub','11111111-1111-4111-8111-111111111111',false);
+select public.f2_offer_candidates('dddddddd-1111-4111-8111-dddddddddddd',3);
+select set_config('test.f2_voluntary_decline',(
+  select id::text from public.f2_request_offers
+  where request_id='dddddddd-1111-4111-8111-dddddddddddd'
+    and provider_id='bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb'
+),false);
+
+-- Terceiro não é dono do convite, mesmo com UUID obtido por outro caminho.
+select set_config('request.jwt.claim.sub','44444444-4444-4444-8444-444444444444',false);
+do $third_decline$
+begin
+  begin
+    perform public.f2_decline_offer(current_setting('test.f2_voluntary_decline')::uuid);
+    raise exception using message='FALHA: terceiro recusou convite de outro',errcode='ZX021';
+  exception when others then if sqlstate='ZX021' then raise; end if;
+  end;
+end $third_decline$;
+
+select set_config('request.jwt.claim.sub','33333333-3333-4333-8333-333333333333',false);
+select public.f2_decline_offer(current_setting('test.f2_voluntary_decline')::uuid);
+do $voluntary_decline$
+begin
+  if (select count(*) from public.f2_request_offers where
+    request_id='dddddddd-1111-4111-8111-dddddddddddd'
+    and status='declined' and delivered_at is null)<>1
+  then raise exception 'Recusa voluntária foi tratada como ausência ou não persistiu'; end if;
+  if (select count(*) from public.service_requests where
+    id='dddddddd-1111-4111-8111-dddddddddddd')<>0
+  then raise exception 'Prestador que recusou mantém dados do pedido'; end if;
+end $voluntary_decline$;
+
+select set_config('request.jwt.claim.sub','11111111-1111-4111-8111-111111111111',false);
+select public.f2_offer_candidates('dddddddd-1111-4111-8111-dddddddddddd',3);
+do $next_provider$
+begin
+  if not exists(select 1 from public.f2_request_offers where
+    request_id='dddddddd-1111-4111-8111-dddddddddddd'
+    and round_number=2
+    and provider_id='aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa')
+  then raise exception 'Nova rodada não prioriza outro prestador após recusa'; end if;
+end $next_provider$;
 
 -- RPCs não liberam checkout, chat, push, nem transição paid.
 select 'F2: MULTI-OFERTAS + RLS + ORÇAMENTO + UMA VENCEDORA + AUSÊNCIAS PASSARAM' as resultado;
