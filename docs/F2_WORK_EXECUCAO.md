@@ -18,6 +18,16 @@
 
 O projeto SQL contém uma trava interna private.f2_release_gate, criada com enabled=false, e retira acesso direto de escrita às novas tabelas. A interface exige as duas flags verdadeiras. A trava não deve ser habilitada automaticamente.
 
+## Verificações adicionais fechadas no código de revisão
+
+- Busca F2 separa manual/automático. Na primeira rodada manual, só o escolhido pode receber convite se elegível; sem candidatos, a escolha inicial é preservada.
+- A atribuição F1 é removida na mesma transação dos convites F2, impedindo acesso posterior à foto pelo prestador não convidado.
+- Convite não aberto dentro de cinco minutos não pode ser reconhecido tardiamente; sem confirmação de abertura não conta ausência.
+- Proposta enviada e apenas vencida por falta de aceite não conta ausência do prestador; dez ausências exigem revisão humana, sem suspensão automática.
+- Prestador suspenso/inativo e serviços incompatíveis são revalidados antes do orçamento; aprovação é rechecada no aceite.
+- tests/f2-concurrency.sh disputa dois aceites simultâneos em conexões distintas e exige um vencedor único.
+- supabase/rollback/f2_only_if_empty.sql é draft reversível apenas com F2 desligada e sem dados; o CI valida em container descartável sem remover tabelas da F1.
+- Não há autorização para instalar a F2 em produção. Backup restaurável e testes HTTP Auth/Storage continuam impeditivos.
 ## Gate 0 — Comprovar backup/restauração da F1
 
 Leia primeiro docs/F1_WORK_EXECUCAO.md. Não faça nenhuma gravação no Supabase remoto (inclusive criação de contas, uploads, migrações, convites ou prestadores fictícios) antes de provar backup privado e restauração em ambiente isolado. Documente o escopo de PostgreSQL, Auth, Storage e bytes de arquivos, além das lacunas.
