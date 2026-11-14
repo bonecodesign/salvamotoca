@@ -35,6 +35,7 @@ begin
     or has_table_privilege('anon','public.f2_request_offers','SELECT')
   then raise exception 'Grants F2 permitem escrita/leitura indevida'; end if;
   if has_function_privilege('anon','public.f2_offer_candidates(uuid,integer)','EXECUTE')
+    or has_function_privilege('anon','public.f2_decline_offer(uuid)','EXECUTE')
     or has_function_privilege('anon','public.f2_submit_quote(uuid,jsonb,text)','EXECUTE')
     or has_function_privilege('anon','public.f2_decide_quote(uuid,boolean)','EXECUTE')
   then raise exception 'Anonimo executa RPCs F2'; end if;
