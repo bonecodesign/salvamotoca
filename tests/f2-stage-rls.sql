@@ -170,8 +170,8 @@ end $item$;
 select set_config('request.jwt.claim.sub','11111111-1111-4111-8111-111111111111',false);
 do $totals$
 begin
- if (select amount_cents from public.service_quotes where id=:'quote_a'::uuid)<>17500
-   or (select amount_cents from public.service_quotes where id=:'quote_b'::uuid)<>11700
+ if (select amount_cents from public.service_quotes where provider_id='aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa' and request_id='11111111-aaaa-4111-8111-111111111111')<>17500
+   or (select amount_cents from public.service_quotes where provider_id='bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb' and request_id='11111111-aaaa-4111-8111-111111111111')<>11700
  then raise exception 'Total do orçamento nao reflete itens'; end if;
 end $totals$;
 
@@ -200,7 +200,7 @@ begin
   if (select count(*) from public.service_quotes where
       request_id='11111111-aaaa-4111-8111-111111111111' and status='accepted')<>1
   then raise exception 'Mais de uma proposta aceita'; end if;
-  if (select status from public.service_quotes where id=:'quote_a'::uuid)<>'expired'
+  if (select status from public.service_quotes where provider_id='aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa' and request_id='11111111-aaaa-4111-8111-111111111111')<>'expired'
   then raise exception 'Proposta perdedora nao foi fechada'; end if;
   begin
     perform public.f2_decide_quote('00000000-0000-4000-8000-000000000001',true);
