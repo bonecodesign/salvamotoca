@@ -24,6 +24,7 @@
   // Alteração de identidade invalida GPS, fotos assinadas, pedidos e uploads pendentes.
   // O marcador de geração protege tarefas assíncronas iniciadas por outra conta.
   let identityGeneration = 0;
+  let requestContextVersion = 0;
   function transitionAccount(nextUser) {
     const currentId = state.user?.id || null;
     const nextId = nextUser?.id || null;
@@ -70,6 +71,8 @@
     esc(field) + '" type="' + esc(type) + '" placeholder="' + esc(placeholder || "") + '" ' +
     (required ? "required" : "") + "></label>";
   const nav = page => {
+    // Um pedido pendente não pode continuar se o usuário abandonou o formulário.
+    if (state.page === "request-form" && page !== "request-form") requestContextVersion++;
     // Nao manter URLs assinadas de fotos ao sair da tela de pedidos.
     if (page !== "orders") state.photoPreview = {};
     state.page = page;
@@ -520,11 +523,12 @@
       return;
     }
     if (action === "detail") { state.selected = id; nav("detail"); return; }
-    if (action === "select-provider") { state.requestKey = null; state.uploadedPhotoKey = null; state.uploadedPhotoSignature = null; state.requestSignature = null; state.selected = id; state.mode = "manual"; nav("request-form"); return; }
+    if (action === "select-provider") { requestContextVersion++; state.requestKey = null; state.uploadedPhotoKey = null; state.uploadedPhotoSignature = null; state.requestSignature = null; state.selected = id; state.mode = "manual"; nav("request-form"); return; }
     if (action === "mode") { state.mode = target.dataset.mode; render(); return; }
     if (action === "automatic") {
       const list = available().filter(p => Number.isFinite(distance(p))).sort((a, b) => distance(a) - distance(b));
       if (!list.length) { state.error = "Não há prestadores delivery com coordenadas verificadas próximos para esta simulação."; render(); return; }
+      requestContextVersion++;
       state.requestKey = null; state.uploadedPhotoKey = null; state.uploadedPhotoSignature = null; state.requestSignature = null; state.selected = list[0].id; nav("request-form"); return;
     }
     if (action === "logout") {
@@ -586,10 +590,15 @@
         throw new Error("F1 desativada até a homologação do ambiente de testes.");
       if (!state.user || !F1) throw new Error("Faça login para criar o pedido.");
       const requestGeneration = identityGeneration;
+      const requestVersion = requestContextVersion;
+      const requestSelectedProvider = state.selected;
       const requestUserId = state.user.id;
       const ensureSession = () => {
         if (identityGeneration !== requestGeneration || state.user?.id !== requestUserId)
           throw new Error("A conta mudou durante a solicitação. Entre novamente e crie um novo pedido.");
+        if (requestContextVersion !== requestVersion || state.page !== "request-form" ||
+            state.selected !== requestSelectedProvider)
+          throw new Error("Esta tentativa foi interrompida porque você saiu do pedido ou mudou o prestador. Inicie uma nova solicitação.");
       };
       const provider = state.directory.find(p => p.id === state.selected);
       const category = deliveryCategory();
