@@ -28,6 +28,16 @@ Este arquivo é a instrução de continuidade para o Work. Comece aqui; não ref
 - Documento de evidências: docs/F1_RELATORIO_HOMOLOGACAO_2026-11-14.md.
 - Procedimento anterior: docs/F1_HOMOLOGACAO_SUPABASE_UNICO.md (algumas frases antigas de PR Draft/ambiente separado foram substituídas pelo presente roteiro).
 
+## Pré-auditoria de automações já adiantada por aqui
+
+Consulta somente de leitura ao Supabase em 14/11/2026:
+
+- Não há Edge Functions implantadas no projeto neste momento (consultar novamente no Work antes de testar).
+- O INSERT em public.service_requests aciona o trigger `bj_initial_attempt` (AFTER INSERT). A função `private.bj_track_initial_attempt()` registra `request_id` e `provider_id` em `public.bj_request_attempts`, sem chamar APIs externas no código atual. **Isso não prova ausência de webhooks, notificações ou integrações futuras.** Não inserir pedidos reais por conta desta leitura.
+- O trigger `sm_f1_photo_exists_on_insert` valida a foto na inserção ou alteração do caminho.
+- storage.objects tem triggers internos de proteção contra exclusão e atualização de timestamp; por isso **remover arquivos exclusivamente pela Storage API** e confirmar resultado.
+- Há um precheck de SQL de **leitura apenas**, pronto para o painel: `docs/F1_WORK_PRECHECK_READONLY.sql`. Executar e comparar com o relatório anterior, sem guardar dados pessoais.
+
 ## 0. Preparação no Work — sem escrever no banco
 
 1. Abrir GitHub e Supabase em sessão autenticada, usando os conectores do usuário; **não solicitar que o usuário compartilhe senhas na conversa**.
