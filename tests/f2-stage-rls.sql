@@ -312,6 +312,28 @@ begin
  then raise exception 'Prestador realmente convidado não recebeu acesso'; end if;
 end $yes_photo$;
 
+-- Se o motociclista escolheu manualmente Beta, a primeira rodada
+-- respeita essa escolha, mesmo com outro prestador mais próximo.
+reset role;
+insert into public.service_requests(id,customer_id,provider_id,category_id,
+  service_types,f2_mode,latitude,longitude)
+values('aaaaaaaa-1111-4111-8111-aaaaaaaaaaaa',
+ '11111111-1111-4111-8111-111111111111',
+ 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb',
+ 2,array['pneu_furado'],'manual',-19.924,-43.938);
+set role authenticated;
+select set_config('request.jwt.claim.sub','11111111-1111-4111-8111-111111111111',false);
+select public.f2_offer_candidates('aaaaaaaa-1111-4111-8111-aaaaaaaaaaaa',3);
+do $manual$
+begin
+ if (select count(*) from public.f2_request_offers
+    where request_id='aaaaaaaa-1111-4111-8111-aaaaaaaaaaaa')<>1
+ or not exists(select 1 from public.f2_request_offers
+    where request_id='aaaaaaaa-1111-4111-8111-aaaaaaaaaaaa'
+      and provider_id='bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb')
+ then raise exception 'Escolha manual não respeitada na primeira rodada'; end if;
+end $manual$;
+
 -- 10 ausências confirmadas em 30 dias geram SOMENTE revisão humana.
 reset role;
 do $fixtures$
