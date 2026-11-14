@@ -18,7 +18,8 @@
     page: "home", user: null, profile: null, ownProvider: null, directory: [],
     services: [], categories: [], onlineIds: new Set(), ownPresence: null, orders: [], quotes: [], selected: null,
     mode: "manual", location: null, map: null, loading: false, requestKey: null,
-    message: "", error: "", uploadedPhotoKey: null, uploadedPhotoSignature: null, photoPreview: {}
+    message: "", error: "", uploadedPhotoKey: null, uploadedPhotoSignature: null,
+    requestSignature: null, photoPreview: {}
   };
   // Alteração de identidade invalida GPS, fotos assinadas, pedidos e uploads pendentes.
   // O marcador de geração protege tarefas assíncronas iniciadas por outra conta.
@@ -32,6 +33,7 @@
     state.profile = null; state.ownProvider = null; state.ownPresence = null;
     state.orders = []; state.quotes = []; state.photoPreview = {};
     state.requestKey = null; state.uploadedPhotoKey = null; state.uploadedPhotoSignature = null;
+    state.requestSignature = null;
     state.location = null; state.selected = null; state.mode = "manual";
     state.message = ""; state.error = ""; state.page = "home";
     return true;
@@ -482,12 +484,23 @@
     if (action === "view-photo") {
       const order = state.orders.find(o => o.id === id);
       if (!order || !order.photo_path || !(owns(order) || providerOwns(order))) return;
-      const signed = await db.storage.from("request-photos").createSignedUrl(order.photo_path, 60);
-      if (signed.error || !signed.data?.signedUrl) {
-        state.error = "Foto privada indisponível: " + errorText(signed.error);
-      } else {
-        state.photoPreview[id] = signed.data.signedUrl;
-        state.error = "";
+      const photoGeneration = identityGeneration;
+      const photoPath = order.photo_path;
+      try {
+        const signed = await db.storage.from("request-photos").createSignedUrl(photoPath, 60);
+        // Evita que uma resposta antiga exponha um link assinado a outra conta ou tela.
+        if (photoGeneration !== identityGeneration || state.page !== "orders") return;
+        const currentOrder = state.orders.find(o => o.id === id && o.photo_path === photoPath);
+        if (!currentOrder || !(owns(currentOrder) || providerOwns(currentOrder))) return;
+        if (signed.error || !signed.data?.signedUrl) {
+          state.error = "Foto privada indisponível: " + errorText(signed.error);
+        } else {
+          state.photoPreview[id] = signed.data.signedUrl;
+          state.error = "";
+        }
+      } catch (_error) {
+        if (photoGeneration !== identityGeneration || state.page !== "orders") return;
+        state.error = "Não foi possível carregar a foto privada. Tente novamente.";
       }
       render();
       return;
@@ -507,12 +520,12 @@
       return;
     }
     if (action === "detail") { state.selected = id; nav("detail"); return; }
-    if (action === "select-provider") { state.requestKey = null; state.uploadedPhotoKey = null; state.uploadedPhotoSignature = null; state.selected = id; state.mode = "manual"; nav("request-form"); return; }
+    if (action === "select-provider") { state.requestKey = null; state.uploadedPhotoKey = null; state.uploadedPhotoSignature = null; state.requestSignature = null; state.selected = id; state.mode = "manual"; nav("request-form"); return; }
     if (action === "mode") { state.mode = target.dataset.mode; render(); return; }
     if (action === "automatic") {
       const list = available().filter(p => Number.isFinite(distance(p))).sort((a, b) => distance(a) - distance(b));
       if (!list.length) { state.error = "Não há prestadores delivery com coordenadas verificadas próximos para esta simulação."; render(); return; }
-      state.requestKey = null; state.uploadedPhotoKey = null; state.uploadedPhotoSignature = null; state.selected = list[0].id; nav("request-form"); return;
+      state.requestKey = null; state.uploadedPhotoKey = null; state.uploadedPhotoSignature = null; state.requestSignature = null; state.selected = list[0].id; nav("request-form"); return;
     }
     if (action === "logout") {
       const { error } = await db.auth.signOut();
@@ -599,16 +612,25 @@
       ].join("\n");
       if (!window.confirm(confirmation)) return;
       ensureSession();
+      const photoSignature = [photo.name, photo.size, photo.lastModified, photo.type].join("|");
+      const draftSignature = JSON.stringify([
+        requestUserId, provider.id, category.id,
+        payload.brand, payload.model, payload.year, payload.services,
+        payload.problem, payload.address, photoSignature,
+        state.location?.lat ?? null, state.location?.lng ?? null
+      ]);
       if (!state.requestKey) {
         if (!globalThis.crypto?.randomUUID) throw new Error("Use HTTPS ou localhost para registrar o pedido.");
         state.requestKey = globalThis.crypto.randomUUID();
+        state.requestSignature = draftSignature;
       }
-      const path = F1.makePhotoPath(requestUserId, state.requestKey);
-      const photoSignature = [photo.name, photo.size, photo.lastModified, photo.type].join("|");
       if (state.uploadedPhotoKey === state.requestKey &&
           state.uploadedPhotoSignature !== photoSignature) {
-        throw new Error("A foto foi alterada após o envio. Reabra a solicitação para iniciar um novo upload.");
+        throw new Error("A foto foi alterada após o envio. Volte à lista e selecione o prestador novamente para um novo pedido.");
       }
+      if (state.requestSignature !== draftSignature)
+        throw new Error("Os dados do pedido mudaram durante uma tentativa anterior. Volte à lista e selecione o prestador novamente."); 
+      const path = F1.makePhotoPath(requestUserId, state.requestKey);
       if (state.uploadedPhotoKey !== state.requestKey) {
         const jpeg = await preparePrivatePhoto(photo);
         ensureSession();
@@ -648,7 +670,7 @@
         ensureSession();
         if (already.error || !already.data) throw new Error("Não foi possível confirmar o pedido repetido. Verifique Meus pedidos.");
       }
-      state.requestKey = null; state.uploadedPhotoKey = null; state.uploadedPhotoSignature = null;
+      state.requestKey = null; state.uploadedPhotoKey = null; state.uploadedPhotoSignature = null; state.requestSignature = null;
       await refreshIdentity(); nav("orders");
       state.message = "Pedido completo de TESTE registrado. Nenhum pagamento ou despacho foi realizado.";
     });
