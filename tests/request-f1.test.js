@@ -46,3 +46,29 @@ test("monta caminho privado com escopo do autor, sem aceitar path arbitrário", 
   assert.equal(F1.makePhotoPath(id, upload), id + "/" + upload + ".jpg");
   assert.throws(() => F1.makePhotoPath("../admin", upload), /Identificador seguro/);
 });
+
+
+test("reconciliação de upload aceita somente bytes idênticos", async () => {
+  const bytes = Uint8Array.from([0xff,0xd8,1,2,3,0xff,0xd9]);
+  const a = {size:bytes.length,arrayBuffer:async()=>bytes.buffer.slice(0)};
+  const b = {size:bytes.length,arrayBuffer:async()=>bytes.buffer.slice(0)};
+  assert.equal(await F1.samePhotoBytes(a,b),true);
+});
+
+test("reconciliação de upload rejeita imagem diferente mesmo com tamanho igual", async () => {
+  const a = Uint8Array.from([0xff,0xd8,1,0xff,0xd9]);
+  const b = Uint8Array.from([0xff,0xd8,2,0xff,0xd9]);
+  assert.equal(await F1.samePhotoBytes(
+    {size:a.length,arrayBuffer:async()=>a.buffer},
+    {size:b.length,arrayBuffer:async()=>b.buffer}),false);
+});
+
+test("reconciliação de upload rejeita blobs ausentes, grandes ou ilegíveis", async () => {
+  const blob={size:2,arrayBuffer:async()=>new Uint8Array([1,2]).buffer};
+  assert.equal(await F1.samePhotoBytes(null,blob),false);
+  assert.equal(await F1.samePhotoBytes(blob,{size:4,arrayBuffer:blob.arrayBuffer}),false);
+  assert.equal(await F1.samePhotoBytes(blob,{size:2}),false);
+  assert.equal(await F1.samePhotoBytes(
+    {size:5*1024*1024+1,arrayBuffer:blob.arrayBuffer},
+    {size:5*1024*1024+1,arrayBuffer:blob.arrayBuffer}),false);
+});
