@@ -31,7 +31,8 @@ async function flush() {
 
 function makeHarness({ confirm=true, uploadFails=false, insertFails=false, f1Enabled=true,
   switchDuringUpload=false, duplicateAfterLostResponse=false,
-  lostUploadResponse=false, conflictingUpload=false, delayedSignedUrl=false }={}) {
+  lostUploadResponse=false, conflictingUpload=false, delayedSignedUrl=false,
+  navigateDuringUpload=false }={}) {
   const sent={ uploads:[], requests:[], quotes:[], errors:[], signed:[], downloads:[],
     orderSelects:[], requestFilters:[], confirmCalls:0 };
   let rejectUpload=uploadFails;
@@ -123,6 +124,10 @@ function makeHarness({ confirm=true, uploadFails=false, insertFails=false, f1Ena
         return {
           async upload(name,body,options) {
             sent.uploads.push({name,body,options});
+            if(navigateDuringUpload) {
+              navigateDuringUpload=false;
+              docListeners.click({target:{closest:()=>({dataset:{page:"home"}})}});
+            }
             if(switchDuringUpload){
               switchDuringUpload=false;
               currentUserId="22222222-2222-4222-8222-222222222222";
@@ -466,4 +471,14 @@ test("F1: URL assinada devolvida após logout não aparece na nova conta",async(
   h.resolveSignedPhoto();
   await pending; await flush();
   assert.doesNotMatch(h.container.innerHTML,/NAO-REAL-PRIVADO/);
+});
+
+
+test("F1: sair da tela durante upload impede INSERT assíncrono do pedido abandonado", async()=>{
+  const h=makeHarness({navigateDuringUpload:true}); await h.prepare();
+  const form=await h.submit(validFields());
+  assert.equal(h.sent.uploads.length,1);
+  assert.equal(h.sent.requests.length,0);
+  assert.match(form.notice.textContent,/tentativa foi interrompida/);
+  assert.match(h.container.innerHTML,/Explorar borracharias/);
 });
