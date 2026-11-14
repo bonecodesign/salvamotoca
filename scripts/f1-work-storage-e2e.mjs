@@ -116,15 +116,17 @@ export async function run(env = process.env) {
   const authRoute = PROJECT_URL + "/storage/v1/object/authenticated/request-photos/" + parts(path);
   const publicRoute = PROJECT_URL + "/storage/v1/object/public/request-photos/" + parts(path);
   const signRoute = PROJECT_URL + "/storage/v1/object/sign/request-photos/" + parts(path);
-  let uploaded = false, cleanupFailed = false;
+  let uploadAttempted = false, cleanupFailed = false;
   try {
+    // Até um timeout após POST pode ter gravado o arquivo. A limpeza é tentada
+    // sempre que a solicitação de upload foi iniciada (path aleatório exclusivo).
+    uploadAttempted = true;
     const created = await call(fileRoute, {
       method: "POST",
       headers: { ...headers(env.F1_PUBLISHABLE_KEY, a.jwt, "image/jpeg"), "x-upsert": "false", "cache-control": "no-store" },
       body: JPG
     });
     assertOk(created, "Upload da imagem sintética");
-    uploaded = true;
     log("Upload privado A sem sobrescrita", true);
 
     const owner = await call(authRoute, { headers: headers(env.F1_PUBLISHABLE_KEY, a.jwt) });
@@ -161,7 +163,7 @@ export async function run(env = process.env) {
     // Não registrar o token da URL nem a URL em logs ou relatórios.
     log("A gera URL assinada (segredo não exibido)", true);
   } finally {
-    if (uploaded) {
+    if (uploadAttempted) {
       try {
         const removed = await call(PROJECT_URL + "/storage/v1/object/request-photos", {
           method: "DELETE",
