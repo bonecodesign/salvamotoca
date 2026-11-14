@@ -118,7 +118,7 @@ test("F2: antes da entrega confirmada não contam ausência ou timeout",()=>{
 test("F2: resposta pontual é aceita e resposta tardia é diferenciada",()=>{
   const args={offeredAt:NOW,deliveredAt:NOW+100,now:NOW+700000};
   assert.equal(F2.notificationDecision({...args,responseAt:NOW+299999}).status,"responded");
-  assert.equal(F2.notificationDecision({...args,responseAt:NOW+300002}).status,"late_response");
+  assert.equal(F2.notificationDecision({...args,responseAt:NOW+300101}).status,"late_response");
 });
 test("F2: lembretes após 2 min e 4min30s, sem SMS ou WhatsApp",()=>{
   const args={offeredAt:NOW,deliveredAt:NOW+1};
