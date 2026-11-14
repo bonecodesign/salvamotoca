@@ -24,6 +24,7 @@ drop function public.f2_expire_offers(uuid);
 drop function public.f2_decide_quote(uuid,boolean);
 drop function public.f2_submit_quote(uuid,jsonb,text);
 drop function public.f2_ack_offer(uuid);
+drop function public.f2_decline_offer(uuid);
 drop function public.f2_offer_candidates(uuid,integer);
 drop function public.f2_set_capacity(text[],numeric);
 
