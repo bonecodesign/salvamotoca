@@ -38,15 +38,15 @@ A migration já aplicada **não deve ser reaplicada**, e seu arquivo histórico 
 
 ## Testes automatizados
 
-- **25 testes JS**: validações, fluxos simulados do app, upload, recuperação, cancelamento e bloqueio pela flag.
+- **32 testes Node**: validações, fluxos simulados do app, upload, retry por foto, troca de sessão e GPS, cancelamento e bloqueio da flag.
 - **5 testes em Chrome real**: prévia em desktop, largura móvel de 375 px, seleção de serviços, foto fictícia, bloqueio de reboque, validação de tipo, remoção de EXIF/GPS por processamento real e rejeição de JPEG corrompido, sem solicitações de rede.
 - **PostgreSQL 17 descartável**: migration, RLS com perfis de teste, preservação de pedidos legados, rejeição de dados F1 parciais, visibilidade por usuário e reversão de esquema sem dados.
-- **GitHub Actions:** jobs `validar-f1`, `navegador-f1` e `sql-isolado-f1` concluídos com sucesso na execução `43597659026`. URL: https://github.com/bonecodesign/salvamotoca/actions/runs/43597659026.
+- **GitHub Actions:** jobs `validar-f1`, `navegador-f1` e `sql-isolado-f1` em CI para cada alteração; consultar a execução mais recente associada ao commit do PR #38.
 
 Comandos locais de verificação:
 
 ```bash
-node --test tests/request-f1.test.js tests/f1-app-flow.test.js tests/f1-preview.test.js
+node --test tests/request-f1.test.js tests/f1-app-flow.test.js tests/f1-preview.test.js tests/f1-release-guard.test.js
 node --check live-app-current.js
 node --check request-f1.js
 ```
@@ -62,7 +62,9 @@ O Supabase retornou seis avisos `authenticated_security_definer_function_executa
 - Também foram encontrados quatro alertas informativos de tabelas com RLS habilitada sem políticas; a finalidade privada delas deve continuar preservada.
 - Referências: https://supabase.com/docs/guides/database/database-linter?lint=0029_authenticated_security_definer_function_executable e https://supabase.com/docs/guides/database/database-linter?lint=0008_rls_enabled_no_policy.
 
-A preparação da foto foi centralizada em `request-f1.js` (`preparePrivatePhoto`), usada pela interface do pedido e diretamente pelos testes do Chrome. O teste gera JPEG sintético com IFD de GPS e confirma que o JPG reprocessado não contém o marcador EXIF; o processamento real também rejeita arquivos corrompidos com MIME falsificado. Esse ensaio não substitui Android físico.\n\nA flag `f1TestRequestsEnabled: false` **é uma trava do aplicativo, não uma garantia de bloqueio da API**. O bucket de fotos e a estrutura de banco já existem no projeto remoto: antes de promover o uso público, revisar limites de upload, proteção contra spam, orfandade e acesso via clientes diretos.
+A preparação da foto foi centralizada em `request-f1.js` (`preparePrivatePhoto`), usada pela interface do pedido e diretamente pelos testes do Chrome. O teste gera JPEG sintético com IFD de GPS e confirma que o JPG reprocessado não contém o marcador EXIF; o processamento real também rejeita arquivos corrompidos com MIME falsificado. Esse ensaio não substitui Android físico.
+
+A flag `f1TestRequestsEnabled: false` **é uma trava do aplicativo, não uma garantia de bloqueio da API**. O bucket de fotos e a estrutura de banco já existem no projeto remoto: antes de promover o uso público, revisar limites de upload, proteção contra spam, orfandade e acesso via clientes diretos.
 
 ## Pendências objetivas para homologação
 
@@ -84,3 +86,17 @@ A preparação da foto foi centralizada em `request-f1.js` (`preparePrivatePhoto
 ## Procedimento operacional de homologação
 
 O roteiro detalhado para **backup recuperável, ensaio real de Auth/Storage com contas de teste, acesso por perfis, limpeza via API, restrições de custo e Android físico** está em `docs/F1_HOMOLOGACAO_SUPABASE_UNICO.md`. Preparar esse procedimento não equivale a executá-lo. O acesso HTTP direto do ambiente de execução estava indisponível; apenas consultas de banco via conector, o CI do GitHub e testes Chrome locais foram executados.
+
+## Endurecimento concluído no código da branch
+
+- Ao alterar a conta autenticada, o cliente agora descarta **GPS**, foto assinada em memória, pedidos, cotações, prestador selecionado e chaves de upload pendentes. Callback de GPS atrasado é ignorado.
+- Processos assíncronos de consulta e envio verificam a identidade antes de reutilizar dados ou gravar pedido; uma troca de conta durante upload impede o INSERT posterior.
+- Na recuperação de erro de chave única (código `23505`), o pedido é localizado por `customer_id` + `photo_path`, sob RLS, em vez de filtrar por `request_key` (coluna **sem SELECT** para authenticated). Esse privilégio foi confirmado no Supabase existente por consulta somente de leitura. O teste de PostgreSQL isolado verifica a consulta autorizada.
+- O CI contém um **guardião de liberação** que exige `f1TestRequestsEnabled: false`, a chave pública sem segredos e a manutenção da busca de pedidos por colunas autorizadas. Esse guardião terá de ser alterado intencionalmente quando a homologação real terminar.
+- Os testes automatizados de sessão/duplicidade usam conta e GPS simulados; **não** equivalem a testes de usuário em Auth/Storage remoto.
+
+### Riscos remanescentes de pré-lançamento
+
+- **Sem controle de upload server-side específico de F1 além de permissões, tipo e tamanho do bucket.** A flag do navegador não impede diretamente um cliente autenticado de consumir cota Storage dentro de suas permissões. Planejar limitação por usuário, prazo de descarte de órfãos e métricas antes da abertura pública.
+- Os links assinados já emitidos conservam validade por até 60 segundos; trocar o prestador impede novas autorizações, não invalida imediatamente links existentes.
+- Enquanto houver apenas um Supabase, ensaios remotos que gravem dados dependem primeiro de backup recuperável e bloqueio comprovado contra notificações/despachos reais.
