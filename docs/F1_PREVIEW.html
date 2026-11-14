@@ -1,0 +1,110 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="robots" content="noindex,nofollow">
+  <title>F1 — Pré-visualização do pedido | Salva Motoca!</title>
+  <link rel="stylesheet" href="../styles.css">
+  <style>
+    body{margin:0}
+    .preview-shell{max-width:720px;margin:0 auto;padding:24px 16px 56px}
+    fieldset{border:1px solid #7775;border-radius:12px;padding:14px}
+    .f1-file-preview{max-width:320px;width:100%;border-radius:12px;display:none;margin:12px 0}
+    .f1-result{white-space:pre-wrap}
+    .f1-kicker{font-size:.8rem;font-weight:800;letter-spacing:.07em}
+  </style>
+</head>
+<body>
+<main class="preview-shell">
+  <header class="stack">
+    <p class="f1-kicker">SALVA MOTOCA! / F1</p>
+    <h1>Solicitar orçamento</h1>
+    <p class="lead">Pré-visualização local do formulário completo. Nenhum serviço é enviado e nenhuma foto sai do dispositivo.</p>
+  </header>
+  <div class="notice" role="status">
+    <b>Somente demonstração.</b> Não existe atendimento, pagamento, despacho nem comunicação com prestadores nesta página. Use apenas dados fictícios.
+  </div>
+  <form id="preview-f1-form" class="card form" autocomplete="off">
+    <fieldset>
+      <legend><b>O que aconteceu?</b> Selecione um ou mais serviços</legend>
+      <label class="fieldrow"><input type="checkbox" name="services" value="pneu_furado"> Pneu furado / reparo</label>
+      <label class="fieldrow"><input type="checkbox" name="services" value="troca_camara"> Troca de câmara</label>
+      <label class="fieldrow"><input type="checkbox" name="services" value="troca_pneu"> Troca de pneu</label>
+      <label class="fieldrow"><input type="checkbox" name="services" value="calibragem_valvula"> Calibragem ou válvula</label>
+      <label class="fieldrow"><input type="checkbox" name="services" value="reboque_moto"> Reboque (desativado nesta etapa)</label>
+      <label class="fieldrow"><input type="checkbox" name="services" value="outro"> Outro problema</label>
+    </fieldset>
+    <label class="fieldrow"><span class="label">Marca da moto</span>
+      <input class="field" type="text" name="brand" maxlength="70" placeholder="Ex.: Honda" required></label>
+    <label class="fieldrow"><span class="label">Modelo da moto</span>
+      <input class="field" type="text" name="model" maxlength="90" placeholder="Ex.: CG 160" required></label>
+    <label class="fieldrow"><span class="label">Ano</span>
+      <input class="field" type="number" name="year" min="1950" max="2100" step="1" placeholder="Ex.: 2024" required></label>
+    <label class="fieldrow"><span class="label">Foto do problema</span>
+      <input class="field" type="file" name="photo" accept="image/jpeg,image/png,image/webp" required>
+      <small>JPG, PNG ou WebP, até 8 MB (somente visualização local).</small></label>
+    <img id="f1-preview-image" class="f1-file-preview" alt="Foto local escolhida para a pré-visualização">
+    <label class="fieldrow"><span class="label">Descrição do problema</span>
+      <textarea class="field" name="problem" minlength="5" maxlength="1900" required placeholder="Ex.: O pneu traseiro furou..."></textarea></label>
+    <label class="fieldrow"><span class="label">Endereço fictício de atendimento</span>
+      <textarea class="field" name="address" minlength="6" maxlength="280" required placeholder="Ex.: Rua de Testes, 123"></textarea></label>
+    <button class="btn full" type="submit">Validar e revisar exemplo</button>
+    <p class="small muted">Este botão valida apenas os dados no seu navegador; não cria solicitação.</p>
+  </form>
+  <section class="section">
+    <h2>Resultado da simulação</h2>
+    <div id="f1-preview-status" class="notice f1-result" role="status" aria-live="polite">Preencha o formulário para conferir o resumo.</div>
+  </section>
+</main>
+<script src="../request-f1.js"></script>
+<script>
+(() => {
+  'use strict';
+  const form = document.getElementById('preview-f1-form');
+  const status = document.getElementById('f1-preview-status');
+  const input = form.elements.photo;
+  const preview = document.getElementById('f1-preview-image');
+  let previewUrl = null;
+  function resetPreview() {
+    if (previewUrl) URL.revokeObjectURL(previewUrl);
+    previewUrl = null;
+    preview.removeAttribute('src');
+    preview.style.display = 'none';
+  }
+  input.addEventListener('change', () => {
+    resetPreview();
+    const file = input.files?.[0];
+    if (!file) return;
+    if (!['image/jpeg','image/png','image/webp'].includes(file.type)) return;
+    previewUrl = URL.createObjectURL(file);
+    preview.src = previewUrl;
+    preview.style.display = 'block';
+  });
+  form.addEventListener('submit', event => {
+    event.preventDefault();
+    const data = new FormData(form);
+    try {
+      const request = window.SMRequestF1.validateRequest({
+        brand:data.get('brand'), model:data.get('model'), year:data.get('year'),
+        services:data.getAll('services'), photo:data.get('photo'),
+        problem:data.get('problem'), address:data.get('address')
+      });
+      status.textContent = '✅ Dados válidos para simulação!\n' +
+        'Motocicleta: ' + request.brand + ' ' + request.model + ' (' + request.year + ')\n' +
+        'Serviços: ' + request.services.map(code => window.SMRequestF1.SERVICE_TYPES[code]).join(', ') + '\n' +
+        'Problema: ' + request.problem + '\n' +
+        'Endereço fictício: ' + request.address + '\n' +
+        'Foto selecionada: ' + data.get('photo').name + '\n' +
+        'Nenhuma informação foi transmitida.';
+      status.className = 'notice good f1-result';
+    } catch(error) {
+      status.textContent = error.message;
+      status.className = 'notice bad f1-result';
+    }
+  });
+  window.addEventListener('pagehide', resetPreview);
+})();
+</script>
+</body>
+</html>
