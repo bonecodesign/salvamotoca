@@ -20,7 +20,8 @@
     mode: "manual", location: null, map: null, loading: false, requestKey: null,
     message: "", error: "", uploadedPhotoKey: null, uploadedPhotoSignature: null,
     requestSignature: null, photoPreview: {},
-    f2Offers: [], f2QuoteItems: [], f2Capacity: null
+    f2Offers: [], f2QuoteItems: [], f2Capacity: null,
+    f2AlertsEnabled: false, f2SeenOffers: new Set()
   };
   // Alteração de identidade invalida GPS, fotos assinadas, pedidos e uploads pendentes.
   // O marcador de geração protege tarefas assíncronas iniciadas por outra conta.
@@ -35,6 +36,7 @@
     state.profile = null; state.ownProvider = null; state.ownPresence = null;
     state.orders = []; state.quotes = []; state.photoPreview = {};
     state.f2Offers = []; state.f2QuoteItems = []; state.f2Capacity = null;
+    state.f2AlertsEnabled = false; state.f2SeenOffers = new Set();
     state.requestKey = null; state.uploadedPhotoKey = null; state.uploadedPhotoSignature = null;
     state.requestSignature = null;
     state.location = null; state.selected = null; state.mode = "manual";
@@ -249,7 +251,10 @@
         esc(code) + '"' + (chosen.has(code) ? ' checked' : '') + '> ' +
         esc(F1.SERVICE_TYPES[code] || code) + '</label>').join("") +
       label("Raio máximo que você atende (km)", "number", "coverage", "Ex.: 10", true) +
-      '<button class="btn full" type="submit">Salvar capacidades F2</button></form>';
+      '<button class="btn full" type="submit">Salvar capacidades F2</button></form>' +
+      '<button class="btn outline full" data-action="f2-toggle-alerts">' +
+      (state.f2AlertsEnabled ? 'Desativar avisos F2 na tela' : 'Ativar avisos F2 na tela') +
+      '</button><p class="small muted">Somente no app aberto. Não envia push externo e não confirma entrega automaticamente.</p>';
   }
   function renderF2Order(order, quotes) {
     if (!f2Active() || !order.service_types?.length) return "";
@@ -491,6 +496,20 @@
       if (capacity.error) throw capacity.error;
       state.f2Offers = offers.data || [];
       state.f2Capacity = capacity.data;
+      // Aviso in-app opt-in. Um alerta visível NÃO comprova entrega no servidor:
+      // o ACK autenticado só ocorre quando o prestador abre o convite.
+      const unseen = state.ownProvider ? state.f2Offers.filter(o =>
+        o.provider_id === state.ownProvider.id && o.status === "offered" &&
+        !state.f2SeenOffers.has(o.id)) : [];
+      if (state.f2AlertsEnabled && unseen.length && document.visibilityState !== "hidden") {
+        for (const offer of unseen) state.f2SeenOffers.add(offer.id);
+        state.message = unseen.length === 1
+          ? "Você recebeu um convite F2 de teste. Abra Pedidos para responder."
+          : "Você recebeu " + unseen.length + " convites F2 de teste. Abra Pedidos.";
+        if (typeof navigator.vibrate === "function") {
+          try { navigator.vibrate(120); } catch (_err) { /* Permissão/dispositivo podem negar. */ }
+        }
+      }
       const f2QuoteIds = state.f2Offers.map(o => o.quote_id).filter(Boolean);
       if (f2QuoteIds.length) {
         const items = await db.from("f2_quote_items")
@@ -583,6 +602,15 @@
       finally { state.loading = false; render(); }
       return;
     }
+    if (action === "f2-toggle-alerts") {
+      if (!f2Active() || !state.user || !state.ownProvider) return;
+      state.f2AlertsEnabled = !state.f2AlertsEnabled;
+      state.message = state.f2AlertsEnabled ?
+        "Avisos de convite ativos somente enquanto o aplicativo estiver aberto." :
+        "Avisos de convite desativados nesta sessão.";
+      render();
+      return;
+    }
     if (["f2-distribute","f2-ack","f2-decide","f2-expire"].includes(action)) {
       if (!f2Active()) return;
       if (state.loading || !state.user) return;
@@ -617,7 +645,10 @@
         if (result.error) throw result.error;
         await refreshIdentity();
         if (identityGeneration !== generation || state.user?.id !== userAtStart) return;
-        state.error = ""; state.message = success;
+        state.error = "";
+        state.message = action === "f2-distribute" && Number(result.data) === 0
+          ? "Nenhum prestador compatível e disponível nesta simulação."
+          : success;
       } catch (err) {
         if (identityGeneration === generation && state.user?.id === userAtStart)
           state.error = errorText(err);
@@ -932,6 +963,9 @@
         state.ownPresence.online_requested = false;
         state.error = "Sua disponibilidade foi interrompida. Verifique o cadastro.";
         render();
+      } else if (f2Active() && state.page === "orders") {
+        await refreshIdentity();
+        if (state.page === "orders") render();
       }
     } catch (err) {
       // A presença vence automaticamente no banco sem novos pings.
