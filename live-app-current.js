@@ -917,14 +917,18 @@
         state.uploadedPhotoSignature = photoSignature;
       }
       ensureSession();
-      const inserted = await db.from("service_requests").insert({
+      const requestInsert = {
         request_key: state.requestKey, customer_id: requestUserId,
         category_id: category.id, provider_id: provider.id,
         problem_description: payload.problem, address_details: payload.address,
         latitude: requestLatitude, longitude: requestLongitude,
         motorcycle_brand: payload.brand, motorcycle_model: payload.model, motorcycle_year: payload.year,
         service_types: payload.services, photo_path: path, status: "requested"
-      });
+      };
+      // Coluna F2 só deve ser enviada depois de schema e flags homologados.
+      if (f2Active()) requestInsert.f2_mode =
+        state.mode === "automatic" ? "automatic" : "manual";
+      const inserted = await db.from("service_requests").insert(requestInsert);
       ensureSession();
       if (inserted.error && inserted.error.code !== "23505") throw inserted.error;
       if (inserted.error) {
