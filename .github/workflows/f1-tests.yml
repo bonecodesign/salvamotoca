@@ -2,6 +2,7 @@ name: F1 - testes sem pagamentos
 on:
   pull_request:
     paths:
+      - 'config.js'
       - 'request-f1.js'
       - 'live-app-current.js'
       - 'index.html'
