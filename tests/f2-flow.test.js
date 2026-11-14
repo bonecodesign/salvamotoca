@@ -87,7 +87,7 @@ test("F2: ordena sem recusas antes de prestadores recusados uma vez",()=>{
 test("F2: ordena por proximidade sem divulgar endereços",()=>{
   const near=provider("near",{name:"Perto"});
   const far=provider("far",{location:{lat:-19.933,lng:-43.938}});
-  const x=distribute([far,near]);assert.deepEqual(x.candidates.map(z=>z.id),["near","far"]);
+  const x=distribute([far,near],REQ,[2,3,10]);assert.deepEqual(x.candidates.map(z=>z.id),["near","far"]);
   assert.equal(x.candidates[0].location,undefined);
 });
 test("F2: empate usa ordenação determinística e não avaliações",()=>{
