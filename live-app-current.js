@@ -71,6 +71,7 @@
   const label = (name, type, field, placeholder, required) =>
     '<label class="fieldrow"><span class="label">' + esc(name) + '</span><input class="field" name="' +
     esc(field) + '" type="' + esc(type) + '" placeholder="' + esc(placeholder || "") + '" ' +
+    (type === "number" ? 'min="0" step="0.01" ' : "") +
     (required ? "required" : "") + "></label>";
   const nav = page => {
     // Um pedido pendente não pode continuar se o usuário abandonou o formulário.
