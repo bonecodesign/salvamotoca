@@ -2,11 +2,16 @@ name: F2 - simulador e regras (sem atendimentos)
 on:
   pull_request:
     paths:
+      - 'config.js'
+      - 'index.html'
+      - 'sw.js'
+      - 'live-app-current.js'
       - 'f2-flow.js'
       - 'docs/F2_PREVIEW.html'
       - 'docs/F2_DEPENDENCIAS_E_PLANO.md'
       - 'tests/f2-flow.test.js'
       - 'tests/f2-browser.test.js'
+      - 'tests/f2-release-guard.test.js'
       - 'tests/f2-stage-setup.sql'
       - 'tests/f2-stage-rls.sql'
       - 'supabase/drafts/f2_backend_candidate.sql'
@@ -15,10 +20,15 @@ on:
     branches:
       - 'feat/f2-prestadores-distribuicao-orcamentos-segura'
     paths:
+      - 'config.js'
+      - 'index.html'
+      - 'sw.js'
+      - 'live-app-current.js'
       - 'f2-flow.js'
       - 'docs/F2_PREVIEW.html'
       - 'tests/f2-flow.test.js'
       - 'tests/f2-browser.test.js'
+      - 'tests/f2-release-guard.test.js'
       - 'tests/f2-stage-setup.sql'
       - 'tests/f2-stage-rls.sql'
       - 'supabase/drafts/f2_backend_candidate.sql'
@@ -37,7 +47,9 @@ jobs:
       - name: Verificar F2 e módulo puro
         run: |
           node --check f2-flow.js
-          node --test tests/f2-flow.test.js
+          node --check live-app-current.js
+          node --check sw.js
+          node --test tests/f2-flow.test.js tests/f2-release-guard.test.js
       - name: Confirmar que a F1 continua desligada
         run: |
           node --test tests/f1-release-guard.test.js
