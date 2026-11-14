@@ -80,3 +80,27 @@ test("F2 Chrome: versão móvel 375px sem overflow ou tráfego de rede",async()=
     assert.deepEqual(external,[]);
   }finally{await browser.close()}
 });
+
+
+test("F2 Chrome: cliente compara duas propostas e escolhe uma vencedora sem pagar",async()=>{
+  const {browser,page,external}=await open();
+  try{
+    await page.locator("#compare").click();
+    const choices=page.getByRole("button",{name:"Preparar orçamento deste prestador"});
+    assert.equal(await choices.count(),2);
+    await choices.nth(0).click();
+    await page.locator("#quote").click();
+    assert.match(await page.locator("#comparison").innerText(),/alfa/);
+    await choices.nth(1).click();
+    await page.locator("#serviceA").fill("60.00");
+    await page.locator("#quote").click();
+    assert.match(await page.locator("#comparison").innerText(),/alfa.*beta/);
+    await page.locator("#accept").click();
+    const out=await page.locator("#comparison").innerText();
+    assert.match(out,/quote/); // estado: propostas persistidas, não pedidos no backend
+    assert.match(out,/accepted/);
+    assert.match(out,/not_selected/);
+    assert.match(await page.locator("#messages").innerText(),/chat e despacho bloqueados/);
+    assert.deepEqual(external,[]);
+  }finally{await browser.close()}
+});
