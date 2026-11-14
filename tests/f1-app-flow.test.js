@@ -298,3 +298,50 @@ test("F1 habilitada em simulacao: painel inclui apenas novos campos previstos", 
   assert.ok(h.sent.orderSelects.some(x => x.includes("photo_path")));
   assert.ok(h.sent.orderSelects.every(x => !/address_details|latitude|longitude/.test(x)));
 });
+
+
+test("F1: GPS da conta A não entra em pedidos criados pela conta B", async () => {
+  const h=makeHarness(); await h.prepare();
+  await h.requestGps(); await h.resolveGps(-19.92,-43.94);
+  await h.submit(validFields());
+  assert.equal(h.sent.requests.length,1);
+  assert.equal(h.sent.requests[0].latitude,-19.92);
+  assert.equal(h.sent.requests[0].longitude,-43.94);
+
+  const B="22222222-2222-4222-8222-222222222222";
+  await h.switchUser(B);
+  await h.prepare();
+  await h.submit(validFields());
+  assert.equal(h.sent.requests.length,2);
+  assert.equal(h.sent.requests[1].customer_id,B);
+  assert.equal(h.sent.requests[1].latitude,null);
+  assert.equal(h.sent.requests[1].longitude,null);
+  assert.equal(h.sent.uploads[1].name.split("/")[0],B);
+});
+
+test("F1: GPS solicitado por A e respondido após troca para B é descartado", async () => {
+  const h=makeHarness(); await h.prepare();
+  await h.requestGps();
+  const B="22222222-2222-4222-8222-222222222222";
+  await h.switchUser(B);
+  await h.resolveGps(-19.92,-43.94);
+  await h.prepare();
+  await h.submit(validFields());
+  assert.equal(h.sent.requests.length,1);
+  assert.equal(h.sent.requests[0].customer_id,B);
+  assert.equal(h.sent.requests[0].latitude,null);
+  assert.equal(h.sent.requests[0].longitude,null);
+});
+
+test("F1: mudança de conta enquanto a foto sobe bloqueia insert posterior", async () => {
+  const h=makeHarness({switchDuringUpload:true}); await h.prepare();
+  await h.submit(validFields());
+  assert.equal(h.sent.uploads.length,1);
+  assert.equal(h.sent.requests.length,0);
+  const B="22222222-2222-4222-8222-222222222222";
+  await h.prepare();
+  await h.submit(validFields());
+  assert.equal(h.sent.requests.length,1);
+  assert.equal(h.sent.requests[0].customer_id,B);
+  assert.equal(h.sent.uploads[1].name.split("/")[0],B);
+});
