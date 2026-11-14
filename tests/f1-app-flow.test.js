@@ -29,10 +29,11 @@ async function flush() {
   for (let i=0;i<8;i++) await new Promise(resolve => setImmediate(resolve));
 }
 
-function makeHarness({ confirm=true, uploadFails=false, insertFails=false, f1Enabled=true, switchDuringUpload=false }={}) {
-  const sent={ uploads:[], requests:[], quotes:[], errors:[], signed:[], orderSelects:[], confirmCalls:0 };
+function makeHarness({ confirm=true, uploadFails=false, insertFails=false, f1Enabled=true, switchDuringUpload=false, duplicateAfterLostResponse=false }={}) {
+  const sent={ uploads:[], requests:[], quotes:[], errors:[], signed:[], orderSelects:[], requestFilters:[], confirmCalls:0 };
   let rejectUpload=uploadFails;
   let rejectInsert=insertFails;
+  let storedDespiteLostResponse=false;
   let currentUserId=CLIENT;
   let authCallback=null;
   let pendingGps=null;
@@ -52,18 +53,29 @@ function makeHarness({ confirm=true, uploadFails=false, insertFails=false, f1Ena
     service_categories:categories,service_requests:[],service_quotes:[]};
   function from(name) {
     const query={
+      filters:[],
       // Thenable: Supabase query sem .limit() tambem executa quando aguardada.
       then(resolve,reject){return Promise.resolve({data:records[name]||[],error:null}).then(resolve,reject);},
       select(columns){
         if (name === "service_requests") sent.orderSelects.push(columns);
         return this;
       },
-      eq(){return this;},
+      eq(column,value){
+        this.filters.push([column,value]);
+        if(name==="service_requests")sent.requestFilters.push(column);
+        return this;
+      },
       in(){return this;},
       order(){return this;},
       limit(){return Promise.resolve({data:records[name]||[],error:null});},
-      maybeSingle(){return Promise.resolve({data:name==="app_profiles"?{
-        user_id:CLIENT,display_name:"Motociclista Teste"}:null,error:null});},
+      maybeSingle(){
+        if(name==="service_requests"){
+          const record=records.service_requests.find(row=>this.filters.every(([key,value])=>row[key]===value));
+          return Promise.resolve({data:record?{id:record.id}:null,error:null});
+        }
+        return Promise.resolve({data:name==="app_profiles"?{
+          user_id:CLIENT,display_name:"Motociclista Teste"}:null,error:null});
+      },
       single(){return Promise.resolve({data:null,error:null});},
       insert(obj){
         if(name==="service_requests"){
@@ -71,6 +83,14 @@ function makeHarness({ confirm=true, uploadFails=false, insertFails=false, f1Ena
           if(rejectInsert){
             rejectInsert=false;
             return Promise.resolve({data:null,error:{code:"PGRST_TEST",message:"Rede interrompida no insert"}});
+          }
+          if(duplicateAfterLostResponse){
+            if(storedDespiteLostResponse)
+              return Promise.resolve({data:null,error:{code:"23505",message:"Chave duplicada"}});
+            storedDespiteLostResponse=true;
+            records.service_requests.push({...obj,id:"dddddddd-dddd-4ddd-8ddd-dddddddddddd",
+              created_at:"2026-11-13T13:00:00Z"});
+            return Promise.resolve({data:null,error:{code:"PGRST_TEST",message:"Resposta perdida após gravar no banco"}});
           }
           records.service_requests.push({...obj,id:"dddddddd-dddd-4ddd-8ddd-dddddddddddd",
             created_at:"2026-11-13T13:00:00Z"});
@@ -344,4 +364,21 @@ test("F1: mudança de conta enquanto a foto sobe bloqueia insert posterior", asy
   assert.equal(h.sent.requests.length,1);
   assert.equal(h.sent.requests[0].customer_id,B);
   assert.equal(h.sent.uploads[1].name.split("/")[0],B);
+});
+
+
+test("F1: timeout após INSERT confirmado pelo servidor é recuperado sem ler request_key", async () => {
+  const h=makeHarness({duplicateAfterLostResponse:true}); await h.prepare();
+  const first=await h.submit(validFields());
+  assert.match(first.notice.textContent,/Resposta perdida/);
+  assert.equal(h.sent.uploads.length,1);
+  assert.equal(h.sent.requests.length,1);
+  await h.submit(validFields());
+  assert.equal(h.sent.requests.length,2);
+  assert.equal(h.sent.uploads.length,1);
+  assert.ok(h.sent.requestFilters.includes("customer_id"));
+  assert.ok(h.sent.requestFilters.includes("photo_path"));
+  assert.equal(h.sent.requestFilters.includes("request_key"),false,
+    "Não consultar coluna request_key que authenticated não pode ler");
+  assert.match(h.container.innerHTML,/Pedidos e orçamentos/);
 });
