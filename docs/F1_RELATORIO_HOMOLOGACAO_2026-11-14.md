@@ -70,3 +70,15 @@ O status de CI da `main` após a alteração do workflow é evidência separada;
 Também foram consultadas as definições remotas de `bj_answer_quote`, `bj_finish_request`, `bj_get_request_location`, `bj_ping_presence`, `bj_set_presence` e `bj_submit_quote`. As seis utilizam `SECURITY DEFINER` com `search_path` vazio e checagem de `auth.uid()`/titularidade/estado no código; a função de endereço inclui exigência de pagamento `paid` para prestador. A consulta de privilégios confirmou **anon_can_execute=false** para as seis. Isso é **revisão estática**, não execução adversarial com sessão legítima. O aviso de Security Advisor para usuários autenticados permanece até teste e decisão documentada.
 
 **Conclusão:** a parte **automatizável e de leitura remota** da homologação está concluída e documentada. **Não foi possível certificar a homologação ponta a ponta em ambiente real** sem contas Auth de teste, backup recuperável, acesso HTTP real e Android físico. A liberação permanece bloqueada.
+
+
+## 6. Preflight Work — 14/11/2026
+
+**Status: PASSOU (somente verificações locais, sem escrita remota).**
+
+- Conferido o roteiro `docs/F1_WORK_EXECUCAO.md` e mantida a flag `f1TestRequestsEnabled=false`.
+- Executado `node scripts/f1-work-storage-e2e.mjs --plan`: o modo seguro não acessou rede, não autenticou e não gravou dados; apresentou corretamente a ordem obrigatória de backup/restauração antes de qualquer upload.
+- Executado `node tests/f1-work-storage-e2e.test.mjs`: **10 testes aprovados**, incluindo bloqueio de execução sem ACK explícito, sem prova privada de backup/restauração, com projeto errado ou credenciais administrativas.
+- Executado `node tests/smoke.js`: **aprovado**; o modo conectado inicializa sem sessão e não consulta dados privados.
+
+**Bloqueio preservado:** backup restaurável efetivamente comprovado ainda não está disponível nesta sessão. Portanto não foram criadas contas fictícias, nem enviado JPEG, nem criado pedido, nem ativada a F1. Os gates 1 a 4 permanecem pendentes; classificação continua **HOMOLOGAÇÃO TÉCNICA PARCIAL — LIBERAÇÃO PÚBLICA BLOQUEADA**.
