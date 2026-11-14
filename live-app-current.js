@@ -621,12 +621,16 @@
       ].join("\n");
       if (!window.confirm(confirmation)) return;
       ensureSession();
+      // O GPS é capturado no momento da confirmação; respostas tardias não
+      // alteram a localização de um pedido já submetido.
+      const requestLatitude = state.location?.lat ?? null;
+      const requestLongitude = state.location?.lng ?? null;
       const photoSignature = [photo.name, photo.size, photo.lastModified, photo.type].join("|");
       const draftSignature = JSON.stringify([
         requestUserId, provider.id, category.id,
         payload.brand, payload.model, payload.year, payload.services,
         payload.problem, payload.address, photoSignature,
-        state.location?.lat ?? null, state.location?.lng ?? null
+        requestLatitude, requestLongitude
       ]);
       if (!state.requestKey) {
         if (!globalThis.crypto?.randomUUID) throw new Error("Use HTTPS ou localhost para registrar o pedido.");
@@ -670,7 +674,7 @@
         request_key: state.requestKey, customer_id: requestUserId,
         category_id: category.id, provider_id: provider.id,
         problem_description: payload.problem, address_details: payload.address,
-        latitude: state.location?.lat ?? null, longitude: state.location?.lng ?? null,
+        latitude: requestLatitude, longitude: requestLongitude,
         motorcycle_brand: payload.brand, motorcycle_model: payload.model, motorcycle_year: payload.year,
         service_types: payload.services, photo_path: path, status: "requested"
       });
