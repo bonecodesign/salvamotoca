@@ -42,6 +42,7 @@
         <p class="hint">Coordenadas sintéticas de Belo Horizonte, sem endereço residencial.</p>
         <div class="buttons">
           <button id="search" type="button">Buscar elegíveis</button>
+          <button id="compare" class="secondary" type="button">Comparar mais opções</button>
           <button id="reset" class="secondary" type="button">Reiniciar simulação</button>
         </div>
         <p id="stage" class="notice" aria-live="polite">Inicie a distribuição para ver a seleção.</p>
@@ -71,6 +72,7 @@
           <input id="part" type="number" min="0.01" step="0.01" value="45.00"></label>
         <div class="buttons"><button id="quote" type="button">Calcular proposta</button></div>
         <div id="breakdown" aria-live="polite"></div>
+        <div id="comparison" class="hint" aria-live="polite"></div>
         <div class="buttons">
           <button id="accept" disabled type="button">Aceitar proposta</button>
           <button id="decline" disabled class="secondary" type="button">Recusar / próximo</button>
@@ -105,6 +107,7 @@
     {id:"epsilon",name:"Oficina Épsilon",lat:-19.951,lng:-43.938,types:["pneu_furado","troca_camara"],dist:1}
   ];
   let providerId=null,elapsed=0,delivered=false,quote=null,lastDeclined=null,refusals={};
+  let expanded=false, candidateIds=[], quotePool=[];
   const money=c=>new Intl.NumberFormat("pt-BR",{style:"currency",currency:"BRL"}).format(c/100);
   const say=(text,error=false)=>{$("messages").textContent=text;$("messages").style.color=error?"#ffb8b8":"#f2d37f"};
   const cents=id=>{
@@ -119,14 +122,27 @@
       serviceTypes:p.types,location:{lat:p.lat,lng:p.lng},coverageKm:p.dist,rejectionCount:refusals[p.id]||0
     }));
     return F2.distribute({providers,request:{...request,justDeclinedProviderId:lastDeclined},
-      radiiKm:[1,3,10],now:start+Math.min(elapsed,89999),rotationSeed:"F2-DESMONSTRACAO"});
+      radiiKm:expanded?[10]:[1,3,10],now:start+Math.min(elapsed,89999),rotationSeed:"F2-DESMONSTRACAO"});
   }
   function resetQuote(){
     quote=null;$("accept").disabled=true;$("decline").disabled=true;
     $("breakdown").replaceChildren();
   }
+  function showComparison(){
+    $("comparison").textContent=quotePool.length
+      ? quotePool.map(q=>q.providerId+" · "+money(q.totalCents)+" · "+q.status).join(" | ")
+      : "Nenhuma proposta recebida nesta simulação.";
+  }
+  function chooseProvider(id){
+    if(!candidateIds.includes(id)) return;
+    providerId=id;elapsed=0;delivered=false;resetQuote();
+    $("deadline").textContent="Oferta simulada para "+id+"; aviso ainda não confirmado.";
+    say("Prestador "+id+" selecionado para simular um orçamento.");
+  }
   function select(){
     const r=offer(), options=r.candidates;
+    candidateIds=options.map(p=>p.id);
+    quotePool=[]; showComparison();
     $("stage").textContent=r.stage===null?
       "Nenhum prestador elegível. Não prometer atendimento.":
       "Etapa "+r.stage+" — até "+r.radiusKm+" km em linha reta · "+options.length+" opções válidas.";
@@ -137,15 +153,20 @@
       const details=document.createElement("p");details.textContent=p.distanceKm.toFixed(2)+" km · recusas: "+p.rejectionCount;
       card.append(name,details);
       if(i===0){const hint=document.createElement("span");hint.className="badge";hint.textContent="Primeiro candidato";card.append(hint)}
-      $("candidates").append(card);
+      const choose=document.createElement("button");choose.type="button";choose.className="secondary";
+      choose.textContent="Preparar orçamento deste prestador";
+      choose.addEventListener("click",()=>chooseProvider(p.id));
+      card.append(choose);$("candidates").append(card);
     });
     providerId=options[0]?.id||null;elapsed=0;delivered=false;resetQuote();
     $("deadline").textContent=providerId?"Oferta simulada para "+providerId+"; aviso ainda não confirmado.":"Sem oferta ativa.";
     say("");
   }
-  $("search").addEventListener("click",select);
+  $("search").addEventListener("click",()=>{expanded=false;select()});
+  $("compare").addEventListener("click",()=>{expanded=true;select()});
   $("reset").addEventListener("click",()=>{
-    refusals={};lastDeclined=null;elapsed=0;delivered=false;providerId=null;resetQuote();
+    expanded=false;candidateIds=[];quotePool=[];
+    refusals={};lastDeclined=null;elapsed=0;delivered=false;providerId=null;resetQuote();showComparison();
     $("candidates").replaceChildren();$("stage").textContent="Inicie a distribuição para ver a seleção.";
     $("deadline").textContent="Nenhuma oferta ativa.";say("");
   });
@@ -181,15 +202,21 @@
       }
       const total=document.createElement("p");total.textContent="Total: "+money(quote.totalCents);
       $("breakdown").append(total);$("accept").disabled=false;$("decline").disabled=false;
-      say("Orçamento pronto para simulação, sem pagamento.");
+      quotePool=quotePool.filter(x=>x.providerId!==providerId);
+      quotePool.push({id:"quote-"+providerId,providerId,requestId:"pedido-ficticio",
+        status:"proposed",createdAt:start,totalCents:quote.totalCents});
+      showComparison();
+      say("Orçamento pronto. Você pode escolher outro prestador, gerar mais uma proposta e depois selecionar uma.");
     }catch(e){resetQuote();say(e.message,true)}
   });
   $("accept").addEventListener("click",()=>{
     if(!quote||!providerId)return;
-    const out=F2.quoteDecision({quote:{status:"proposed",createdAt:start},
-      now:start+elapsed,actingUserId:"cliente",customerId:"cliente",accept:true});
-    say(out.status==="expired"?"Orçamento expirado; pedir nova proposta.":
-      "Orçamento aceito em simulação. Aguardando pagamento; chat e despacho bloqueados.");
+    try{
+      const out=F2.selectWinningQuote({quotes:quotePool,quoteId:"quote-"+providerId,
+        now:start+elapsed,actingUserId:"cliente",customerId:"cliente"});
+      quotePool=out.quotes;showComparison();
+      say("Orçamento aceito em simulação. Aguardando pagamento; chat e despacho bloqueados.");
+    }catch(e){say(e.message,true)}
     resetQuote();
   });
   $("decline").addEventListener("click",()=>{
