@@ -193,6 +193,26 @@ begin
 end $not_owner$;
 
 select set_config('request.jwt.claim.sub','11111111-1111-4111-8111-111111111111',false);
+-- Um prestador suspenso DEPOIS do envio não pode vencer a solicitação.
+select set_config('test.f2_quote_b',:'quote_b',false);
+reset role;
+update public.providers set status='suspended'
+where id='bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb';
+set role authenticated;
+select set_config('request.jwt.claim.sub','11111111-1111-4111-8111-111111111111',false);
+do $suspended$
+begin
+  begin
+    perform public.f2_decide_quote(current_setting('test.f2_quote_b')::uuid,true);
+    raise exception using message='FAIL: prestador suspenso aceito',errcode='ZX009';
+  exception when others then if sqlstate='ZX009' then raise; end if;
+  end;
+end $suspended$;
+reset role;
+update public.providers set status='approved'
+where id='bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb';
+set role authenticated;
+select set_config('request.jwt.claim.sub','11111111-1111-4111-8111-111111111111',false);
 select public.f2_decide_quote(:'quote_b'::uuid,true) as accepted_state \gset
 do $winner$
 begin
@@ -252,6 +272,45 @@ begin
        and status='expired')<>1
  then raise exception 'Nao expirou após 5min de ACK confirmado'; end if;
 end $timeout$;
+
+-- Cenário de privacidade: prestador F1 inicialmente vinculado NÃO convidado.
+-- Com serviço "outro", só Beta declara competência; Alfa não deve ver a foto.
+reset role;
+insert into public.service_requests(id,customer_id,provider_id,category_id,
+  service_types,latitude,longitude,photo_path) values (
+ '66666666-6666-4666-8666-666666666666',
+ '11111111-1111-4111-8111-111111111111',
+ 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',2,array['outro'],
+ -19.924,-43.938,
+ '11111111-1111-4111-8111-111111111111/66666666-6666-4666-8666-666666666666.jpg'
+);
+insert into storage.objects(bucket_id,name) values ('request-photos',
+ '11111111-1111-4111-8111-111111111111/66666666-6666-4666-8666-666666666666.jpg');
+set role authenticated;
+select set_config('request.jwt.claim.sub','33333333-3333-4333-8333-333333333333',false);
+select public.f2_set_capacity(array['pneu_furado','troca_camara','outro'],10);
+select set_config('request.jwt.claim.sub','11111111-1111-4111-8111-111111111111',false);
+select public.f2_offer_candidates('66666666-6666-4666-8666-666666666666',3);
+do $clear_owner$
+begin
+ if (select provider_id from public.service_requests
+   where id='66666666-6666-4666-8666-666666666666') is not null
+ then raise exception 'Atribuição F1 prévia não foi revogada'; end if;
+end $clear_owner$;
+select set_config('request.jwt.claim.sub','22222222-2222-4222-8222-222222222222',false);
+do $no_photo$
+begin
+ if exists(select 1 from storage.objects
+    where name='11111111-1111-4111-8111-111111111111/66666666-6666-4666-8666-666666666666.jpg')
+ then raise exception 'Prestador F1 não convidado conservou foto'; end if;
+end $no_photo$;
+select set_config('request.jwt.claim.sub','33333333-3333-4333-8333-333333333333',false);
+do $yes_photo$
+begin
+ if not exists(select 1 from storage.objects
+    where name='11111111-1111-4111-8111-111111111111/66666666-6666-4666-8666-666666666666.jpg')
+ then raise exception 'Prestador realmente convidado não recebeu acesso'; end if;
+end $yes_photo$;
 
 -- RPCs não liberam checkout, chat, push, nem transição paid.
 select 'F2: MULTI-OFERTAS + RLS + ORÇAMENTO ITEMIZADO + VENCEDOR ÚNICO PASSARAM' as resultado;
