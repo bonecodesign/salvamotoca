@@ -2,6 +2,7 @@ name: F1 - testes sem pagamentos
 on:
   pull_request:
     paths:
+      - 'config.js'
       - 'request-f1.js'
       - 'live-app-current.js'
       - 'index.html'
@@ -19,7 +20,19 @@ on:
       - '.github/workflows/f1-tests.yml'
   push:
     branches:
+      - main
       - 'feat/f1-solicitacao-completa-segura'
+    paths:
+      - 'request-f1.js'
+      - 'live-app-current.js'
+      - 'config.js'
+      - 'index.html'
+      - 'sw.js'
+      - 'tests/**'
+      - 'docs/F1_PREVIEW.html'
+      - 'supabase/migrations/20261114020317_f1_solicitacao_dados_foto_privada.sql'
+      - 'supabase/rollback/f1_solicitacao_sem_dados.sql'
+      - '.github/workflows/f1-tests.yml'
 permissions:
   contents: read
 jobs:
