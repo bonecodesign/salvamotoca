@@ -38,7 +38,7 @@ A migration já aplicada **não deve ser reaplicada**, e seu arquivo histórico 
 
 ## Testes automatizados
 
-- **32 testes Node**: validações, fluxos simulados do app, upload, retry por foto, troca de sessão e GPS, cancelamento e bloqueio da flag.
+- **41 testes Node**: validações, fluxos simulados do app, upload, retry por foto, troca de sessão e GPS, cancelamento e bloqueio da flag.
 - **5 testes em Chrome real**: prévia em desktop, largura móvel de 375 px, seleção de serviços, foto fictícia, bloqueio de reboque, validação de tipo, remoção de EXIF/GPS por processamento real e rejeição de JPEG corrompido, sem solicitações de rede.
 - **PostgreSQL 17 descartável**: migration, RLS com perfis de teste, preservação de pedidos legados, rejeição de dados F1 parciais, visibilidade por usuário e reversão de esquema sem dados.
 - **GitHub Actions:** jobs `validar-f1`, `navegador-f1` e `sql-isolado-f1` em CI para cada alteração; consultar a execução mais recente associada ao commit do PR #38.
@@ -94,6 +94,15 @@ O roteiro detalhado para **backup recuperável, ensaio real de Auth/Storage com 
 - Na recuperação de erro de chave única (código `23505`), o pedido é localizado por `customer_id` + `photo_path`, sob RLS, em vez de filtrar por `request_key` (coluna **sem SELECT** para authenticated). Esse privilégio foi confirmado no Supabase existente por consulta somente de leitura. O teste de PostgreSQL isolado verifica a consulta autorizada.
 - O CI contém um **guardião de liberação** que exige `f1TestRequestsEnabled: false`, a chave pública sem segredos e a manutenção da busca de pedidos por colunas autorizadas. Esse guardião terá de ser alterado intencionalmente quando a homologação real terminar.
 - Os testes automatizados de sessão/duplicidade usam conta e GPS simulados; **não** equivalem a testes de usuário em Auth/Storage remoto.
+
+### Revisão adicional: reenvio, privacidade e navegação
+
+- **Não reutilizar pedido modificado:** a assinatura de tentativa inclui cliente, prestador, categoria, veículo, serviços, descrição, endereço, metadados da foto e GPS. Se qualquer dado mudar durante um retry, o aplicativo pede uma nova solicitação, com chave e foto novas.
+- **Upload 409 não é prova de identidade da foto:** se houver colisão no Storage, o aplicativo agora faz download autenticado apenas daquela foto e compara os **bytes** do JPG original processado com o arquivo armazenado. Arquivo diferente ou download indisponível impede criar o pedido; nenhum novo privilégio de leitura foi concedido.
+- **Foto temporária após logout:** resposta atrasada de `createSignedUrl` é descartada quando a identidade muda, a tela é fechada ou o pedido deixa de pertencer ao usuário/perfil habilitado.
+- **Navegação durante upload:** se a pessoa sair do formulário ou escolher outro prestador, a continuação assíncrona deixa de inserir aquele pedido. Foto órfã eventualmente enviada continua sujeita à política futura de retenção.
+- **Testes:** novos cenários cobrem endereço e serviços modificados, upload gravado com resposta perdida, colisão 409 diferente, URL assinada tardia, comparação byte a byte e abandono do formulário durante upload. Total atual: **41 testes Node + 5 Chrome**, além da suíte SQL isolada.
+- **Aviso da interface:** corrigido para informar homologação no **Supabase existente**, sem sugerir outro ambiente ou afirmar que a migração está pendente.
 
 ### Riscos remanescentes de pré-lançamento
 
