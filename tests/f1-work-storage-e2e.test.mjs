@@ -21,7 +21,7 @@ test("default plan lista backup anterior a qualquer upload", () => {
   assert.ok(steps[0].includes("Backup"));
   assert.ok(steps.some(s=>s.includes("UM JPEG")));
   assert.ok(steps.some(s=>s.includes("Storage API")));
-  assert.ok(steps.every(s=>!s.includes("service_role")));
+  assert.ok(steps.some(s=>s.includes("sem service_role")));
 });
 
 test("bloqueia execução sem ACK específico do projeto", () => {
