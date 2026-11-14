@@ -416,3 +416,54 @@ test("F1: timeout após INSERT confirmado pelo servidor é recuperado sem ler re
     "Não consultar coluna request_key que authenticated não pode ler");
   assert.match(h.container.innerHTML,/Pedidos e orçamentos/);
 });
+
+
+test("F1: retry com endereço alterado não reaproveita pedido/foto já enviados",async()=>{
+  const h=makeHarness({insertFails:true}); await h.prepare();
+  await h.submit(validFields());
+  const second=await h.submit(validFields({address:"Endereço fictício diferente, 100"}));
+  assert.match(second.notice.textContent,/dados do pedido mudaram/);
+  assert.equal(h.sent.uploads.length,1);
+  assert.equal(h.sent.requests.length,1);
+});
+
+test("F1: retry com serviços alterados não muda um pedido iniciado",async()=>{
+  const h=makeHarness({insertFails:true}); await h.prepare();
+  await h.submit(validFields());
+  const second=await h.submit(validFields({services:["outro"]}));
+  assert.match(second.notice.textContent,/dados do pedido mudaram/);
+  assert.equal(h.sent.uploads.length,1);
+  assert.equal(h.sent.requests.length,1);
+});
+
+test("F1: upload remoto confirmado mas resposta HTTP perdida verifica bytes ao receber 409",async()=>{
+  const h=makeHarness({lostUploadResponse:true}); await h.prepare();
+  const first=await h.submit(validFields());
+  assert.match(first.notice.textContent,/Upload privado/);
+  assert.equal(h.sent.uploads.length,1);
+  assert.equal(h.sent.requests.length,0);
+  await h.submit(validFields());
+  assert.equal(h.sent.uploads.length,2);
+  assert.equal(h.sent.downloads.length,1,"Deve verificar foto por download privado");
+  assert.equal(h.sent.requests.length,1);
+});
+
+test("F1: HTTP 409 com foto diferente NÃO é tratado como upload concluído",async()=>{
+  const h=makeHarness({conflictingUpload:true}); await h.prepare();
+  const first=await h.submit(validFields());
+  assert.match(first.notice.textContent,/foto diferente/);
+  assert.equal(h.sent.downloads.length,1);
+  assert.equal(h.sent.requests.length,0);
+});
+
+test("F1: URL assinada devolvida após logout não aparece na nova conta",async()=>{
+  const h=makeHarness({delayedSignedUrl:true}); await h.prepare();
+  await h.submit(validFields());
+  const pending=h.openPhoto();
+  await flush();
+  assert.equal(h.sent.signed.length,1);
+  await h.switchUser("22222222-2222-4222-8222-222222222222");
+  h.resolveSignedPhoto();
+  await pending; await flush();
+  assert.doesNotMatch(h.container.innerHTML,/NAO-REAL-PRIVADO/);
+});
