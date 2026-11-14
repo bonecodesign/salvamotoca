@@ -29,6 +29,7 @@ begin
     raise exception 'Os novos campos F1 nao podem ser lidos pelo app autenticado';
   end if;
   if has_table_privilege('authenticated','public.service_requests','SELECT')
+    or has_column_privilege('authenticated','public.service_requests','request_key','SELECT')
     or has_column_privilege('authenticated','public.service_requests','address_details','SELECT')
     or has_column_privilege('authenticated','public.service_requests','latitude','SELECT')
     or has_column_privilege('authenticated','public.service_requests','longitude','SELECT')
@@ -67,6 +68,20 @@ values (
  'Honda','CG 160',2024,array['pneu_furado','troca_camara']::text[],
  '11111111-1111-4111-8111-111111111111/aaaaaaaa-1111-4111-8111-111111111111.jpg'
 );
+
+-- Recuperação de duplicidade: consulta por foto vinculada e cliente, sem SELECT de request_key.
+-- Confirma a consulta que o aplicativo faz após UNIQUE 23505 (filtro RLS autorizável).
+do $recover$
+declare found_id uuid;
+begin
+  select id into found_id from public.service_requests
+  where customer_id = '11111111-1111-4111-8111-111111111111'
+    and photo_path =
+    '11111111-1111-4111-8111-111111111111/aaaaaaaa-1111-4111-8111-111111111111.jpg';
+  if found_id is distinct from 'eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee'::uuid then
+    raise exception 'Falha na recuperação por foto e cliente sob RLS';
+  end if;
+end $recover$;
 
 -- Estrategia de um Supabase: o aplicativo antigo pode continuar gravando sem campos F1.
 insert into public.service_requests (id, request_key, customer_id, provider_id)
