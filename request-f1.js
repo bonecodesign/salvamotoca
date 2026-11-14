@@ -100,5 +100,20 @@
       if (objectUrl) objectUrls.revokeObjectURL(objectUrl);
     }
   }
-  return Object.freeze({ SERVICE_TYPES, MAX_ORIGINAL_BYTES, MAX_UPLOAD_BYTES, validatePhoto, validateRequest, makePhotoPath, preparePrivatePhoto });
+  // Em respostas de upload perdidas, nunca aceitar colisão 409 sem comparar bytes.
+  // Evita vincular ao pedido outra foto já armazenada no mesmo caminho.
+  async function samePhotoBytes(local, remote) {
+    if (!local || !remote || local.size !== remote.size || local.size < 1 ||
+        local.size > MAX_UPLOAD_BYTES || typeof local.arrayBuffer !== "function" ||
+        typeof remote.arrayBuffer !== "function") return false;
+    const [localData, remoteData] = await Promise.all([local.arrayBuffer(), remote.arrayBuffer()]);
+    if (localData.byteLength !== remoteData.byteLength) return false;
+    const a = new Uint8Array(localData), b = new Uint8Array(remoteData);
+    for (let index = 0; index < a.length; index++) {
+      if (a[index] !== b[index]) return false;
+    }
+    return true;
+  }
+  return Object.freeze({ SERVICE_TYPES, MAX_ORIGINAL_BYTES, MAX_UPLOAD_BYTES,
+    validatePhoto, validateRequest, makePhotoPath, preparePrivatePhoto, samePhotoBytes });
 });
