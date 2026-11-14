@@ -19,7 +19,8 @@
     services: [], categories: [], onlineIds: new Set(), ownPresence: null, orders: [], quotes: [], selected: null,
     mode: "manual", location: null, map: null, loading: false, requestKey: null,
     message: "", error: "", uploadedPhotoKey: null, uploadedPhotoSignature: null,
-    requestSignature: null, photoPreview: {}
+    requestSignature: null, photoPreview: {},
+    f2Offers: [], f2QuoteItems: [], f2Capacity: null
   };
   // Alteração de identidade invalida GPS, fotos assinadas, pedidos e uploads pendentes.
   // O marcador de geração protege tarefas assíncronas iniciadas por outra conta.
@@ -33,6 +34,7 @@
     state.user = nextUser || null;
     state.profile = null; state.ownProvider = null; state.ownPresence = null;
     state.orders = []; state.quotes = []; state.photoPreview = {};
+    state.f2Offers = []; state.f2QuoteItems = []; state.f2Capacity = null;
     state.requestKey = null; state.uploadedPhotoKey = null; state.uploadedPhotoSignature = null;
     state.requestSignature = null;
     state.location = null; state.selected = null; state.mode = "manual";
@@ -100,6 +102,13 @@
   };
   const owns = order => state.user && order.customer_id === state.user.id;
   const providerOwns = order => state.ownProvider && order.provider_id === state.ownProvider.id;
+  const f2Active = () => config.f1TestRequestsEnabled === true &&
+    config.f2TestOffersEnabled === true && Boolean(window.SMF2Flow);
+  const f2InviteFor = order => f2Active() && state.ownProvider &&
+    state.f2Offers.find(o => o.request_id === order.id &&
+      o.provider_id === state.ownProvider.id &&
+      ["offered", "delivered", "quoted"].includes(o.status));
+  const canViewOrderPhoto = order => owns(order) || providerOwns(order) || Boolean(f2InviteFor(order));
   const setBusy = active => { state.loading = active; };
   const errorText = error => String(error && (error.message || error.details || error) || "Erro inesperado.");
   function haversine(lat1, lon1, lat2, lon2) {
@@ -227,6 +236,69 @@
       '<p class="small muted">Cidade piloto: Belo Horizonte, MG. Os serviços começam desativados até verificação administrativa.</p>' +
       '<button class="btn full" type="submit">Solicitar cadastro</button></form>';
   }
+  // A F2 é uma interface experimental sobre RPCs autorizadas. Com ambas as
+  // flags desligadas nenhum dado ou RPC F2 é carregado no Supabase existente.
+  function renderF2Capacity() {
+    if (!f2Active() || !state.ownProvider) return "";
+    const codes = window.SMF2Flow.CODES;
+    const chosen = new Set(state.f2Capacity?.service_types || []);
+    return '<form id="f2-capacity-form" class="card form"><h3>F2 · Serviços e cobertura (teste)</h3>' +
+      '<p class="small muted">Cadastrar capacidades não concede homologação; só a administração habilita um prestador.</p>' +
+      codes.map(code => '<label class="fieldrow"><input type="checkbox" name="services" value="' +
+        esc(code) + '"' + (chosen.has(code) ? ' checked' : '') + '> ' +
+        esc(F1.SERVICE_TYPES[code] || code) + '</label>').join("") +
+      label("Raio máximo que você atende (km)", "number", "coverage", "Ex.: 10", true) +
+      '<button class="btn full" type="submit">Salvar capacidades F2</button></form>';
+  }
+  function renderF2Order(order, quotes) {
+    if (!f2Active() || !order.service_types?.length) return "";
+    const offers = state.f2Offers.filter(offer => offer.request_id === order.id);
+    const pending = offers.some(offer => ["offered", "delivered", "quoted"].includes(offer.status));
+    let content = '<div class="card"><h3>F2 · Propostas de teste</h3>' +
+      '<p class="small muted">Nenhum envio de notificação, pagamento, chat ou despacho real.</p>';
+    if (owns(order)) {
+      content += offers.map(offer => '<p class="small">Convite para ' +
+        esc(state.directory.find(p => p.id === offer.provider_id)?.display_name || "prestador") +
+        ' · ' + esc(offer.status) + '</p>').join("");
+      if (order.status === "requested" && !pending) {
+        content += '<button class="btn outline" data-action="f2-distribute" data-id="' +
+          esc(order.id) + '">Buscar prestadores compatíveis para teste</button>';
+      }
+      content += quotes.filter(q => offers.some(offer => offer.quote_id === q.id)).map(q => {
+        const items = state.f2QuoteItems.filter(item => item.quote_id === q.id);
+        return '<div class="card"><p><b>Proposta: ' +
+          esc(state.directory.find(p => p.id === q.provider_id)?.display_name || "prestador") +
+          '</b> · ' + amount(q.amount_cents) + '</p>' +
+          items.map(item => '<p class="small">' + esc(item.code) + ': ' + amount(item.amount_cents) + '</p>').join("") +
+          (order.status === "requested" && q.status === "proposed" ?
+            '<div class="actions"><button class="btn sm" data-action="f2-decide" data-id="' + esc(q.id) +
+            '" data-accept="true">Aceitar este orçamento</button>' +
+            '<button class="btn outline sm" data-action="f2-decide" data-id="' + esc(q.id) +
+            '" data-accept="false">Recusar este orçamento</button></div>' : '') +
+          '</div>';
+      }).join("");
+    }
+    const invite = f2InviteFor(order);
+    if (invite && order.status === "requested") {
+      if (invite.status === "offered")
+        content += '<button class="btn full" data-action="f2-ack" data-id="' + esc(invite.id) +
+          '">Abrir convite F2 e confirmar recebimento</button>';
+      if (invite.status === "delivered") {
+        content += '<form class="f2-quote-form form" data-offer="' + esc(invite.id) +
+          '" data-request="' + esc(order.id) + '"><h4>Orçamento discriminado</h4>' +
+          order.service_types.map(code => label("Serviço: " + (F1.SERVICE_TYPES[code] || code) +
+            " (R$)", "number", "service_" + code, "Ex.: 60.00", true)).join("") +
+          label("Deslocamento obrigatório (R$)", "number", "travel", "Ex.: 15.00", true) +
+          label("Peça ou material (opcional)", "text", "part_name", "Ex.: Câmara 17", false) +
+          label("Valor da peça (R$; opcional)", "number", "part_price", "Ex.: 45.00", false) +
+          label("Descrição adicional (sem contatos)", "text", "details", "Resumo do orçamento", false) +
+          '<button class="btn full" type="submit">Enviar orçamento F2 de teste</button></form>';
+      }
+      if (invite.status === "quoted")
+        content += '<p class="small muted">Orçamento enviado. Aguarde escolha do motociclista.</p>';
+    }
+    return content + '</div>';
+  }
   function renderProfile() {
     if (!state.user) return header("Minha conta", "Entre para acompanhar pedidos e cadastrar sua borracharia.") +
       '<button class="btn full" data-page="login">Entrar</button><button class="btn outline full" data-page="register">Criar conta</button>';
@@ -244,7 +316,8 @@
           '</button><p class="small muted">Requer internet e app aberto. Sem contato com o servidor por cerca de 90 segundos, você deixa de aparecer como online.</p>'
           : '<div class="notice">Disponibilidade será liberada após aprovação e habilitação do serviço delivery.</div>') :
        '<button class="btn full" data-page="provider-form">Cadastrar minha borracharia</button>') +
-      '<button class="btn outline full" data-action="logout">Sair da conta</button></div>';
+      '<button class="btn outline full" data-action="logout">Sair da conta</button></div>' +
+      renderF2Capacity();
   }
   function renderOrders() {
     if (!state.user) return header("Meus pedidos", "Entre para ver seus pedidos de teste.") +
@@ -260,19 +333,19 @@
           '<p>Prestador: ' + esc(provider?.display_name || "Em triagem") + '</p>' +
            (o.motorcycle_brand ? '<p><b>Moto:</b> ' + esc(o.motorcycle_brand) + ' ' + esc(o.motorcycle_model) + ' (' + esc(o.motorcycle_year) + ')</p>' : '') +
            (o.service_types?.length ? '<p><b>Serviços:</b> ' + o.service_types.map(code => esc(F1.SERVICE_TYPES[code] || code)).join(', ') + '</p>' : '') +
-           (o.photo_path && (owns(o) || providerOwns(o)) ? '<button class="btn outline sm" data-action="view-photo" data-id="' + esc(o.id) + '">Ver foto do problema</button>' +
+           (o.photo_path && canViewOrderPhoto(o) ? '<button class="btn outline sm" data-action="view-photo" data-id="' + esc(o.id) + '">Ver foto do problema</button>' +
              (state.photoPreview[o.id] ? '<p><img style="max-width:100%;border-radius:8px" referrerpolicy="no-referrer" alt="Foto do problema enviada pelo cliente" src="' + esc(state.photoPreview[o.id]) + '"></p>' : '') : '') +
           (q.length ? q.map(item => '<p><b>Orçamento de ' +
               esc(state.directory.find(p => p.id === item.provider_id)?.display_name || "prestador anterior") +
               ':</b> ' + amount(item.amount_cents) +
               ' · ' + esc(item.details || "") + ' · ' + esc(quoteStatusLabel(item, q)) + '</p>').join("") :
             '<p class="small muted">Orçamento ainda não recebido.</p>') +
-          (providerOwns(o) && !activeQuote && o.status === "requested" ?
+          (!f2Active() && providerOwns(o) && !activeQuote && o.status === "requested" ?
             '<form class="quote-form form" data-id="' + esc(o.id) + '">' +
             label("Preço do serviço (R$)", "number", "amount", "Ex.: 100.00", true) +
             label("Detalhes", "text", "details", "Materiais e deslocamento incluídos?", false) +
             '<button class="btn full" type="submit">Enviar orçamento de teste</button></form>' : "") +
-          (owns(o) && activeQuote && o.status === "quoted" ?
+          (!f2Active() && owns(o) && activeQuote && o.status === "quoted" ?
             '<div class="actions"><button class="btn sm" data-action="answer-quote" data-id="' +
             esc(activeQuote.id) + '" data-accept="true">Aceitar orçamento</button>' +
             '<button class="btn outline sm" data-action="answer-quote" data-id="' + esc(activeQuote.id) +
@@ -285,6 +358,7 @@
           (owns(o) && o.status === "cancelled" ?
             '<div class="notice">Solicitação encerrada. A contagem de recusas recomeça em um novo pedido.</div>' +
             '<button class="btn full" data-page="request">Criar nova solicitação</button>' : "") +
+          renderF2Order(o,q) +
           '</div>';
       }).join("") : '<div class="notice">Você ainda não tem pedidos cadastrados.</div>');
   }
@@ -486,7 +560,7 @@
     }
     if (action === "view-photo") {
       const order = state.orders.find(o => o.id === id);
-      if (!order || !order.photo_path || !(owns(order) || providerOwns(order))) return;
+      if (!order || !order.photo_path || !canViewOrderPhoto(order)) return;
       const photoGeneration = identityGeneration;
       const photoPath = order.photo_path;
       try {
@@ -494,7 +568,7 @@
         // Evita que uma resposta antiga exponha um link assinado a outra conta ou tela.
         if (photoGeneration !== identityGeneration || state.page !== "orders") return;
         const currentOrder = state.orders.find(o => o.id === id && o.photo_path === photoPath);
-        if (!currentOrder || !(owns(currentOrder) || providerOwns(currentOrder))) return;
+        if (!currentOrder || !canViewOrderPhoto(currentOrder)) return;
         if (signed.error || !signed.data?.signedUrl) {
           state.error = "Foto privada indisponível: " + errorText(signed.error);
         } else {
