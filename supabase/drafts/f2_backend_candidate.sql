@@ -392,10 +392,27 @@ begin
   if not exists(select 1 from public.service_requests r
     where r.id=p_request_id and r.customer_id=v_user)
   then raise exception 'Acesso negado.'; end if;
+  -- Convite não aberto expira sem gerar ausência; se foi aberto, a contagem
+  -- depende de ACK autêntico e da janela completa de resposta.
   update public.f2_request_offers set status='expired',replied_at=now()
-  where request_id=p_request_id and status='delivered'
-    and delivered_at is not null and delivered_at+interval '5 minutes'<=now();
+  where request_id=p_request_id
+    and ((
+      status='offered' and offered_at+interval '5 minutes'<=now()
+    ) or (
+      status='delivered' and delivered_at is not null
+      and delivered_at+interval '5 minutes'<=now()
+    ));
   get diagnostics v_count=row_count;
+  -- Uma proposta vencida não pode permanecer como pendência infinita.
+  update public.service_quotes q set status='expired'
+  where q.request_id=p_request_id and q.status='proposed'
+    and q.created_at+interval '5 minutes'<=now()
+    and exists (select 1 from public.f2_request_offers o
+                where o.quote_id=q.id and o.status='quoted');
+  update public.f2_request_offers o set status='expired',replied_at=now()
+  where o.request_id=p_request_id and o.status='quoted'
+    and exists(select 1 from public.service_quotes q
+               where q.id=o.quote_id and q.status='expired');
   return v_count;
 end;
 $$;
