@@ -45,14 +45,14 @@ end $security$;
 
 set role authenticated;
 select set_config('request.jwt.claim.sub','22222222-2222-4222-8222-222222222222',false);
-select public.f2_set_capacity(array['pneu_furado','troca_camara'],10);
-select set_config('request.jwt.claim.sub','33333333-3333-4333-8333-333333333333',false);
-select public.f2_set_capacity(array['pneu_furado','troca_camara'],10);
-
--- Pendente Gama não vira elegível, mesmo se declarar serviço.
-select set_config('request.jwt.claim.sub','44444444-4444-4444-8444-444444444444',false);
-select public.f2_set_capacity(array['pneu_furado','troca_camara'],10);
-
+do $capacity_gate$
+begin
+  begin
+    perform public.f2_set_capacity(array['pneu_furado','troca_camara'],10);
+    raise exception using message='FAIL: capacidade gravada com gate desligado',errcode='ZX008';
+  exception when others then if sqlstate='ZX008' then raise; end if;
+  end;
+end $capacity_gate$;
 select set_config('request.jwt.claim.sub','11111111-1111-4111-8111-111111111111',false);
 do $gate$
 begin
@@ -68,6 +68,12 @@ end $gate$;
 reset role;
 update private.f2_release_gate set enabled=true;
 set role authenticated;
+select set_config('request.jwt.claim.sub','22222222-2222-4222-8222-222222222222',false);
+select public.f2_set_capacity(array['pneu_furado','troca_camara'],10);
+select set_config('request.jwt.claim.sub','33333333-3333-4333-8333-333333333333',false);
+select public.f2_set_capacity(array['pneu_furado','troca_camara'],10);
+select set_config('request.jwt.claim.sub','44444444-4444-4444-8444-444444444444',false);
+select public.f2_set_capacity(array['pneu_furado','troca_camara'],10);
 select set_config('request.jwt.claim.sub','11111111-1111-4111-8111-111111111111',false);
 select public.f2_offer_candidates('11111111-aaaa-4111-8111-111111111111',3) as created_offers \gset
 do $assert$
