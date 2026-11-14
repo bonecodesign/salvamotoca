@@ -37,3 +37,16 @@ test("F2 não autoriza pagamento, chat ou despacho",()=>{
   const app=read("live-app-current.js");
   assert.match(app,/Pagamento e chat continuam bloqueados/);
 });
+
+
+test("F2: recusa só passa por RPC autenticada e rollback a desfaz",()=>{
+  const ddl=read("supabase/drafts/f2_backend_candidate.sql");
+  const rollback=read("supabase/rollback/f2_only_if_empty.sql");
+  const app=read("live-app-current.js");
+  assert.match(ddl,/function public\.f2_decline_offer\(p_offer_id uuid\)/);
+  assert.match(ddl,/f2_decline_offer\(uuid\) from public,anon,authenticated/);
+  assert.match(ddl,/f2_decline_offer\(uuid\).*f2_submit_quote/s);
+  assert.match(rollback,/drop function public\.f2_decline_offer\(uuid\)/);
+  assert.match(app,/rpc = "f2_decline_offer"/);
+  assert.match(app,/\["f2-distribute","f2-ack","f2-decline"/);
+});
