@@ -97,7 +97,7 @@ test("F2 Chrome: cliente compara duas propostas e escolhe uma vencedora sem paga
     assert.match(await page.locator("#comparison").innerText(),/alfa.*beta/);
     await page.locator("#accept").click();
     const out=await page.locator("#comparison").innerText();
-    assert.match(out,/quote/); // estado: propostas persistidas, não pedidos no backend
+    assert.match(out,/alfa/); // Estado apenas na memória da prévia, não no Supabase
     assert.match(out,/accepted/);
     assert.match(out,/not_selected/);
     assert.match(await page.locator("#messages").innerText(),/chat e despacho bloqueados/);
