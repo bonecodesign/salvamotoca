@@ -4,6 +4,9 @@
 -- Mesmo se aplicado por acidente, o release gate nasce FALSE.
 begin;
 create schema if not exists private;
+-- Campo aditivo: escolha manual inicial ou busca automática.
+alter table public.service_requests add column f2_mode text
+  check (f2_mode in ('manual','automatic'));
 
 create table private.f2_release_gate (
   singleton boolean primary key default true check (singleton),
@@ -168,7 +171,8 @@ begin
     then raise exception 'Requisição inválida.'; end if;
   if not exists(select 1 from private.f2_release_gate where enabled)
     then raise exception 'F2 ainda desativada no servidor.'; end if;
-  select id,customer_id,category_id,service_types,latitude,longitude,status
+  select id,customer_id,category_id,provider_id,f2_mode,
+    service_types,latitude,longitude,status
     into v_req from public.service_requests
     where id=p_request_id for update;
   if not found or v_req.customer_id<>v_user or v_req.status<>'requested'
@@ -209,6 +213,10 @@ begin
         and cap.service_types @> v_req.service_types
       where p.status='approved' and p.is_active
         and p.city='Belo Horizonte' and p.state_code='MG'
+        -- Na primeira rodada manual, respeitar exclusivamente o escolhido.
+        -- Rodadas seguintes podem ampliar após recusa/vencimento.
+        and (v_round>1 or coalesce(v_req.f2_mode,'automatic')='automatic'
+             or p.id=v_req.provider_id)
         and p.latitude is not null and p.longitude is not null
         and private.f2_distance_km(v_req.latitude,v_req.longitude,p.latitude,p.longitude)
           <= least(cap.coverage_km,v_ring)
@@ -229,7 +237,8 @@ begin
           order by o.replied_at desc nulls last,o.offered_at desc limit 1
         )
       order by dist,p.created_at,p.id
-      limit p_max_offers
+      limit case when v_round=1 and v_req.f2_mode='manual'
+                 then 1 else p_max_offers end
     loop
       insert into public.f2_request_offers(request_id,provider_id,round_number,status)
       values(p_request_id,candidate.provider_id,v_round,'offered');
