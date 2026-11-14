@@ -50,4 +50,9 @@ begin
 end $$;
 update private.f2_release_gate set enabled=false;
 SQL
+psql -X -v ON_ERROR_STOP=1 -c "truncate table
+ public.f2_quote_items,public.f2_request_offers,public.service_quotes,
+ public.service_requests,public.f2_provider_capacity,public.bj_provider_presence,
+ public.provider_services,public.providers,public.service_categories
+ restart identity cascade;" >/dev/null
 echo "F2 CONCORRÊNCIA: uma única proposta aceita; outra rejeitada, sem cobrança."
