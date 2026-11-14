@@ -94,8 +94,18 @@ returns boolean language sql stable security definer set search_path='' as $$
     join public.providers p on p.id=o.provider_id
     join public.service_requests r on r.id=o.request_id
     where r.id=p_request_id and r.status='requested'
-      and o.status in ('offered','delivered','quoted')
-      and p.owner_id=auth.uid()
+      and p.owner_id=auth.uid() and p.status='approved' and p.is_active
+      -- A permissão de foto expira pelo relógio do SERVIDOR mesmo quando
+      -- ninguém executa f2_expire_offers. Prestador suspenso perde acesso.
+      and (
+        (o.status='offered' and o.offered_at+interval '5 minutes'>now())
+        or (o.status='delivered' and o.delivered_at is not null
+            and o.delivered_at+interval '5 minutes'>now())
+        or (o.status='quoted' and exists (
+          select 1 from public.service_quotes q where q.id=o.quote_id
+            and q.status='proposed' and q.created_at+interval '5 minutes'>now()
+        ))
+      )
   );
 $$;
 create or replace function private.f2_can_view_photo(p_path text)
@@ -276,6 +286,39 @@ begin
   update public.f2_request_offers set status='delivered',delivered_at=now()
   where id=p_offer_id returning delivered_at into v_time;
   return v_time;
+end;
+$$;
+
+-- Recusa voluntária: não é ausência. O próprio prestador pode desistir
+-- de um convite válido antes da abertura ou durante a janela de orçamento.
+create or replace function public.f2_decline_offer(p_offer_id uuid)
+returns text language plpgsql security definer set search_path='' as $$
+declare
+  v_user uuid:=auth.uid(); v_offer record; v_request_status text;
+begin
+  if v_user is null or
+     not exists(select 1 from private.f2_release_gate where enabled)
+  then raise exception 'Recusa F2 indisponível.'; end if;
+
+  select o.id,o.request_id,o.status,o.offered_at,o.delivered_at
+    into v_offer
+  from public.f2_request_offers o
+  join public.providers p on p.id=o.provider_id
+  where o.id=p_offer_id and p.owner_id=v_user
+  for update of o;
+  if not found or v_offer.status not in ('offered','delivered')
+    then raise exception 'Convite inexistente ou encerrado.'; end if;
+  if now()>=coalesce(v_offer.delivered_at,v_offer.offered_at)+interval '5 minutes'
+    then raise exception 'Prazo de recusa encerrado.'; end if;
+
+  select r.status into v_request_status from public.service_requests r
+  where r.id=v_offer.request_id for update;
+  if v_request_status<>'requested' then
+    raise exception 'Pedido indisponível para recusa.'; end if;
+  update public.f2_request_offers
+    set status='declined',replied_at=now()
+    where id=p_offer_id;
+  return 'declined';
 end;
 $$;
 
@@ -501,13 +544,14 @@ for each row execute function private.f2_cancel_pending();
 revoke all on function public.f2_set_capacity(text[],numeric) from public,anon,authenticated;
 revoke all on function public.f2_offer_candidates(uuid,integer) from public,anon,authenticated;
 revoke all on function public.f2_ack_offer(uuid) from public,anon,authenticated;
+revoke all on function public.f2_decline_offer(uuid) from public,anon,authenticated;
 revoke all on function public.f2_submit_quote(uuid,jsonb,text) from public,anon,authenticated;
 revoke all on function public.f2_decide_quote(uuid,boolean) from public,anon,authenticated;
 revoke all on function public.f2_expire_offers(uuid) from public,anon,authenticated;
 revoke all on function public.f2_absence_review() from public,anon,authenticated;
 grant execute on function public.f2_set_capacity(text[],numeric),
   public.f2_offer_candidates(uuid,integer),public.f2_ack_offer(uuid),
-  public.f2_submit_quote(uuid,jsonb,text),public.f2_decide_quote(uuid,boolean),
+  public.f2_decline_offer(uuid),public.f2_submit_quote(uuid,jsonb,text),public.f2_decide_quote(uuid,boolean),
   public.f2_expire_offers(uuid),public.f2_absence_review()
 to authenticated;
 commit;
