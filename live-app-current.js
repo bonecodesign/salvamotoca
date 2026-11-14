@@ -303,6 +303,10 @@
           label("Descrição adicional (sem contatos)", "text", "details", "Resumo do orçamento", false) +
           '<button class="btn full" type="submit">Enviar orçamento F2 de teste</button></form>';
       }
+      if (["offered", "delivered"].includes(invite.status)) {
+        content += '<button class="btn outline sm" data-action="f2-decline" data-id="' +
+          esc(invite.id) + '">Não posso atender · recusar convite</button>';
+      }
       if (invite.status === "quoted")
         content += '<p class="small muted">Orçamento enviado. Aguarde escolha do motociclista.</p>';
     }
