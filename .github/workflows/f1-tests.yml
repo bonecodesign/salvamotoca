@@ -1,0 +1,111 @@
+name: F1 - testes sem pagamentos
+on:
+  pull_request:
+    paths:
+      - 'request-f1.js'
+      - 'live-app-current.js'
+      - 'index.html'
+      - 'sw.js'
+      - 'tests/request-f1.test.js'
+      - 'tests/f1-app-flow.test.js'
+      - 'tests/f1-preview.test.js'
+      - 'tests/f1-browser.test.js'
+      - 'tests/f1-release-guard.test.js'
+      - 'docs/F1_PREVIEW.html'
+      - 'tests/f1-stage-setup.sql'
+      - 'tests/f1-stage-rls.sql'
+      - 'supabase/migrations/20261114020317_f1_solicitacao_dados_foto_privada.sql'
+      - 'supabase/rollback/f1_solicitacao_sem_dados.sql'
+      - '.github/workflows/f1-tests.yml'
+  push:
+    branches:
+      - 'feat/f1-solicitacao-completa-segura'
+permissions:
+  contents: read
+jobs:
+  validar-f1:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Testes da validacao de pedido
+        run: node --test tests/request-f1.test.js tests/f1-app-flow.test.js tests/f1-preview.test.js tests/f1-release-guard.test.js
+      - name: Sintaxe das telas e scripts
+        run: |
+          node --check request-f1.js
+          node --check live-app-current.js
+          node --check bootstrap.js
+      - name: Verificar carregamento do modulo F1
+        run: |
+          grep -q 'src="./request-f1.js"' index.html
+          grep -q "'./request-f1.js'" sw.js
+          node --check sw.js
+  navegador-f1:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Verificar Chrome instalado no runner
+        run: |
+          if command -v google-chrome >/dev/null; then
+            echo "CHROME_BIN=$(command -v google-chrome)" >> "$GITHUB_ENV"
+          elif command -v chromium >/dev/null; then
+            echo "CHROME_BIN=$(command -v chromium)" >> "$GITHUB_ENV"
+          else
+            echo "Navegador Chrome/Chromium ausente" >&2
+            exit 1
+          fi
+      - name: Instalar apenas Playwright Core em versão fixa
+        run: npm install --no-save --no-package-lock --ignore-scripts --no-audit --no-fund playwright-core@1.56.1
+      - name: Testar formulário visual em Chrome desktop e viewport móvel
+        run: node --test tests/f1-browser.test.js
+  sql-isolado-f1:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: f1_homologacao
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d f1_homologacao"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      PGHOST: localhost
+      PGPORT: 5432
+      PGUSER: postgres
+      PGPASSWORD: postgres
+      PGDATABASE: f1_homologacao
+    steps:
+      - uses: actions/checkout@v4
+      - name: Instalar cliente PostgreSQL se necessario
+        run: command -v psql || (sudo apt-get update -qq && sudo apt-get install -y postgresql-client)
+      - name: Criar esquema Supabase minimo apenas no container descartavel
+        run: psql -X -v ON_ERROR_STOP=1 -f tests/f1-stage-setup.sql
+      - name: Aplicar migration F1 apenas no container descartavel
+        run: psql -X -v ON_ERROR_STOP=1 -f supabase/migrations/20261114020317_f1_solicitacao_dados_foto_privada.sql
+      - name: Ensaiar RLS com cliente, prestador designado, outro prestador e anonimo
+        run: psql -X -v ON_ERROR_STOP=1 -f tests/f1-stage-rls.sql
+      - name: Testar rollback seguro do esquema F1 com zero dados
+        run: |
+          psql -X -v ON_ERROR_STOP=1 -f supabase/rollback/f1_solicitacao_sem_dados.sql
+          psql -X -v ON_ERROR_STOP=1 -c "do \$\$ begin
+            if exists (select 1 from information_schema.columns
+                       where table_schema='public' and table_name='service_requests'
+                       and column_name='photo_path')
+            then raise exception 'Rollback nao removeu coluna F1'; end if;
+            if (select public from storage.buckets where id='request-photos')
+            then raise exception 'Bucket tornou-se publico'; end if;
+          end \$\$;"

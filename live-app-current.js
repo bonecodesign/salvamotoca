@@ -4,6 +4,7 @@
 (() => {
   "use strict";
   const config = window.BJ_CONFIG || {};
+  const F1 = window.SMRequestF1;
   const container = document.getElementById("app");
   const banner = document.querySelector(".demo-banner");
   if (!window.supabase || !window.supabase.createClient) {
@@ -17,8 +18,24 @@
     page: "home", user: null, profile: null, ownProvider: null, directory: [],
     services: [], categories: [], onlineIds: new Set(), ownPresence: null, orders: [], quotes: [], selected: null,
     mode: "manual", location: null, map: null, loading: false, requestKey: null,
-    message: "", error: ""
+    message: "", error: "", uploadedPhotoKey: null, uploadedPhotoSignature: null, photoPreview: {}
   };
+  // Alteração de identidade invalida GPS, fotos assinadas, pedidos e uploads pendentes.
+  // O marcador de geração protege tarefas assíncronas iniciadas por outra conta.
+  let identityGeneration = 0;
+  function transitionAccount(nextUser) {
+    const currentId = state.user?.id || null;
+    const nextId = nextUser?.id || null;
+    if (currentId === nextId) return false;
+    identityGeneration++;
+    state.user = nextUser || null;
+    state.profile = null; state.ownProvider = null; state.ownPresence = null;
+    state.orders = []; state.quotes = []; state.photoPreview = {};
+    state.requestKey = null; state.uploadedPhotoKey = null; state.uploadedPhotoSignature = null;
+    state.location = null; state.selected = null; state.mode = "manual";
+    state.message = ""; state.error = ""; state.page = "home";
+    return true;
+  }
   const esc = value => String(value ?? "").replace(/[&<>"']/g, ch =>
     ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[ch]);
   const amount = cents => (Number(cents) / 100).toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
@@ -51,6 +68,8 @@
     esc(field) + '" type="' + esc(type) + '" placeholder="' + esc(placeholder || "") + '" ' +
     (required ? "required" : "") + "></label>";
   const nav = page => {
+    // Nao manter URLs assinadas de fotos ao sair da tela de pedidos.
+    if (page !== "orders") state.photoPreview = {};
     state.page = page;
     state.error = ""; state.message = "";
     render();
@@ -154,16 +173,26 @@
       '<button class="btn full" data-page="login">Entrar ou cadastrar</button></div>';
     const p = state.directory.find(row => row.id === state.selected);
     if (!p || !deliveryIds().has(p.id) || !state.onlineIds.has(p.id)) return '<div class="notice">O prestador está offline ou indisponível para novos pedidos. Atualize a lista.</div>';
+    const f1Enabled = config.f1TestRequestsEnabled === true;
+    const options = Object.entries(F1.SERVICE_TYPES).map(([code, title]) =>
+      '<label class="fieldrow"><input type="checkbox" name="services" value="' + esc(code) + '">' +
+      esc(title) + (code === "reboque_moto" ? ' — integração em desenvolvimento (não envia)' : '') + '</label>').join('');
     return header("Solicitar orçamento", p.display_name + " — ambiente de testes, sem atendimento real") +
+      (!f1Enabled ? '<div class="notice" role="status">F1 em revisão: o envio de fotos e pedidos está desativado até a homologação da migração e da segurança em ambiente separado.</div>' : '') +
       '<form id="request-form" class="card form">' +
-      label("Modelo da moto", "text", "motorcycle", "Ex.: Honda CG 160", true) +
-      '<label class="fieldrow"><span class="label">Problema com o pneu</span>' +
+      '<fieldset><legend><b>Qual serviço você precisa?</b> (selecione um ou mais)</legend>' + options + '</fieldset>' +
+      '<label class="fieldrow"><span class="label">Marca da moto</span><input class="field" type="text" name="brand" maxlength="70" placeholder="Ex.: Honda" required></label>' +
+      '<label class="fieldrow"><span class="label">Modelo da moto</span><input class="field" type="text" name="model" maxlength="90" placeholder="Ex.: CG 160" required></label>' +
+      '<label class="fieldrow"><span class="label">Ano da moto</span><input class="field" type="number" name="year" min="1950" max="' + (new Date().getFullYear()+1) + '" step="1" placeholder="Ex.: 2024" required></label>' +
+      '<label class="fieldrow"><span class="label">Foto do problema (obrigatória)</span>' +
+      '<input class="field" type="file" name="photo" accept="image/jpeg,image/png,image/webp" required>' +
+      '<small>JPG, PNG ou WebP de até 8 MB. A imagem será reduzida e convertida em JPG sem metadados EXIF antes do upload privado.</small></label>' +
+      '<label class="fieldrow"><span class="label">Descreva o problema</span>' +
       '<textarea name="problem" minlength="5" maxlength="1900" required class="field" placeholder="Explique o problema"></textarea></label>' +
       '<label class="fieldrow"><span class="label">Endereço do atendimento (restrito)</span>' +
-      '<textarea name="address" maxlength="280" required class="field" placeholder="Rua, número e referência"></textarea></label>' +
-      '<p class="notice">O endereço é protegido contra leitura direta pelo prestador antes do pagamento. ' +
-      'Não envie solicitações reais enquanto este aplicativo estiver em testes.</p>' +
-      '<button class="btn full" type="submit">Criar pedido de teste</button></form>';
+      '<textarea name="address" minlength="6" maxlength="280" required class="field" placeholder="Rua, número e referência"></textarea></label>' +
+      '<p class="notice">Somente TESTES: não envie dados ou localizações reais nesta fase. A foto poderá ser vista pelo prestador designado para preparar o orçamento; endereço exato continua restrito antes do pagamento. Nenhum socorro ou pagamento é ativado.</p>' +
+      '<button class="btn full" type="submit"' + (f1Enabled ? '' : ' disabled aria-disabled="true"') + '>Revisar e criar pedido de teste</button></form>';
   }
   function renderLogin() {
     return header("Entrar", "A conta é necessária para cadastros e solicitações de teste.") +
@@ -224,6 +253,10 @@
         return '<div class="card"><p><b>' + esc(o.problem_description) + '</b></p><p class="small muted">' +
           esc(statusName(o.status)) + ' · ' + new Date(o.created_at).toLocaleString("pt-BR") + '</p>' +
           '<p>Prestador: ' + esc(provider?.display_name || "Em triagem") + '</p>' +
+           (o.motorcycle_brand ? '<p><b>Moto:</b> ' + esc(o.motorcycle_brand) + ' ' + esc(o.motorcycle_model) + ' (' + esc(o.motorcycle_year) + ')</p>' : '') +
+           (o.service_types?.length ? '<p><b>Serviços:</b> ' + o.service_types.map(code => esc(F1.SERVICE_TYPES[code] || code)).join(', ') + '</p>' : '') +
+           (o.photo_path && (owns(o) || providerOwns(o)) ? '<button class="btn outline sm" data-action="view-photo" data-id="' + esc(o.id) + '">Ver foto do problema</button>' +
+             (state.photoPreview[o.id] ? '<p><img style="max-width:100%;border-radius:8px" referrerpolicy="no-referrer" alt="Foto do problema enviada pelo cliente" src="' + esc(state.photoPreview[o.id]) + '"></p>' : '') : '') +
           (q.length ? q.map(item => '<p><b>Orçamento de ' +
               esc(state.directory.find(p => p.id === item.provider_id)?.display_name || "prestador anterior") +
               ':</b> ' + amount(item.amount_cents) +
@@ -295,21 +328,27 @@
     state.directory = (providers.data || []).filter(row => activeIds.has(row.id));
   }
   async function refreshIdentity() {
+    const startedGeneration = identityGeneration;
     const sessionResult = await db.auth.getSession();
+    if (identityGeneration !== startedGeneration) return;
     if (sessionResult.error) throw sessionResult.error;
     if (!sessionResult.data?.session) {
-      state.user = null; state.profile = null; state.ownProvider = null; state.ownPresence = null; state.ownPresence = null;
-      state.orders = []; state.quotes = [];
+      transitionAccount(null);
       return;
     }
     const { data, error } = await db.auth.getUser();
+    if (identityGeneration !== startedGeneration) return;
     if (error) throw error;
-    state.user = data?.user || null; state.profile = null; state.ownProvider = null; state.ownPresence = null;
-    if (!state.user) { state.orders = []; state.quotes = []; return; }
+    transitionAccount(data?.user || null);
+    if (!state.user) return;
+    state.profile = null; state.ownProvider = null; state.ownPresence = null;
+    const activeGeneration = identityGeneration;
+    const activeUserId = state.user.id;
     const [profile, provider] = await Promise.all([
       db.from("app_profiles").select("user_id,display_name").eq("user_id", state.user.id).maybeSingle(),
       db.from("providers").select("id,display_name,status,is_active,owner_id,city").eq("owner_id", state.user.id).maybeSingle()
     ]);
+    if (identityGeneration !== activeGeneration || state.user?.id !== activeUserId) return;
     if (profile.error) throw profile.error;
     if (provider.error) throw provider.error;
     state.profile = profile.data; state.ownProvider = provider.data;
@@ -317,19 +356,28 @@
       const presence = await db.from("bj_provider_presence")
         .select("provider_id,online_requested,last_seen_at")
         .eq("provider_id",state.ownProvider.id).maybeSingle();
+      if (identityGeneration !== activeGeneration || state.user?.id !== activeUserId) return;
       if (presence.error) throw presence.error;
       state.ownPresence = presence.data || {provider_id:state.ownProvider.id,online_requested:false,last_seen_at:null};
     }
     if (!state.profile) {
       const proposed = String(state.user.user_metadata?.display_name || state.user.email?.split("@")[0] || "Motociclista").trim().slice(0, 100);
       const validName = proposed.length >= 2 ? proposed : "Motociclista";
-      const created = await db.from("app_profiles").insert({ user_id: state.user.id, display_name: validName });
+      const created = await db.from("app_profiles").insert({ user_id: activeUserId, display_name: validName });
+      if (identityGeneration !== activeGeneration || state.user?.id !== activeUserId) return;
       if (created.error) throw created.error;
       state.profile = { user_id: state.user.id, display_name: validName };
     }
+    // So consultar colunas F1 depois da homologacao e ativacao explicita.
+    // O banco antigo nao contem esses campos; o painel legado deve continuar funcionando.
+    const legacyColumns = "id,customer_id,category_id,provider_id,problem_description,status,created_at,updated_at";
+    const f1Columns = "motorcycle_brand,motorcycle_model,motorcycle_year,service_types,photo_path";
+    const selectColumns = config.f1TestRequestsEnabled === true
+      ? legacyColumns + "," + f1Columns : legacyColumns;
     const { data: orders, error: ordersError } = await db.from("service_requests")
-      .select("id,customer_id,category_id,provider_id,problem_description,status,created_at,updated_at")
+      .select(selectColumns)
       .order("created_at", { ascending: false }).limit(50);
+    if (identityGeneration !== activeGeneration || state.user?.id !== activeUserId) return;
     if (ordersError) throw ordersError;
     state.orders = orders || [];
     if (state.orders.length) {
@@ -337,6 +385,7 @@
       const res = await db.from("service_quotes")
         .select("id,request_id,provider_id,amount_cents,details,status,created_at")
         .in("request_id", ids).limit(100);
+      if (identityGeneration !== activeGeneration || state.user?.id !== activeUserId) return;
       if (res.error) throw res.error;
       state.quotes = res.data || [];
     } else state.quotes = [];
@@ -348,12 +397,17 @@
   }
   function locate() {
     if (!navigator.geolocation) { state.error = "Este dispositivo não oferece geolocalização."; render(); return; }
+    const startedGeneration = identityGeneration;
     navigator.geolocation.getCurrentPosition(
       position => {
+        if (identityGeneration !== startedGeneration) return;
         state.location = { lat: position.coords.latitude, lng: position.coords.longitude };
         state.message = "Localização autorizada nesta sessão."; state.error = ""; render();
       },
-      () => { state.error = "Não foi possível obter o GPS. Você pode escolher um profissional manualmente."; render(); },
+      () => {
+        if (identityGeneration !== startedGeneration) return;
+        state.error = "Não foi possível obter o GPS. Você pode escolher um profissional manualmente."; render();
+      },
       { enableHighAccuracy: false, maximumAge: 60000, timeout: 12000 }
     );
   }
@@ -362,7 +416,30 @@
     state.loading = true;
     try { await fn(new FormData(form)); state.error = ""; }
     catch (error) { state.error = errorText(error); }
-    finally { state.loading = false; render(); }
+    finally {
+      state.loading = false;
+      // Erros na F1 nao apagam a foto e todos os dados que a pessoa ja digitou.
+      if (form.id === "request-form" && !state.error && form.isConnected) {
+        // Pessoa desistiu na revisao: conservar campos preenchidos.
+        return;
+      }
+      if (form.id === "request-form" && state.error && form.isConnected) {
+        let notice = container.querySelector(".f1-form-error");
+        if (!notice) {
+          notice = document.createElement("div");
+          notice.className = "notice bad f1-form-error";
+          notice.setAttribute("role", "alert");
+          form.prepend(notice);
+        }
+        notice.textContent = state.error;
+      } else render();
+    }
+  }
+  async function preparePrivatePhoto(file) {
+    return F1.preparePrivatePhoto(file, {
+      createImageBitmap: typeof createImageBitmap === "function" ? createImageBitmap : null,
+      document, URL, Image: typeof Image === "function" ? Image : null
+    });
   }
   document.addEventListener("click", async event => {
     const target = event.target.closest("[data-page], [data-action]");
@@ -402,6 +479,19 @@
       finally { state.loading = false; render(); }
       return;
     }
+    if (action === "view-photo") {
+      const order = state.orders.find(o => o.id === id);
+      if (!order || !order.photo_path || !(owns(order) || providerOwns(order))) return;
+      const signed = await db.storage.from("request-photos").createSignedUrl(order.photo_path, 60);
+      if (signed.error || !signed.data?.signedUrl) {
+        state.error = "Foto privada indisponível: " + errorText(signed.error);
+      } else {
+        state.photoPreview[id] = signed.data.signedUrl;
+        state.error = "";
+      }
+      render();
+      return;
+    }
     if (action === "finish-request") {
       if (state.loading || !state.user) return;
       state.loading = true;
@@ -417,12 +507,12 @@
       return;
     }
     if (action === "detail") { state.selected = id; nav("detail"); return; }
-    if (action === "select-provider") { state.requestKey = null; state.selected = id; state.mode = "manual"; nav("request-form"); return; }
+    if (action === "select-provider") { state.requestKey = null; state.uploadedPhotoKey = null; state.uploadedPhotoSignature = null; state.selected = id; state.mode = "manual"; nav("request-form"); return; }
     if (action === "mode") { state.mode = target.dataset.mode; render(); return; }
     if (action === "automatic") {
       const list = available().filter(p => Number.isFinite(distance(p))).sort((a, b) => distance(a) - distance(b));
       if (!list.length) { state.error = "Não há prestadores delivery com coordenadas verificadas próximos para esta simulação."; render(); return; }
-      state.requestKey = null; state.selected = list[0].id; nav("request-form"); return;
+      state.requestKey = null; state.uploadedPhotoKey = null; state.uploadedPhotoSignature = null; state.selected = list[0].id; nav("request-form"); return;
     }
     if (action === "logout") {
       const { error } = await db.auth.signOut();
@@ -479,30 +569,88 @@
       await refreshIdentity(); nav("profile"); state.message = "Cadastro e serviços enviados. Aguarde homologação.";
     });
     if (form.id === "request-form") submitForm(form, async data => {
-      if (!state.user) throw new Error("Entre na conta para continuar.");
+      if (config.f1TestRequestsEnabled !== true)
+        throw new Error("F1 desativada até a homologação do ambiente de testes.");
+      if (!state.user || !F1) throw new Error("Faça login para criar o pedido.");
+      const requestGeneration = identityGeneration;
+      const requestUserId = state.user.id;
+      const ensureSession = () => {
+        if (identityGeneration !== requestGeneration || state.user?.id !== requestUserId)
+          throw new Error("A conta mudou durante a solicitação. Entre novamente e crie um novo pedido.");
+      };
       const provider = state.directory.find(p => p.id === state.selected);
       const category = deliveryCategory();
-      if (!provider || !category || !deliveryIds().has(provider.id) || !state.onlineIds.has(provider.id)) throw new Error("Prestador delivery não está online.");
-      const problem = String(data.get("problem") || "").trim();
-      const motorcycle = String(data.get("motorcycle") || "").trim();
-      const address = String(data.get("address") || "").trim();
-      if (!motorcycle || problem.length < 5 || address.length < 6) throw new Error("Preencha os dados do pedido.");
+      if (!provider || !category || !deliveryIds().has(provider.id) || !state.onlineIds.has(provider.id))
+        throw new Error("Prestador delivery não está online.");
+      const photo = data.get("photo");
+      const payload = F1.validateRequest({
+        brand: data.get("brand"), model: data.get("model"), year: data.get("year"),
+        services: data.getAll("services"), problem: data.get("problem"),
+        address: data.get("address"), photo
+      });
+      const confirmation = [
+        "PEDIDO DE TESTE — sem atendimento real",
+        "Moto: " + payload.brand + " " + payload.model + " (" + payload.year + ")",
+        "Serviços: " + payload.services.map(code => F1.SERVICE_TYPES[code]).join(", "),
+        "Problema: " + payload.problem,
+        "Endereço restrito: " + payload.address,
+        "Foto será enviada a armazenamento privado e acessível ao prestador designado para orçar.",
+        "Confirmar envio?"
+      ].join("\n");
+      if (!window.confirm(confirmation)) return;
+      ensureSession();
       if (!state.requestKey) {
-        if (!globalThis.crypto?.randomUUID) throw new Error("Use uma conexão segura (HTTPS ou localhost) para registrar o pedido.");
+        if (!globalThis.crypto?.randomUUID) throw new Error("Use HTTPS ou localhost para registrar o pedido.");
         state.requestKey = globalThis.crypto.randomUUID();
       }
+      const path = F1.makePhotoPath(requestUserId, state.requestKey);
+      const photoSignature = [photo.name, photo.size, photo.lastModified, photo.type].join("|");
+      if (state.uploadedPhotoKey === state.requestKey &&
+          state.uploadedPhotoSignature !== photoSignature) {
+        throw new Error("A foto foi alterada após o envio. Reabra a solicitação para iniciar um novo upload.");
+      }
+      if (state.uploadedPhotoKey !== state.requestKey) {
+        const jpeg = await preparePrivatePhoto(photo);
+        ensureSession();
+        const uploaded = await db.storage.from("request-photos").upload(path, jpeg, {
+          contentType: "image/jpeg", upsert: false, cacheControl: "3600"
+        });
+        ensureSession();
+        if (uploaded.error) {
+          const statusCode = Number(uploaded.error.statusCode || uploaded.error.status);
+          const duplicate = statusCode === 409 || /already exists|duplicate|já existe/i.test(errorText(uploaded.error));
+          if (!duplicate) throw new Error("Upload privado não concluído: " + errorText(uploaded.error));
+          // A resposta HTTP pode ter falhado depois da gravacao: confirma no servidor.
+          const recovered = await db.storage.from("request-photos").createSignedUrl(path, 30);
+          ensureSession();
+          if (recovered.error || !recovered.data?.signedUrl)
+            throw new Error("Não foi possível confirmar o upload. Reabra a solicitação.");
+        }
+        state.uploadedPhotoKey = state.requestKey;
+        state.uploadedPhotoSignature = photoSignature;
+      }
+      ensureSession();
       const inserted = await db.from("service_requests").insert({
-        request_key: state.requestKey,
-        customer_id: state.user.id, category_id: category.id,
-        provider_id: provider.id, problem_description: motorcycle + " — " + problem,
-        address_details: address, latitude: state.location?.lat ?? null, longitude: state.location?.lng ?? null,
-        status: "requested"
+        request_key: state.requestKey, customer_id: requestUserId,
+        category_id: category.id, provider_id: provider.id,
+        problem_description: payload.problem, address_details: payload.address,
+        latitude: state.location?.lat ?? null, longitude: state.location?.lng ?? null,
+        motorcycle_brand: payload.brand, motorcycle_model: payload.model, motorcycle_year: payload.year,
+        service_types: payload.services, photo_path: path, status: "requested"
       });
+      ensureSession();
       if (inserted.error && inserted.error.code !== "23505") throw inserted.error;
-      // No caso de resposta perdida após gravar, a mesma chave não cria um segundo pedido.
-      state.requestKey = null;
+      if (inserted.error) {
+        // request_key não tem privilégio SELECT para authenticated; foto privada
+        // é vinculada à chave única do pedido e já permite filtro sob RLS.
+        const already = await db.from("service_requests").select("id")
+          .eq("customer_id", requestUserId).eq("photo_path", path).maybeSingle();
+        ensureSession();
+        if (already.error || !already.data) throw new Error("Não foi possível confirmar o pedido repetido. Verifique Meus pedidos.");
+      }
+      state.requestKey = null; state.uploadedPhotoKey = null; state.uploadedPhotoSignature = null;
       await refreshIdentity(); nav("orders");
-      state.message = inserted.error ? "Pedido já registrado: confira Meus pedidos." : "Pedido de TESTE registrado, sem pagamento ou despacho real.";
+      state.message = "Pedido completo de TESTE registrado. Nenhum pagamento ou despacho foi realizado.";
     });
     if (form.classList.contains("quote-form")) submitForm(form, async data => {
       const orderId = form.dataset.id;
@@ -540,10 +688,10 @@
     if (document.visibilityState !== "hidden") sendPresenceHeartbeat();
   });
   db.auth.onAuthStateChange((_event, session) => {
-    if (!session && state.user) {
-      state.user = null; state.profile = null; state.ownProvider = null;
-      state.orders = []; state.quotes = [];
-      state.page = "home"; render();
+    // Apenas limpar memória dentro do callback de Auth; chamadas ao Supabase depois.
+    if (transitionAccount(session?.user || null)) {
+      render();
+      setTimeout(() => { void allRefresh(); }, 0);
     }
   });
   allRefresh();
