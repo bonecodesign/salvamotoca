@@ -20,6 +20,22 @@
     mode: "manual", location: null, map: null, loading: false, requestKey: null,
     message: "", error: "", uploadedPhotoKey: null, uploadedPhotoSignature: null, photoPreview: {}
   };
+  // Alteração de identidade invalida GPS, fotos assinadas, pedidos e uploads pendentes.
+  // O marcador de geração protege tarefas assíncronas iniciadas por outra conta.
+  let identityGeneration = 0;
+  function transitionAccount(nextUser) {
+    const currentId = state.user?.id || null;
+    const nextId = nextUser?.id || null;
+    if (currentId === nextId) return false;
+    identityGeneration++;
+    state.user = nextUser || null;
+    state.profile = null; state.ownProvider = null; state.ownPresence = null;
+    state.orders = []; state.quotes = []; state.photoPreview = {};
+    state.requestKey = null; state.uploadedPhotoKey = null; state.uploadedPhotoSignature = null;
+    state.location = null; state.selected = null; state.mode = "manual";
+    state.message = ""; state.error = ""; state.page = "home";
+    return true;
+  }
   const esc = value => String(value ?? "").replace(/[&<>"']/g, ch =>
     ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[ch]);
   const amount = cents => (Number(cents) / 100).toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
@@ -312,27 +328,27 @@
     state.directory = (providers.data || []).filter(row => activeIds.has(row.id));
   }
   async function refreshIdentity() {
+    const startedGeneration = identityGeneration;
     const sessionResult = await db.auth.getSession();
+    if (identityGeneration !== startedGeneration) return;
     if (sessionResult.error) throw sessionResult.error;
     if (!sessionResult.data?.session) {
-      state.user = null; state.profile = null; state.ownProvider = null; state.ownPresence = null;
-      state.orders = []; state.quotes = []; state.photoPreview = {};
-      state.requestKey = null; state.uploadedPhotoKey = null; state.uploadedPhotoSignature = null;
+      transitionAccount(null);
       return;
     }
     const { data, error } = await db.auth.getUser();
+    if (identityGeneration !== startedGeneration) return;
     if (error) throw error;
-    const previousUserId = state.user?.id || null;
-    state.user = data?.user || null; state.profile = null; state.ownProvider = null; state.ownPresence = null;
-    if (previousUserId !== (state.user?.id || null)) {
-      state.requestKey = null; state.uploadedPhotoKey = null;
-      state.uploadedPhotoSignature = null; state.photoPreview = {};
-    }
-    if (!state.user) { state.orders = []; state.quotes = []; state.photoPreview = {}; return; }
+    transitionAccount(data?.user || null);
+    if (!state.user) return;
+    state.profile = null; state.ownProvider = null; state.ownPresence = null;
+    const activeGeneration = identityGeneration;
+    const activeUserId = state.user.id;
     const [profile, provider] = await Promise.all([
       db.from("app_profiles").select("user_id,display_name").eq("user_id", state.user.id).maybeSingle(),
       db.from("providers").select("id,display_name,status,is_active,owner_id,city").eq("owner_id", state.user.id).maybeSingle()
     ]);
+    if (identityGeneration !== activeGeneration || state.user?.id !== activeUserId) return;
     if (profile.error) throw profile.error;
     if (provider.error) throw provider.error;
     state.profile = profile.data; state.ownProvider = provider.data;
@@ -340,13 +356,15 @@
       const presence = await db.from("bj_provider_presence")
         .select("provider_id,online_requested,last_seen_at")
         .eq("provider_id",state.ownProvider.id).maybeSingle();
+      if (identityGeneration !== activeGeneration || state.user?.id !== activeUserId) return;
       if (presence.error) throw presence.error;
       state.ownPresence = presence.data || {provider_id:state.ownProvider.id,online_requested:false,last_seen_at:null};
     }
     if (!state.profile) {
       const proposed = String(state.user.user_metadata?.display_name || state.user.email?.split("@")[0] || "Motociclista").trim().slice(0, 100);
       const validName = proposed.length >= 2 ? proposed : "Motociclista";
-      const created = await db.from("app_profiles").insert({ user_id: state.user.id, display_name: validName });
+      const created = await db.from("app_profiles").insert({ user_id: activeUserId, display_name: validName });
+      if (identityGeneration !== activeGeneration || state.user?.id !== activeUserId) return;
       if (created.error) throw created.error;
       state.profile = { user_id: state.user.id, display_name: validName };
     }
@@ -359,6 +377,7 @@
     const { data: orders, error: ordersError } = await db.from("service_requests")
       .select(selectColumns)
       .order("created_at", { ascending: false }).limit(50);
+    if (identityGeneration !== activeGeneration || state.user?.id !== activeUserId) return;
     if (ordersError) throw ordersError;
     state.orders = orders || [];
     if (state.orders.length) {
@@ -366,6 +385,7 @@
       const res = await db.from("service_quotes")
         .select("id,request_id,provider_id,amount_cents,details,status,created_at")
         .in("request_id", ids).limit(100);
+      if (identityGeneration !== activeGeneration || state.user?.id !== activeUserId) return;
       if (res.error) throw res.error;
       state.quotes = res.data || [];
     } else state.quotes = [];
@@ -377,12 +397,17 @@
   }
   function locate() {
     if (!navigator.geolocation) { state.error = "Este dispositivo não oferece geolocalização."; render(); return; }
+    const startedGeneration = identityGeneration;
     navigator.geolocation.getCurrentPosition(
       position => {
+        if (identityGeneration !== startedGeneration) return;
         state.location = { lat: position.coords.latitude, lng: position.coords.longitude };
         state.message = "Localização autorizada nesta sessão."; state.error = ""; render();
       },
-      () => { state.error = "Não foi possível obter o GPS. Você pode escolher um profissional manualmente."; render(); },
+      () => {
+        if (identityGeneration !== startedGeneration) return;
+        state.error = "Não foi possível obter o GPS. Você pode escolher um profissional manualmente."; render();
+      },
       { enableHighAccuracy: false, maximumAge: 60000, timeout: 12000 }
     );
   }
@@ -547,6 +572,12 @@
       if (config.f1TestRequestsEnabled !== true)
         throw new Error("F1 desativada até a homologação do ambiente de testes.");
       if (!state.user || !F1) throw new Error("Faça login para criar o pedido.");
+      const requestGeneration = identityGeneration;
+      const requestUserId = state.user.id;
+      const ensureSession = () => {
+        if (identityGeneration !== requestGeneration || state.user?.id !== requestUserId)
+          throw new Error("A conta mudou durante a solicitação. Entre novamente e crie um novo pedido.");
+      };
       const provider = state.directory.find(p => p.id === state.selected);
       const category = deliveryCategory();
       if (!provider || !category || !deliveryIds().has(provider.id) || !state.onlineIds.has(provider.id))
@@ -567,11 +598,12 @@
         "Confirmar envio?"
       ].join("\n");
       if (!window.confirm(confirmation)) return;
+      ensureSession();
       if (!state.requestKey) {
         if (!globalThis.crypto?.randomUUID) throw new Error("Use HTTPS ou localhost para registrar o pedido.");
         state.requestKey = globalThis.crypto.randomUUID();
       }
-      const path = F1.makePhotoPath(state.user.id, state.requestKey);
+      const path = F1.makePhotoPath(requestUserId, state.requestKey);
       const photoSignature = [photo.name, photo.size, photo.lastModified, photo.type].join("|");
       if (state.uploadedPhotoKey === state.requestKey &&
           state.uploadedPhotoSignature !== photoSignature) {
@@ -579,33 +611,39 @@
       }
       if (state.uploadedPhotoKey !== state.requestKey) {
         const jpeg = await preparePrivatePhoto(photo);
+        ensureSession();
         const uploaded = await db.storage.from("request-photos").upload(path, jpeg, {
           contentType: "image/jpeg", upsert: false, cacheControl: "3600"
         });
+        ensureSession();
         if (uploaded.error) {
           const statusCode = Number(uploaded.error.statusCode || uploaded.error.status);
           const duplicate = statusCode === 409 || /already exists|duplicate|já existe/i.test(errorText(uploaded.error));
           if (!duplicate) throw new Error("Upload privado não concluído: " + errorText(uploaded.error));
           // A resposta HTTP pode ter falhado depois da gravacao: confirma no servidor.
           const recovered = await db.storage.from("request-photos").createSignedUrl(path, 30);
+          ensureSession();
           if (recovered.error || !recovered.data?.signedUrl)
             throw new Error("Não foi possível confirmar o upload. Reabra a solicitação.");
         }
         state.uploadedPhotoKey = state.requestKey;
         state.uploadedPhotoSignature = photoSignature;
       }
+      ensureSession();
       const inserted = await db.from("service_requests").insert({
-        request_key: state.requestKey, customer_id: state.user.id,
+        request_key: state.requestKey, customer_id: requestUserId,
         category_id: category.id, provider_id: provider.id,
         problem_description: payload.problem, address_details: payload.address,
         latitude: state.location?.lat ?? null, longitude: state.location?.lng ?? null,
         motorcycle_brand: payload.brand, motorcycle_model: payload.model, motorcycle_year: payload.year,
         service_types: payload.services, photo_path: path, status: "requested"
       });
+      ensureSession();
       if (inserted.error && inserted.error.code !== "23505") throw inserted.error;
       if (inserted.error) {
         const already = await db.from("service_requests").select("id")
-          .eq("request_key", state.requestKey).eq("customer_id", state.user.id).maybeSingle();
+          .eq("request_key", state.requestKey).eq("customer_id", requestUserId).maybeSingle();
+        ensureSession();
         if (already.error || !already.data) throw new Error("Não foi possível confirmar o pedido repetido. Verifique Meus pedidos.");
       }
       state.requestKey = null; state.uploadedPhotoKey = null; state.uploadedPhotoSignature = null;
@@ -648,13 +686,10 @@
     if (document.visibilityState !== "hidden") sendPresenceHeartbeat();
   });
   db.auth.onAuthStateChange((_event, session) => {
-    if (!session && state.user) {
-      state.user = null; state.profile = null; state.ownProvider = null; state.ownPresence = null;
-      state.orders = []; state.quotes = []; state.photoPreview = {};
-      // Nunca reutilizar request_key, upload pendente ou foto de uma conta em outra.
-      state.requestKey = null; state.uploadedPhotoKey = null;
-      state.uploadedPhotoSignature = null;
-      state.page = "home"; render();
+    // Apenas limpar memória dentro do callback de Auth; chamadas ao Supabase depois.
+    if (transitionAccount(session?.user || null)) {
+      render();
+      setTimeout(() => { void allRefresh(); }, 0);
     }
   });
   allRefresh();
