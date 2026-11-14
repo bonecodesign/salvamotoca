@@ -232,7 +232,9 @@ select set_config('request.jwt.claim.sub','22222222-2222-4222-8222-222222222222'
 select public.f2_ack_offer((select id from public.f2_request_offers
   where request_id='55555555-5555-4555-8555-555555555555'));
 reset role;
-update public.f2_request_offers set delivered_at=now()-interval '6 minutes'
+update public.f2_request_offers
+set offered_at=now()-interval '7 minutes',
+    delivered_at=now()-interval '6 minutes'
 where request_id='55555555-5555-4555-8555-555555555555';
 set role authenticated;
 select set_config('request.jwt.claim.sub','11111111-1111-4111-8111-111111111111',false);
