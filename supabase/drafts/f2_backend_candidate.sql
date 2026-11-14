@@ -194,12 +194,8 @@ begin
   select coalesce(max(round_number),0)+1 into v_round
     from public.f2_request_offers where request_id=p_request_id;
   if v_round>20 then raise exception 'Limite de rodadas atingido.'; end if;
-  -- Na F1 há um prestador pré-atribuído. Ao entrar na fase de propostas
-  -- concorrentes, revogar essa atribuição ANTES de convidar participantes;
-  -- só destinatários autorizados poderão ver a foto. O vencedor é vinculado
-  -- novamente depois de um único aceite do cliente.
-  update public.service_requests
-  set provider_id=null,updated_at=now() where id=p_request_id;
+  -- Preservar prestador originalmente selecionado se não houver NENHUM
+  -- candidato. A liberação de foto só muda ao criar ofertas com sucesso.
   for v_ring in select unnest(array[1,3,10]::integer[]) loop
     for candidate in
       select p.id as provider_id,
@@ -246,9 +242,15 @@ begin
     end loop;
     exit when v_created>0;
   end loop;
+  if v_created>0 then
+    -- Revogar a atribuição F1 prévia no MESMO commit dos convites;
+    -- convidado A/B só acessará dados pela nova política F2.
+    update public.service_requests
+       set provider_id=null,updated_at=now() where id=p_request_id;
+  end if;
   return v_created;
 end;
-$$;
+$;
 
 -- Abrir o convite autenticado é um ACK de leitura, não prova de entrega push.
 -- Ausência só pode ser revisada após ACK + 5 minutos sem resposta.
@@ -267,6 +269,10 @@ begin
   if v_offer.status not in ('offered','delivered') then
     raise exception 'Oferta já encerrada.'; end if;
   if v_offer.delivered_at is not null then return v_offer.delivered_at; end if;
+  -- Convite não pode ser aberto depois de vencer, mesmo sem cron/worker.
+  if exists(select 1 from public.f2_request_offers
+    where id=p_offer_id and offered_at+interval '5 minutes'<=now())
+  then raise exception 'Convite expirado, solicite nova rodada.'; end if;
   update public.f2_request_offers set status='delivered',delivered_at=now()
   where id=p_offer_id returning delivered_at into v_time;
   return v_time;
@@ -452,6 +458,7 @@ begin
   if v_provider is null then raise exception 'Prestador não encontrado.'; end if;
   select count(*) into v_n from public.f2_request_offers o
     where o.provider_id=v_provider and o.status='expired'
+      and o.quote_id is null  -- Não penaliza orçamento enviado e não aceito.
       and o.delivered_at>=now()-interval '30 days';
   return query select v_n,v_n>=10,false;
 end;
