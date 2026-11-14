@@ -29,14 +29,19 @@ async function flush() {
   for (let i=0;i<8;i++) await new Promise(resolve => setImmediate(resolve));
 }
 
-function makeHarness({ confirm=true, uploadFails=false, insertFails=false, f1Enabled=true, switchDuringUpload=false, duplicateAfterLostResponse=false }={}) {
-  const sent={ uploads:[], requests:[], quotes:[], errors:[], signed:[], orderSelects:[], requestFilters:[], confirmCalls:0 };
+function makeHarness({ confirm=true, uploadFails=false, insertFails=false, f1Enabled=true,
+  switchDuringUpload=false, duplicateAfterLostResponse=false,
+  lostUploadResponse=false, conflictingUpload=false, delayedSignedUrl=false }={}) {
+  const sent={ uploads:[], requests:[], quotes:[], errors:[], signed:[], downloads:[],
+    orderSelects:[], requestFilters:[], confirmCalls:0 };
   let rejectUpload=uploadFails;
   let rejectInsert=insertFails;
   let storedDespiteLostResponse=false;
   let currentUserId=CLIENT;
   let authCallback=null;
   let pendingGps=null;
+  let pendingSignedResolve=null;
+  const storedPhotos=new Map();
   const docListeners={}, formListeners={};
   const container={
     innerHTML:"",
@@ -127,11 +132,28 @@ function makeHarness({ confirm=true, uploadFails=false, insertFails=false, f1Ena
               rejectUpload=false;
               return {error:{statusCode:500,message:"Falha simulada de upload"}};
             }
+            if(conflictingUpload && !storedPhotos.has(name)) {
+              const fakeBytes=Uint8Array.from([0xff,0xd8,0,0xd9]);
+              storedPhotos.set(name,{size:fakeBytes.length, arrayBuffer:async()=>fakeBytes.buffer});
+            }
+            if(storedPhotos.has(name))
+              return {error:{statusCode:409,message:"The resource already exists"}};
+            storedPhotos.set(name,body);
+            if(lostUploadResponse){
+              lostUploadResponse=false;
+              return {error:{statusCode:500,message:"Upload gravado, resposta perdida"}};
+            }
             return {error:null,data:{path:name}};
           },
-          async createSignedUrl(name,seconds){
+          async download(name){
+            sent.downloads.push(name);
+            const data=storedPhotos.get(name);
+            return data?{data,error:null}:{data:null,error:{statusCode:404,message:"Not found"}};
+          },
+          createSignedUrl(name,seconds){
             sent.signed.push({name,seconds});
-            return {data:{signedUrl:"https://storage.invalid/teste?token=nao-real"},error:null};
+            if(delayedSignedUrl) return new Promise(resolve=>{ pendingSignedResolve=resolve; });
+            return Promise.resolve({data:{signedUrl:"https://storage.invalid/teste?token=nao-real"},error:null});
           }
         };
       }
@@ -147,7 +169,10 @@ function makeHarness({ confirm=true, uploadFails=false, insertFails=false, f1Ena
       if(name==="canvas") return {
         width:0,height:0,
         getContext(){return {fillStyle:"",fillRect(){},drawImage(){}};},
-        toBlob(callback){callback({type:"image/jpeg",size:30000});}
+        toBlob(callback){
+          const bytes=Uint8Array.from([0xff,0xd8,0xff,0xd9]);
+          callback({type:"image/jpeg",size:bytes.byteLength,arrayBuffer:async()=>bytes.buffer.slice(0)});
+        }
       };
       return {className:"",setAttribute(){},textContent:""};
     }
@@ -191,6 +216,15 @@ function makeHarness({ confirm=true, uploadFails=false, insertFails=false, f1Ena
     async requestGps(){
       const target={dataset:{action:"gps"}};
       await docListeners.click({target:{closest:()=>target}});
+    },
+    openPhoto(id="dddddddd-dddd-4ddd-8ddd-dddddddddddd"){
+      const target={dataset:{action:"view-photo",id}};
+      return docListeners.click({target:{closest:()=>target}});
+    },
+    resolveSignedPhoto(){
+      assert.equal(typeof pendingSignedResolve,"function");
+      const resolve=pendingSignedResolve; pendingSignedResolve=null;
+      resolve({data:{signedUrl:"https://storage.invalid/teste?token=NAO-REAL-PRIVADO"},error:null});
     },
     async resolveGps(lat=-19.92,lng=-43.94){
       assert.equal(typeof pendingGps,"function","GPS não foi solicitado");
