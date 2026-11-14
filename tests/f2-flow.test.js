@@ -107,8 +107,8 @@ test("F2: distância funciona e rejeita GPS indefinido ou inválido",()=>{
 });
 test("F2: oferta só vira ausência após 5min E notificação entregue",()=>{
   const offeredAt=NOW;
-  assert.equal(F2.notificationDecision({offeredAt,now:NOW+300000}).status,"delivery_unverified");
-  const out=F2.notificationDecision({offeredAt,deliveredAt:NOW+1000,now:NOW+300000});
+  assert.equal(F2.notificationDecision({offeredAt,now:NOW+301000}).status,"delivery_unverified");
+  const out=F2.notificationDecision({offeredAt,deliveredAt:NOW+1000,now:NOW+301000});
   assert.equal(out.status,"timeout");assert.equal(out.canCountAbsence,true);
 });
 test("F2: antes da entrega confirmada não contam ausência ou timeout",()=>{
@@ -123,8 +123,8 @@ test("F2: resposta pontual é aceita e resposta tardia é diferenciada",()=>{
 test("F2: lembretes após 2 min e 4min30s, sem SMS ou WhatsApp",()=>{
   const args={offeredAt:NOW,deliveredAt:NOW+1};
   assert.equal(F2.notificationDecision({...args,now:NOW+110000}).remindersDue.length,0);
-  assert.equal(F2.notificationDecision({...args,now:NOW+120000}).remindersDue.length,1);
-  assert.equal(F2.notificationDecision({...args,now:NOW+270000}).remindersDue.length,2);
+  assert.equal(F2.notificationDecision({...args,now:NOW+120001}).remindersDue.length,1);
+  assert.equal(F2.notificationDecision({...args,now:NOW+270001}).remindersDue.length,2);
 });
 test("F2: 10 ausências em 30 dias requer revisão HUMANA, nunca suspensão automática",()=>{
   const events=Array.from({length:10},(_,i)=>({at:NOW-1000*i,kind:"no_response",deliveryVerified:true}));
@@ -193,4 +193,13 @@ test("F2: terceiro e prestador não podem aceitar proposta no domínio",()=>{
 test("F2: valor não é alterado depois do aceite; exige novo orçamento",()=>{
   assert.throws(()=>F2.quoteDecision({quote:{status:"accepted",createdAt:NOW},now:NOW+100,
     actingUserId:"cliente",customerId:"cliente",accept:true}),/indisponível/);
+});
+
+
+test("F2: oferta entregue aos 4min ainda concede 5min completos após entrega",()=>{
+  const out=F2.notificationDecision({offeredAt:NOW,deliveredAt:NOW+240000,now:NOW+300000});
+  assert.equal(out.status,"waiting");
+  assert.equal(out.canCountAbsence,false);
+  const expired=F2.notificationDecision({offeredAt:NOW,deliveredAt:NOW+240000,now:NOW+540000});
+  assert.equal(expired.status,"timeout");
 });
