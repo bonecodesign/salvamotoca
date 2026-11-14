@@ -633,6 +633,12 @@
         if (!state.f2Offers.some(o => o.id === id && o.provider_id === state.ownProvider?.id && o.status === "offered")) return;
         rpc = "f2_ack_offer"; args = { p_offer_id: id };
         success = "Convite aberto. Seu prazo para enviar orçamento começa agora.";
+      } else if (action === "f2-decline") {
+        if (!state.f2Offers.some(o => o.id === id && o.provider_id === state.ownProvider?.id &&
+          ["offered", "delivered"].includes(o.status))) return;
+        if (!window.confirm("Recusar este convite de teste? A recusa voluntária não conta como ausência.")) return;
+        rpc = "f2_decline_offer"; args = { p_offer_id: id };
+        success = "Convite recusado. Esta resposta não será contabilizada como ausência.";
       } else {
         if (!state.quotes.some(q => q.id === id && q.status === "proposed" &&
           state.orders.some(o => o.id === q.request_id && owns(o)))) return;
