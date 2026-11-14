@@ -1,0 +1,66 @@
+name: F2 - simulador e regras (sem atendimentos)
+on:
+  pull_request:
+    paths:
+      - 'f2-flow.js'
+      - 'docs/F2_PREVIEW.html'
+      - 'docs/F2_DEPENDENCIAS_E_PLANO.md'
+      - 'tests/f2-flow.test.js'
+      - 'tests/f2-browser.test.js'
+      - '.github/workflows/f2-tests.yml'
+  push:
+    branches:
+      - 'feat/f2-prestadores-distribuicao-orcamentos-segura'
+    paths:
+      - 'f2-flow.js'
+      - 'docs/F2_PREVIEW.html'
+      - 'tests/f2-flow.test.js'
+      - 'tests/f2-browser.test.js'
+      - '.github/workflows/f2-tests.yml'
+permissions:
+  contents: read
+jobs:
+  regras-f2:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Verificar F2 e módulo puro
+        run: |
+          node --check f2-flow.js
+          node --test tests/f2-flow.test.js
+      - name: Confirmar que a F1 continua desligada
+        run: |
+          node --test tests/f1-release-guard.test.js
+          grep -q 'f1TestRequestsEnabled: false' config.js
+      - name: Garantir que F2 não conecta APIs ou grava dados
+        run: |
+          if grep -E 'fetch\(|createClient\(|\.rpc\(|\.upload\(|service_role|sb_secret_' f2-flow.js docs/F2_PREVIEW.html; then
+            echo 'A F2 demonstrativa não pode conter SDK, rede ou credenciais'
+            exit 1
+          fi
+  chrome-f2:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Localizar navegador real
+        run: |
+          if command -v google-chrome >/dev/null; then
+            echo "CHROME_BIN=$(command -v google-chrome)" >> "$GITHUB_ENV"
+          elif command -v chromium >/dev/null; then
+            echo "CHROME_BIN=$(command -v chromium)" >> "$GITHUB_ENV"
+          else
+            echo "Chrome/Chromium indisponível" >&2
+            exit 1
+          fi
+      - name: Instalar somente Playwright Core pinado
+        run: npm install --no-save --no-package-lock --ignore-scripts --no-audit --no-fund playwright-core@1.56.1
+      - name: Ensaiar prévia F2 offline em desktop e celular
+        run: node --test tests/f2-browser.test.js
