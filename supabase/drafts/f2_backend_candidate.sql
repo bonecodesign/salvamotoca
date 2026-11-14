@@ -135,6 +135,8 @@ create or replace function public.f2_set_capacity(
 declare v_provider uuid; v_user uuid:=auth.uid();
 begin
   if v_user is null then raise exception 'Autenticação obrigatória.'; end if;
+  if not exists(select 1 from private.f2_release_gate where enabled)
+    then raise exception 'F2 desativada no servidor.'; end if;
   if p_services is null or cardinality(p_services) not between 1 and 5
      or array_position(p_services,null) is not null
      or not p_services <@ array['pneu_furado','troca_camara','troca_pneu',
@@ -172,6 +174,8 @@ begin
   if not found or v_req.customer_id<>v_user or v_req.status<>'requested'
     or v_req.service_types is null or cardinality(v_req.service_types)<1
     or 'reboque_moto'=any(v_req.service_types)
+    or (select count(distinct s) from unnest(v_req.service_types) as s)
+       <>cardinality(v_req.service_types)
     or v_req.latitude is null or v_req.longitude is null
   then raise exception 'Pedido não elegível à F2.'; end if;
   if not exists(select 1 from public.service_categories c
@@ -248,7 +252,8 @@ begin
     then raise exception 'F2 desativada.'; end if;
   select o.id,o.status,o.delivered_at into v_offer
   from public.f2_request_offers o join public.providers p on p.id=o.provider_id
-  where o.id=p_offer_id and p.owner_id=v_user for update of o;
+  where o.id=p_offer_id and p.owner_id=v_user
+    and p.status='approved' and p.is_active for update of o;
   if not found then raise exception 'Oferta indisponível.'; end if;
   if v_offer.status not in ('offered','delivered') then
     raise exception 'Oferta já encerrada.'; end if;
@@ -281,14 +286,22 @@ begin
   select o.id,o.request_id,o.provider_id,o.status,o.delivered_at
     into v_offer from public.f2_request_offers o
     join public.providers p on p.id=o.provider_id and p.owner_id=v_user
+      and p.status='approved' and p.is_active
     where o.id=p_offer_id for update of o;
   if not found or v_offer.status<>'delivered'
     or v_offer.delivered_at is null
     or now()>=v_offer.delivered_at+interval '5 minutes'
   then raise exception 'Oferta sem autorização ou prazo encerrado.'; end if;
-  select id,service_types,status into v_req from public.service_requests
+  select id,category_id,service_types,status into v_req from public.service_requests
     where id=v_offer.request_id for update;
   if v_req.status<>'requested' then raise exception 'Pedido não recebe novos orçamentos.'; end if;
+  if not exists(select 1 from public.providers p
+    join public.provider_services ps on ps.provider_id=p.id
+      and ps.category_id=v_req.category_id and ps.is_active
+    join public.f2_provider_capacity cap on cap.provider_id=p.id
+      and cap.service_types @> v_req.service_types
+    where p.id=v_offer.provider_id and p.status='approved' and p.is_active)
+  then raise exception 'Prestador ou serviços não estão mais homologados.'; end if;
 
   for v_line in select value from jsonb_array_elements(p_items) loop
     v_index:=v_index+1;
@@ -361,6 +374,10 @@ begin
   if not found or v_quote.status<>'proposed' then raise exception 'Proposta indisponível.'; end if;
   if now()>=v_quote.created_at+interval '5 minutes'
     then raise exception 'Proposta expirada.'; end if;
+  if p_accept and not exists(
+    select 1 from public.providers p where p.id=v_quote.provider_id
+    and p.status='approved' and p.is_active
+  ) then raise exception 'Prestador vencedor perdeu homologação.'; end if;
   if not p_accept then
     update public.service_quotes set status='declined' where id=p_quote_id;
     update public.f2_request_offers set status='declined',replied_at=now()
