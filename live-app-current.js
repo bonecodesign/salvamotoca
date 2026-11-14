@@ -468,6 +468,35 @@
       if (res.error) throw res.error;
       state.quotes = res.data || [];
     } else state.quotes = [];
+    // Consultas F2 só existem no cliente após duas autorizações de liberação,
+    // e apenas quando suas tabelas/RPCs foram previamente homologadas.
+    state.f2Offers = []; state.f2QuoteItems = []; state.f2Capacity = null;
+    if (f2Active()) {
+      const [offers, capacity] = await Promise.all([
+        db.from("f2_request_offers")
+          .select("id,request_id,provider_id,round_number,status,offered_at,delivered_at,quote_id")
+          .order("offered_at", { ascending: false }).limit(100),
+        state.ownProvider
+          ? db.from("f2_provider_capacity")
+              .select("provider_id,service_types,coverage_km")
+              .eq("provider_id", state.ownProvider.id).maybeSingle()
+          : Promise.resolve({ data: null, error: null })
+      ]);
+      if (identityGeneration !== activeGeneration || state.user?.id !== activeUserId) return;
+      if (offers.error) throw offers.error;
+      if (capacity.error) throw capacity.error;
+      state.f2Offers = offers.data || [];
+      state.f2Capacity = capacity.data;
+      const f2QuoteIds = state.f2Offers.map(o => o.quote_id).filter(Boolean);
+      if (f2QuoteIds.length) {
+        const items = await db.from("f2_quote_items")
+          .select("quote_id,line_no,kind,code,amount_cents")
+          .in("quote_id", f2QuoteIds).order("line_no", { ascending: true }).limit(250);
+        if (identityGeneration !== activeGeneration || state.user?.id !== activeUserId) return;
+        if (items.error) throw items.error;
+        state.f2QuoteItems = items.data || [];
+      }
+    }
   }
   async function allRefresh() {
     try { await refreshDirectory(); await refreshIdentity(); state.error = ""; }
