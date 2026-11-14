@@ -37,7 +37,7 @@ Conferido contra a `main` e a definição do banco atual:
 - `config.js`: F1 e F2 continuam **false**, inclusive quando o SQL candidato estiver presente.
 - `live-app-current.js` + `index.html` + `sw.js`: UI F2 condicionada às duas flags, com cadastro de capacidades, convites, avisos in-app opt-in, orçamentos itemizados e seleção de uma proposta. Não faz consultas F2 com flags desligadas.
 - `supabase/drafts/f2_backend_candidate.sql`: **candidato não aplicado**, com gate privado desativado, capacidades, ofertas, itens, RPCs de convite/ACK/**recusa voluntária**/orçamento/decisão, vencimentos, política de foto para convidados, bloqueio da RPC legada em propostas F2 e revogação do prestador pré-atribuído F1. O acesso convidado às fotos é condicionado à homologação ativa e ao prazo medido no servidor, mesmo sem executar rotinas de expiração.
-- `tests/f2-stage-setup.sql` e `tests/f2-stage-rls.sql`: exercícios reais em PostgreSQL 17 descartável, incluindo anon/terceiro, foto privada, vencimento, aceite único e suspensão.
+- `tests/f2-stage-setup.sql` e `tests/f2-stage-rls.sql`: exercícios reais em PostgreSQL 17 descartável, incluindo anon/terceiro, foto privada, vencimento sem cron, revogação por suspensão, recusa voluntária, redistribuição, aceite único e suspensão.
 - `tests/f2-release-guard.test.js` e `tests/f2-integrated-browser.test.js`: guards contra ativação antecipada e ensaios na tela real com Supabase mockado, sem rede.
 - `.github/workflows/f2-tests.yml`: CI automático Node, Chrome e banco isolado. Veja também `docs/F2_WORK_EXECUCAO.md` para continuação segura.
 
