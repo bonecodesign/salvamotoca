@@ -203,3 +203,45 @@ test("F2: oferta entregue aos 4min ainda concede 5min completos após entrega",(
   const expired=F2.notificationDecision({offeredAt:NOW,deliveredAt:NOW+240000,now:NOW+540000});
   assert.equal(expired.status,"timeout");
 });
+
+
+function sampleOffers(){
+  return [
+    {id:"quote-a",requestId:"request-x",providerId:"a",status:"proposed",createdAt:NOW,totalCents:17500},
+    {id:"quote-b",requestId:"request-x",providerId:"b",status:"proposed",createdAt:NOW,totalCents:16500}
+  ];
+}
+test("F2: cliente pode escolher UM orçamento entre várias propostas",()=>{
+  const input=sampleOffers();
+  const out=F2.selectWinningQuote({quotes:input,quoteId:"quote-b",customerId:"cliente",
+    actingUserId:"cliente",now:NOW+1000});
+  assert.equal(out.providerId,"b");
+  assert.equal(out.totalCents,16500);
+  assert.equal(out.quotes.find(x=>x.id==="quote-b").status,"accepted");
+  assert.equal(out.quotes.find(x=>x.id==="quote-a").status,"not_selected");
+  assert.equal(out.paymentAllowed,false); assert.equal(out.dispatchAllowed,false);
+  assert.equal(input[0].status,"proposed","Não alterar dados de origem");
+});
+test("F2: não permitir escolher proposta de outro pedido",()=>{
+  const quotes=sampleOffers();quotes[1].requestId="outro";
+  assert.throws(()=>F2.selectWinningQuote({quotes,quoteId:"quote-b",customerId:"cliente",
+    actingUserId:"cliente",now:NOW+1000}),/solicitações diferentes/);
+});
+test("F2: somente cliente titular pode escolher entre várias propostas",()=>{
+  assert.throws(()=>F2.selectWinningQuote({quotes:sampleOffers(),quoteId:"quote-a",
+    customerId:"cliente",actingUserId:"outro",now:NOW+1000}),/titular/);
+});
+test("F2: bloqueia segundo aceite, proposta vencida e ID inexistente",()=>{
+  const accepted=sampleOffers();accepted[0].status="accepted";
+  assert.throws(()=>F2.selectWinningQuote({quotes:accepted,quoteId:"quote-b",
+    customerId:"cliente",actingUserId:"cliente",now:NOW+1000}),/Já existe/);
+  assert.throws(()=>F2.selectWinningQuote({quotes:sampleOffers(),quoteId:"quote-a",
+    customerId:"cliente",actingUserId:"cliente",now:NOW+300000}),/expirou/);
+  assert.throws(()=>F2.selectWinningQuote({quotes:sampleOffers(),quoteId:"inexistente",
+    customerId:"cliente",actingUserId:"cliente",now:NOW+1000}),/indisponível/);
+});
+test("F2: recusa proposta duplicada antes de escolher vencedor",()=>{
+  const offers=sampleOffers();offers[1].id=offers[0].id;
+  assert.throws(()=>F2.selectWinningQuote({quotes:offers,quoteId:"quote-a",
+    customerId:"cliente",actingUserId:"cliente",now:NOW+1000}),/duplicada/);
+});
