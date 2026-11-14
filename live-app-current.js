@@ -641,8 +641,10 @@
       ensureSession();
       if (inserted.error && inserted.error.code !== "23505") throw inserted.error;
       if (inserted.error) {
+        // request_key não tem privilégio SELECT para authenticated; foto privada
+        // é vinculada à chave única do pedido e já permite filtro sob RLS.
         const already = await db.from("service_requests").select("id")
-          .eq("request_key", state.requestKey).eq("customer_id", requestUserId).maybeSingle();
+          .eq("customer_id", requestUserId).eq("photo_path", path).maybeSingle();
         ensureSession();
         if (already.error || !already.data) throw new Error("Não foi possível confirmar o pedido repetido. Verifique Meus pedidos.");
       }
