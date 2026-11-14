@@ -1,6 +1,6 @@
 # F2 — Prestadores, distribuição e orçamentos | arquitetura segura
 
-**Status:** preparação e simulação offline em branch isolada; **não implantado no Supabase**, não liberado para usuários.
+**Status:** regras, interface real protegida e backend SQL candidato desenvolvidos em branch; testes Node/Chrome/PostgreSQL17 isolado. **Não implantado no Supabase**, não liberado para usuários.
 **Projeto único:** Supabase Salva Motoca ref `yivkqyjdeouxnwtwfekc`.
 **Fonte de decisões:** `docs/PRODUTO_OFICIAL.md`, `docs/fundacao/08_REGISTRO_DE_DECISOES.md`, `docs/fundacao/03_PRD_PRODUTO.md` e `docs/F1_WORK_EXECUCAO.md`.
 
@@ -22,7 +22,7 @@ Conferido contra a `main` e a definição do banco atual:
 
 **Importante:** o esquema atual é **sequencial** e as RPCs privilegiadas têm checagens de titularidade/estado. NÃO liberar seleção múltipla ou proposta em paralelo por manipulação de `provider_id` no frontend. Nenhuma nova tabela, política, função ou migration F2 foi aplicada ao projeto hospedado.
 
-## 2. O que foi entregue neste PR (100% offline)
+## 2. O que foi entregue neste PR (desenvolvimento e testes somente locais)
 
 - `f2-flow.js` — módulo UMD com funções determinísticas, sem dependências, SDK, `fetch`, autenticação ou efeitos colaterais:
   - elegibilidade: homologação, serviço ativo, online voluntário, heartbeat até 90s, município/UF, cobertura declarada, **todos** os tipos solicitados;
@@ -34,12 +34,18 @@ Conferido contra a `main` e a definição do banco atual:
   - aceite/recusa pelo cliente titular, validade de orçamento 5min, **escolha única entre várias propostas**, transição simulada para `awaiting_payment`, pagamento/chat/despacho sempre bloqueados.
 - `docs/F2_PREVIEW.html`: visualização interativa responsiva que usa o mesmo módulo. Demonstra comparação entre prestadores, duas propostas fictícias e seleção de um único vencedor. **Somente dados sintéticos**; nenhum login, GPS, chamada ao Supabase ou envio externo. Raios de exemplo 1/3/10 km são **parâmetros ilustrativos**, não política geográfica do app.
 - `tests/f2-flow.test.js` e `tests/f2-browser.test.js`: regressões Node e Chrome com bloqueio de tráfego externo.
+- `config.js`: F1 e F2 continuam **false**, inclusive quando o SQL candidato estiver presente.
+- `live-app-current.js` + `index.html` + `sw.js`: UI F2 condicionada às duas flags, com cadastro de capacidades, convites, avisos in-app opt-in, orçamentos itemizados e seleção de uma proposta. Não faz consultas F2 com flags desligadas.
+- `supabase/drafts/f2_backend_candidate.sql`: **candidato não aplicado**, com gate privado desativado, capacidades, ofertas, itens, RPCs de convite/ack/orçamento/decisão, vencimentos, política de foto para convidados, bloqueio da RPC legada em propostas F2 e revogação do prestador pré-atribuído F1.
+- `tests/f2-stage-setup.sql` e `tests/f2-stage-rls.sql`: exercícios reais em PostgreSQL 17 descartável, incluindo anon/terceiro, foto privada, vencimento, aceite único e suspensão.
+- `tests/f2-release-guard.test.js` e `tests/f2-integrated-browser.test.js`: guards contra ativação antecipada e ensaios na tela real com Supabase mockado, sem rede.
+- `.github/workflows/f2-tests.yml`: CI automático Node, Chrome e banco isolado. Veja também `docs/F2_WORK_EXECUCAO.md` para continuação segura.
 
-Essas funções representam o **modelo esperado**, não constituem autorização real de servidor. O orçamento demonstrativo não entra na tabela `service_quotes`.
+O simulador continua 100% local e não é autorizador. O **backend candidato agora implementa autorizações SQL transacionais em PostgreSQL descartável**, mas não existe no Supabase hospedado; nenhuma proposta real foi gravada. Testes automatizados não substituem Auth/Storage HTTP real e aparelho físico.
 
-## 3. Dependências para implementar backend F2 após F1/backup
+## 3. Dependências para finalizar implantação e homologação F2 após F1/backup
 
-Planejar as mudanças em migrations versionadas, com SQL e segurança avaliados em Postgres **descartável** antes de qualquer aplicação remota:
+Uma primeira versão do SQL abaixo já está construída em `supabase/drafts/f2_backend_candidate.sql` e foi ensaiada em PostgreSQL 17 **descartável**. Ainda é preciso reconciliar com o esquema real, converter em migration aprovada, melhorar a operação e homologar antes de qualquer uso remoto:
 
 1. **Catálogo e área do prestador:** mapear códigos granulares para capacidades/área declarada. O `provider_services` atual registra só categorias `map_borracharia` e `borracharia_delivery`; não comprova que um prestador atende todos os tipos marcados na F1. A área deve ser confirmada pelo prestador e nunca autoconcedida pela interface.
 2. **Múltiplas ofertas de uma solicitação:** nova relação de convite `request_offers` (identificador, pedido, prestador, rodada, entrega, resposta, vencimento, estado, idempotência). `service_requests.provider_id` e RPCs antigos precisam de compatibilidade/migração cuidadosa. Autorização exclusiva do titular, destinatário e administrador; nenhuma oferta a prestador pendente/offline/fora da área.
@@ -48,7 +54,7 @@ Planejar as mudanças em migrations versionadas, com SQL e segurança avaliados 
 5. **Eventos e ausência:** registro append-only de oferta, entrega real quando mensurável, abertura, resposta e expiração. Sem prova de entrega não contar ausência. Dez ausências registradas em 30 dias criam um caso para revisão humana; **não bloquear automaticamente**.
 6. **Notificações PWA:** pedir consentimento, tratar offline/conexão instável, som/vibração conforme plataforma, lembretes em 2min e 4min30s. Registrar resultados verificáveis. Proibir SMS/WhatsApp e qualquer notificação externa antes da homologação.
 7. **Administração:** aprovação/suspensão com autorização independente, dados mínimos e logs; quotas de uploads e limpeza segura de fotos órfãs; área de suporte para recontatos.
-8. **Compatibilidade F1/F4:** manter `f1TestRequestsEnabled=false` até completar homologação real; F2 sem feature flag de produção nesta etapa; sem cobrança, chat nem despacho. Nunca simular `paid`/captura no banco.
+8. **Compatibilidade F1/F4:** manter `f1TestRequestsEnabled=false` até completar homologação real; F2 com `f2TestOffersEnabled=false` e gate SQL `enabled=false`; sem cobrança, chat nem despacho. Nunca simular `paid`/captura no banco.
 
 ### Modelo transacional desejado (especificação, NÃO SQL implantável)
 
@@ -65,6 +71,6 @@ Planejar as mudanças em migrations versionadas, com SQL e segurança avaliados 
 
 **Não autorizado nesta etapa:** aplicar migrations, alterar RLS/remoto, criar prestadores ou contas, simular envio no Supabase, disparar push, contratar serviços, ativar a F1, liberar atendimento ou pagamento.
 
-**Passos para continuidade:** backup recuperável e testes Auth/Storage da F1 via Work; aprovar o desenho da F2/multi-propostas e parâmetros de área; implementar backend em nova branch com testes isolados; homologar RLS/HTTP com perfis A, B e C; validar notificações em aparelhos reais; revisão humana; ativação deliberada por gate separado.
+**Passos para continuidade:** backup recuperável e testes Auth/Storage da F1 via Work; aprovar parâmetros de área; reconciliar o SQL candidato F2 com o banco real e gerar migration em PR separado; homologar concorrência/RLS/HTTP com perfis A, B, C e terceiro; validar notificações em aparelhos reais e o fluxo de revisão administrativa; revisão humana; ativação deliberada por gate separado.
 
-**Decisão de engenharia:** este PR pode ser integrado apenas como **pré-implementação segura** de F2 e documentação. Não significa que F2 funciona ponta a ponta no Supabase ou esteja pronta para liberação.
+**Decisão de engenharia:** este PR reúne **implementação candidata de F2 com testes locais**; pode ser revisado, mas não significa que F2 funciona ponta a ponta no Supabase ou esteja pronta para liberação. O backend SQL draft não deve ser aplicado diretamente ao remoto.
