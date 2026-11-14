@@ -334,6 +334,46 @@ begin
  then raise exception 'Escolha manual não respeitada na primeira rodada'; end if;
 end $manual$;
 
+-- Sem prestador manual elegível: não perder a escolha da F1.
+reset role;
+insert into public.service_requests(id,customer_id,provider_id,category_id,
+  service_types,f2_mode,latitude,longitude)
+values('aaaaaaaa-2222-4222-8222-aaaaaaaaaaaa',
+ '11111111-1111-4111-8111-111111111111',
+ 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',
+ 2,array['outro'],'manual',-19.924,-43.938);
+set role authenticated;
+select set_config('request.jwt.claim.sub','11111111-1111-4111-8111-111111111111',false);
+do $no_candidate$
+begin
+ if public.f2_offer_candidates('aaaaaaaa-2222-4222-8222-aaaaaaaaaaaa',3)<>0
+ then raise exception 'Prestador incompatível recebeu convite manual'; end if;
+ if (select provider_id from public.service_requests
+    where id='aaaaaaaa-2222-4222-8222-aaaaaaaaaaaa')
+    is distinct from 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa'::uuid
+ then raise exception 'Pedido manual perdeu prestador mesmo sem convites'; end if;
+end $no_candidate$;
+
+-- Convite que ficou sem ACK por mais de 5min não pode começar tardiamente.
+reset role;
+insert into public.f2_request_offers(request_id,provider_id,round_number,
+ status,offered_at)
+values('55555555-5555-4555-8555-555555555555',
+ 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb',1,'offered',
+ now()-interval '6 minutes');
+set role authenticated;
+select set_config('request.jwt.claim.sub','33333333-3333-4333-8333-333333333333',false);
+do $late_ack$
+begin
+  begin
+    perform public.f2_ack_offer((select id from public.f2_request_offers
+      where request_id='55555555-5555-4555-8555-555555555555'
+        and provider_id='bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb'));
+    raise exception using message='FAIL: ACK aceito após vencimento',errcode='ZX010';
+  exception when others then if sqlstate='ZX010' then raise; end if;
+  end;
+end $late_ack$;
+
 -- 10 ausências confirmadas em 30 dias geram SOMENTE revisão humana.
 reset role;
 do $fixtures$
@@ -360,6 +400,18 @@ begin
          'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',13,
          'expired',now()-interval '32 days',
          now()-interval '32 days'+interval '1 second',now());
+  -- Orçamento REALMENTE enviado e apenas expirado após 5 minutos não é ausência.
+  insert into public.service_quotes(id,request_id,provider_id,amount_cents,status)
+  values('99999999-9999-4999-8999-333333333333',
+   '55555555-5555-4555-8555-555555555555',
+   'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',10000,'expired');
+  insert into public.f2_request_offers(request_id,provider_id,round_number,status,
+    offered_at,delivered_at,replied_at,quote_id)
+  values('55555555-5555-4555-8555-555555555555',
+         'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',14,
+         'expired',now()-interval '1 day',
+         now()-interval '1 day'+interval '1 second',now(),
+         '99999999-9999-4999-8999-333333333333');
 end $fixtures$;
 set role authenticated;
 select set_config('request.jwt.claim.sub','22222222-2222-4222-8222-222222222222',false);
