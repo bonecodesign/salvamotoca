@@ -264,6 +264,9 @@
         content += '<button class="btn outline" data-action="f2-distribute" data-id="' +
           esc(order.id) + '">Buscar prestadores compatíveis para teste</button>';
       }
+      if (order.status === "requested" && pending)
+        content += '<button class="btn outline sm" data-action="f2-expire" data-id="' +
+          esc(order.id) + '">Verificar vencimentos no servidor</button>';
       content += quotes.filter(q => offers.some(offer => offer.quote_id === q.id)).map(q => {
         const items = state.f2QuoteItems.filter(item => item.quote_id === q.id);
         return '<div class="card"><p><b>Proposta: ' +
@@ -567,6 +570,47 @@
         state.error = ""; state.message = desired ? "Você está online e pode receber novos chamados de teste." : "Você está offline para novos chamados.";
       } catch (err) { state.error = errorText(err); }
       finally { state.loading = false; render(); }
+      return;
+    }
+    if (["f2-distribute","f2-ack","f2-decide","f2-expire"].includes(action)) {
+      if (!f2Active()) return;
+      if (state.loading || !state.user) return;
+      const userAtStart = state.user.id, generation = identityGeneration;
+      let rpc, args, success;
+      if (action === "f2-distribute") {
+        if (!state.orders.some(o => o.id === id && owns(o) && o.status === "requested")) return;
+        if (!window.confirm("Convidar prestadores fictícios para testar orçamentos, sem notificações ou atendimento real?")) return;
+        rpc = "f2_offer_candidates"; args = { p_request_id: id, p_max_offers: 3 };
+        success = "Convites de teste registrados. Nenhum prestador foi notificado externamente.";
+      } else if (action === "f2-expire") {
+        if (!state.orders.some(o => o.id === id && owns(o))) return;
+        rpc = "f2_expire_offers"; args = { p_request_id: id };
+        success = "Prazos das propostas F2 conferidos pelo servidor.";
+      } else if (action === "f2-ack") {
+        if (!state.f2Offers.some(o => o.id === id && o.provider_id === state.ownProvider?.id && o.status === "offered")) return;
+        rpc = "f2_ack_offer"; args = { p_offer_id: id };
+        success = "Convite aberto. Seu prazo para enviar orçamento começa agora.";
+      } else {
+        if (!state.quotes.some(q => q.id === id && q.status === "proposed" &&
+          state.orders.some(o => o.id === q.request_id && owns(o)))) return;
+        const accept = target.dataset.accept === "true";
+        if (accept && !window.confirm("Selecionar este orçamento para teste? Não haverá pagamento real.")) return;
+        rpc = "f2_decide_quote"; args = { p_quote_id: id, p_accept: accept };
+        success = accept ? "Proposta selecionada. Pagamento e chat continuam bloqueados." :
+          "Proposta recusada. Outros prestadores poderão ser convidados.";
+      }
+      state.loading = true;
+      try {
+        const result = await db.rpc(rpc, args);
+        if (identityGeneration !== generation || state.user?.id !== userAtStart) return;
+        if (result.error) throw result.error;
+        await refreshIdentity();
+        if (identityGeneration !== generation || state.user?.id !== userAtStart) return;
+        state.error = ""; state.message = success;
+      } catch (err) {
+        if (identityGeneration === generation && state.user?.id === userAtStart)
+          state.error = errorText(err);
+      } finally { state.loading = false; render(); }
       return;
     }
     if (action === "answer-quote") {
