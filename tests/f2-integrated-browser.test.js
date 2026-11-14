@@ -93,6 +93,11 @@ async function app(role="customer",f2=true){
             round_number:1,status:"offered",offered_at:new Date().toISOString(),quote_id:null});
           return {data:1,error:null};
         }
+        if(name==="f2_decline_offer"){
+          const invite=model.offers.find(o=>o.id===args.p_offer_id);
+          if(invite)invite.status="declined";
+          return {data:"declined",error:null};
+        }
         if(name==="f2_submit_quote"){
           model.quotes.push({id:"quote-new",request_id:rid,provider_id:pid,
             status:"proposed",amount_cents:17500,created_at:new Date().toISOString()});
@@ -142,6 +147,22 @@ test("App real: orçamento de prestador preserva centavos e não aciona serviço
     await page.waitForFunction(()=>window.__mock.calls.some(x=>x.name==="f2_submit_quote"));
     const data=await page.evaluate(()=>window.__mock.calls.find(x=>x.name==="f2_submit_quote"));
     assert.deepEqual(data.args.p_items.map(x=>x.amountCents),[8050,3500,1500,4525]);
+    assert.deepEqual(external,[]);
+  }finally{await browser.close()}
+});
+
+test("App real: prestador recusa convite sem ausência e sem acionar rede",async()=>{
+  const {browser,page,external}=await app("provider",true);
+  try{
+    await page.locator('[data-action="f2-decline"]').click();
+    await page.waitForFunction(()=>window.__mock.calls.some(x=>x.name==="f2_decline_offer"));
+    const latest=await page.evaluate(()=>({
+      invite:window.__mock.offers[0],
+      call:window.__mock.calls.find(x=>x.name==="f2_decline_offer")
+    }));
+    assert.equal(latest.call.args.p_offer_id,"offer-test");
+    assert.equal(latest.invite.status,"declined");
+    assert.equal(await page.locator('[data-action="f2-decline"]').count(),0);
     assert.deepEqual(external,[]);
   }finally{await browser.close()}
 });
