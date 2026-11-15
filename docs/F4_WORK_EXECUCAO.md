@@ -49,6 +49,10 @@ Modelar: assinatura inválida, replay, evento fora de ordem, alteração de valo
 
 **Concorrência já demonstrada localmente:** `tests/f4-concurrency-setup.sql` + `tests/f4-concurrency.sh` criam uma tentativa de pagamento fictícia em PostgreSQL descartável, processam o **mesmo evento em duas conexões simultâneas** e exigem uma única linha de recibo e de ledger. O teste só é executado **depois do rollback positivo em banco vazio**, recriando o SQL F4 no container descartável. Não é um teste de concorrência com Stripe real.
 
+**Etapa adicional de risco e repasses (apenas mock):** após recriar `supabase/drafts/f4_double_entry_mock_candidate.sql` no banco descartável, executar `supabase/drafts/f4_risk_settlement_mock_candidate.sql`. Depois rodar `tests/f4-risk-settlement.sql`, conferir rollback da transação e rodar `tests/f4-risk-race.sh`. A corrida usa duas conexões PostgreSQL, bloqueia o total de estornos acima do orçamento e comprova rollback protegido. O script elimina somente fixtures do CI e preserva a estrutura base da F4. Leia `docs/F4_RISCO_ESTORNOS_E_REPASSES.md`.
+
+**Não interpretar `review_only`, `eligibleForHumanReview` ou `closed_no_action` como repasse, aprovação financeira, estorno ou caso resolvido comercialmente.** Esses estados existem apenas na simulação e não demonstram fundos disponíveis, PSP, F6, direito do consumidor ou confirmação de pagamento.
+
 Registrar resultados no arquivo `docs/F4_RESULTADOS_MODELO.md`, separando testes locais de gates financeiros nunca executados.
 
 ## Gate 4 — Integração com F5, F6 e F7
