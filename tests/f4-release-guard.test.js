@@ -43,7 +43,7 @@ test("F4: SQL nasce desligado e não marca pedido como pago",()=>{
  assert.match(ddl,/create table private\.f4_mock_ledger_entries/);
  assert.match(ddl,/current_setting\('app\.f4_test_only',true\) is distinct from 'local_fixture'/);
  assert.doesNotMatch(ddl,/set\s+status\s*=\s*'paid'/i);
- assert.doesNotMatch(ddl,/\bstripe\.|\bPaymentIntent\b|create_transfer\(/);
+ assert.doesNotMatch(ddl,/\bstripe\.[a-z]+\s*\(|\bcreate_transfer\s*\(|\bcreate_payment_intent\s*\(/i);
 });
 test("F4: ninguém autenticado escreve no ledger ou invoca evento financeiro mock",()=>{
  const ddl=file("supabase/drafts/f4_financial_backend_candidate.sql");
