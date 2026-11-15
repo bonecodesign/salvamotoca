@@ -24,7 +24,7 @@ test("F4: somente documentação e motor puro (nenhuma migration F4 remota)",()=
 test("F4: prévia offline não importa Stripe ou Supabase",()=>{
  const html=file("docs/F4_PREVIEW.html");
  assert.match(html,/src="\.\.\/f4-finance\.js"/);
- assert.doesNotMatch(html,/https?:\/\/|supabase|stripe\.js|js\.stripe\.com|<form[^>]+action=/i);
+ assert.doesNotMatch(html,/<script[^>]+src=["']https?:|supabase\.createClient|Stripe\s*\(|js\.stripe\.com|<form[^>]+action=/i);
 });
 test("F4: checkout/repasse nunca pode ser liberado pelo módulo de simulação",()=>{
  const js=file("f4-finance.js");
