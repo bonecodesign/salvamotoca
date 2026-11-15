@@ -59,7 +59,7 @@
     return {quoteId,requestId,status,items:normalized,
       serviceCents,travelCents,partsCents,quoteTotalCents};
   }
-  function costBreakdown({quote,processingFeeCents=null,feeConfirmedByProvider=false}){
+  function costBreakdown({quote,processingFeeCents=null,feeVerifiedByPSP=false}){
     requireCondition(quote&&quote.status==="accepted"&&
       Number.isSafeInteger(quote.serviceCents)&&
       Number.isSafeInteger(quote.travelCents)&&Number.isSafeInteger(quote.partsCents),
@@ -74,7 +74,7 @@
     let customerTotalCents=null;
     if(processingFeeCents!==null){
       cents(processingFeeCents,"Tarifa de processamento",0,MAX_PROCESSING_FEE_CENTS);
-      requireCondition(feeConfirmedByProvider===true,
+      requireCondition(feeVerifiedByPSP===true,
         "Tarifa precisa ser comprovada pelo processador, não estimada pelo app.");
       customerTotalCents=subtotal+processingFeeCents;
     }
