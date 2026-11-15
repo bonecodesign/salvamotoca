@@ -227,6 +227,15 @@ begin
  then raise exception 'Chargeback mock não criou hold'; end if;
  if (select count(*) from private.f4_mock_journals)<>2
  then raise exception 'Chargeback mock criou lançamento no PSP'; end if;
+ begin
+  perform private.f4_open_mock_risk_case(
+    current_setting('test.f4_risk_attempt')::uuid,
+    'case_mock_refund_on_dispute','refund_partial',1000);
+  raise exception using message='FALHA: estorno novo durante chargeback',errcode='ZX711';
+ exception when others then
+   if sqlstate='ZX711' then raise; end if;
+   if sqlerrm not like '%disputado exige mediação%' then raise; end if;
+ end;
 end $chargeback$;
 select 'F4: RISCO PRIVADO, ESTORNO PARCIAL/INTEGRAL, HOLDS E 1 INTENÇÃO REVIEW-ONLY OK' as resultado;
 rollback;
