@@ -23,7 +23,7 @@ alter table public.service_requests
         'pneu_furado','troca_camara','troca_pneu',
         'calibragem_valvula','reboque_moto','outro'
       ]::text[]
-      and not (array_position(service_types,null) is not null)
+      and array_position(service_types,null) is null
     )
   );
 -- O check anterior da F1 exclui explicitamente reboque. O trigger abaixo,
@@ -51,6 +51,7 @@ create table public.f3_tow_requests(
   destination_state_code text not null check(destination_state_code ~ '^[A-Z]{2}$'),
   destination_address text not null check(length(btrim(destination_address)) between 5 and 240),
   estimated_route_km integer not null check(estimated_route_km between 1 and 500),
+  selected_provider_id uuid references public.providers(id),
   created_at timestamptz not null default now()
 );
 create index f3_tow_city on public.f3_tow_requests(pickup_state_code,pickup_city);
@@ -150,6 +151,7 @@ begin
    or p_year not between 1950 and 2100 or p_weight_kg not between 40 and 650
    or p_description is null or length(btrim(p_description)) not between 10 and 500
    or p_service_types is null or cardinality(p_service_types) not between 1 and 6
+   or array_position(p_service_types,null) is not null
    or 'reboque_moto' <> all(p_service_types)
    or not (p_service_types <@ array['pneu_furado','troca_camara','troca_pneu',
      'calibragem_valvula','reboque_moto','outro']::text[])
@@ -178,7 +180,8 @@ begin
  select r.id,r.customer_id,r.photo_path,r.service_types,r.motorcycle_brand,
     r.motorcycle_model,r.motorcycle_year,r.problem_description,r.provider_id,r.f2_mode,
     t.motorcycle_weight_kg,t.pickup_city,t.pickup_state_code,t.destination_city,
-    t.destination_state_code,t.destination_address,t.estimated_route_km
+    t.destination_state_code,t.destination_address,t.estimated_route_km,
+    t.selected_provider_id,r.latitude,r.longitude
  into v_existing
  from public.service_requests r
  left join public.f3_tow_requests t on t.request_id=r.id
@@ -197,6 +200,9 @@ begin
      or v_existing.destination_state_code is distinct from p_destination_state
      or v_existing.destination_address is distinct from btrim(p_destination_address)
      or v_existing.estimated_route_km is distinct from p_estimated_km
+     or v_existing.selected_provider_id is distinct from p_selected_provider
+     or v_existing.latitude is distinct from p_pickup_lat
+     or v_existing.longitude is distinct from p_pickup_lng
      or v_existing.f2_mode is distinct from p_mode
    then raise exception 'Chave de pedido reutilizada com dados diferentes.'; end if;
    return v_existing.id;
@@ -215,9 +221,11 @@ begin
  perform set_config('app.f3_create_authorized','',true);
  insert into public.f3_tow_requests(
    request_id,motorcycle_weight_kg,pickup_city,pickup_state_code,
-   destination_city,destination_state_code,destination_address,estimated_route_km
+   destination_city,destination_state_code,destination_address,estimated_route_km,
+   selected_provider_id
  ) values(v_request,p_weight_kg,btrim(p_pickup_city),p_pickup_state,
-   btrim(p_destination_city),p_destination_state,btrim(p_destination_address),p_estimated_km);
+   btrim(p_destination_city),p_destination_state,btrim(p_destination_address),p_estimated_km,
+   p_selected_provider);
  return v_request;
 end;
 $$;
@@ -445,6 +453,57 @@ begin
  return public.f2_decide_quote(p_quote_id,p_accept);
 end;
 $$;
+
+-- Trava de auditoria contra bypass: um cliente poderia tentar chamar a
+-- RPC genérica F2 para aceitar uma proposta de reboque sem certificação vigente.
+-- O gatilho é executado até quando o aceite chega pela RPC de F2.
+create or replace function private.f3_guard_tow_quote_accepted()
+returns trigger language plpgsql security definer set search_path='' as $$
+declare v_req record;
+begin
+ if new.status='accepted' and old.status is distinct from 'accepted' then
+   select r.id,r.category_id into v_req
+   from public.service_requests r where r.id=new.request_id;
+   if exists(select 1 from public.service_categories c
+     where c.id=v_req.category_id and c.code='reboque_moto') then
+     if not private.f3_enabled() then
+       raise exception 'Reboque não liberado para aceite.'; end if;
+     if not exists(select 1 from public.providers p
+       join public.provider_services ps on ps.provider_id=p.id
+         and ps.category_id=v_req.category_id and ps.is_active
+       join public.f3_tow_provider_capacity cap on cap.provider_id=p.id
+         and cap.verified_by_admin and cap.has_ramp and cap.has_wheel_chock
+         and cap.tie_down_points>=2
+       join public.f3_tow_requests t on t.request_id=v_req.id
+         and t.motorcycle_weight_kg<=cap.max_moto_kg
+       where p.id=new.provider_id and p.status='approved' and p.is_active
+     ) then raise exception 'Prestador de reboque sem homologação no aceite.'; end if;
+   end if;
+ end if;
+ return new;
+end;
+$$;
+create trigger f3_guard_tow_quote_accept
+  before update of status on public.service_quotes
+  for each row execute function private.f3_guard_tow_quote_accepted();
+
+-- Revogar alterações de convite F3 quando o gate F3 estiver desativado,
+-- inclusive se tentarem usar as RPCs genéricas de ACK/recusa da F2.
+create or replace function private.f3_guard_tow_offer_transition()
+returns trigger language plpgsql security definer set search_path='' as $$
+begin
+ if old.status is distinct from new.status and exists(
+   select 1 from public.service_requests r
+   join public.service_categories c on c.id=r.category_id
+   where r.id=new.request_id and c.code='reboque_moto'
+ ) and not private.f3_enabled()
+ then raise exception 'Convite F3 desativado.'; end if;
+ return new;
+end;
+$$;
+create trigger f3_guard_tow_offer_transition
+  before update of status on public.f2_request_offers
+  for each row execute function private.f3_guard_tow_offer_transition();
 
 -- Não conceder escrita direta em tabelas; apenas RPCs autenticadas.
 revoke all on function public.f3_set_tow_capacity(text,integer,integer,integer,boolean,boolean)
