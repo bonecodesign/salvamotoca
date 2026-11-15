@@ -829,6 +829,103 @@
       if (services.error) throw services.error;
       await refreshIdentity(); nav("profile"); state.message = "Cadastro e serviços enviados. Aguarde homologação.";
     });
+    if (form.id === "f3-request-form") submitForm(form, async data => {
+      if (!f3Active() || !state.user || !window.SMRequestF1)
+        throw new Error("Reboque não está homologado para envio.");
+      const uid = state.user.id, generation = identityGeneration;
+      const context = requestContextVersion;
+      const ensureSession = () => {
+        if (identityGeneration !== generation || state.user?.id !== uid ||
+            requestContextVersion !== context || state.page !== "f3-tow")
+          throw new Error("Sessão ou formulário mudou durante o pedido de reboque. Reinicie a solicitação.");
+      };
+      const file = data.get("photo");
+      F1.validatePhoto(file);
+      const problem = String(data.get("problem") || "").trim();
+      if (problem.length < 10 || problem.length > 500)
+        throw new Error("A descrição do reboque deve ter entre 10 e 500 caracteres.");
+      const request = window.SMF3Tow.validateTowRequest({
+        serviceTypes:["reboque_moto",...data.getAll("extras")],
+        motorcycleBrand:data.get("brand"),motorcycleModel:data.get("model"),
+        motorcycleYear:Number(data.get("year")),
+        motorcycleWeightKg:Number(data.get("weight")),
+        pickupCity:"Belo Horizonte",pickupStateCode:"MG",
+        pickupLocation:state.location,
+        destinationCity:data.get("destination_city"),
+        destinationStateCode:String(data.get("destination_state")||"").trim().toUpperCase(),
+        destinationAddress:data.get("destination_address"),
+        estimatedRouteKm:Number(data.get("route_km"))
+      });
+      const summary = window.SMF3Tow.publicSummary(request);
+      const confirmation = [
+        "PEDIDO DE REBOQUE — SOMENTE TESTE",
+        "Moto: "+summary.motorcycle.brand+" "+summary.motorcycle.model+
+          " / "+summary.motorcycle.weightKg+" kg",
+        "Origem: "+summary.pickup.city+"; destino: "+summary.destination.city,
+        "Endereço de destino será armazenado em tabela privada.",
+        "Nenhum reboque, chat, pagamento ou despacho será ativado.",
+        "Confirmar cadastro de teste?"
+      ].join("\n");
+      if (!window.confirm(confirmation)) return;
+      ensureSession();
+      const lat = request.pickupLocation.lat, lng = request.pickupLocation.lng;
+      const signature = [file.name,file.size,file.lastModified,file.type].join("|");
+      const draftSignature = JSON.stringify([uid,request.serviceTypes,
+        request.motorcycle,request.pickup,request.destination,request.estimatedRouteKm,
+        request.private.destinationAddress,problem,lat,lng,signature]);
+      if (!state.requestKey) {
+        if (!globalThis.crypto?.randomUUID) throw new Error("É necessário HTTPS ou localhost.");
+        state.requestKey = globalThis.crypto.randomUUID();
+        state.requestSignature = draftSignature;
+      }
+      if (state.requestSignature !== draftSignature ||
+        (state.uploadedPhotoKey === state.requestKey &&
+         state.uploadedPhotoSignature !== signature))
+        throw new Error("Os dados ou a foto mudaram após o envio. Reinicie o formulário.");
+      const photoPath = F1.makePhotoPath(uid,state.requestKey);
+      if (state.uploadedPhotoKey !== state.requestKey) {
+        const jpeg = await preparePrivatePhoto(file);
+        ensureSession();
+        const uploaded = await db.storage.from("request-photos").upload(photoPath,jpeg,{
+          contentType:"image/jpeg",upsert:false,cacheControl:"3600"
+        });
+        ensureSession();
+        if (uploaded.error) {
+          const code = Number(uploaded.error.statusCode || uploaded.error.status);
+          if (code !== 409 && !/duplicate|already exists|já existe/i.test(errorText(uploaded.error)))
+            throw new Error("Falha no upload privado: "+errorText(uploaded.error));
+          const restored = await db.storage.from("request-photos").download(photoPath);
+          ensureSession();
+          if (restored.error || !restored.data || !(await F1.samePhotoBytes(jpeg,restored.data)))
+            throw new Error("Não foi possível verificar a foto privada. Reinicie o pedido.");
+          ensureSession();
+        }
+        state.uploadedPhotoKey = state.requestKey;
+        state.uploadedPhotoSignature = signature;
+      }
+      ensureSession();
+      const result = await db.rpc("f3_create_tow_request",{
+        p_request_key:state.requestKey,p_photo_path:photoPath,
+        p_brand:request.motorcycle.brand,p_model:request.motorcycle.model,
+        p_year:request.motorcycle.year,p_weight_kg:request.motorcycle.weightKg,
+        p_service_types:request.serviceTypes,p_description:problem,
+        p_pickup_lat:lat,p_pickup_lng:lng,p_pickup_city:request.pickup.city,
+        p_pickup_state:request.pickup.stateCode,
+        p_destination_city:request.destination.city,
+        p_destination_state:request.destination.stateCode,
+        p_destination_address:request.private.destinationAddress,
+        p_estimated_km:request.estimatedRouteKm,
+        p_mode:"automatic",p_selected_provider:null
+      });
+      ensureSession();
+      if (result.error) throw result.error;
+      state.requestKey=null;state.requestSignature=null;
+      state.uploadedPhotoKey=null;state.uploadedPhotoSignature=null;
+      await refreshIdentity();
+      ensureSession();
+      nav("orders");
+      state.message = "Pedido de reboque de TESTE registrado. Nenhum transporte real foi acionado.";
+    });
     if (form.id === "f2-capacity-form") submitForm(form, async data => {
       if (!f2Active() || !state.user || !state.ownProvider)
         throw new Error("Configuração F2 indisponível.");
