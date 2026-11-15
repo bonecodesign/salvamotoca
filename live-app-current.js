@@ -301,6 +301,8 @@
       '</button><p class="small muted">Somente no app aberto. Não envia push externo e não confirma entrega automaticamente.</p>';
   }
   function renderF2Order(order, quotes) {
+    if (f3Active() && order.service_types?.includes("reboque_moto"))
+      return renderF3Order(order,quotes);
     if (!f2Active() || !order.service_types?.length) return "";
     const offers = state.f2Offers.filter(offer => offer.request_id === order.id);
     const pending = offers.some(offer => ["offered", "delivered", "quoted"].includes(offer.status));
@@ -356,6 +358,90 @@
     }
     return content + '</div>';
   }
+  function renderF3Capacity() {
+    if (!f3Active() || !state.ownProvider) return "";
+    const cap=state.f3Capacity;
+    const equipment=cap?.equipment||"plataforma";
+    return '<form id="f3-capacity-form" class="card form">' +
+      '<h3>F3 · Equipamento para reboque (teste)</h3>' +
+      '<p class="small muted">Sua declaração não habilita atendimento. A certificação é administrativa e qualquer alteração exige nova revisão.</p>' +
+      '<label class="fieldrow"><span class="label">Equipamento</span><select class="field" name="equipment">' +
+      window.SMF3Tow.EQUIPMENT.map(v=>'<option value="'+esc(v)+'"'+
+        (v===equipment?' selected':'')+'>'+esc(v.replaceAll("_"," "))+'</option>').join("") +
+      '</select></label>' +
+      label("Carga máxima por moto (kg)", "number", "max_moto_kg", "250", true) +
+      label("Raio de cobertura declarado (km)", "number", "coverage_km", "25", true) +
+      label("Pontos de amarração", "number", "tie_down_points", "4", true) +
+      '<label class="fieldrow"><input type="checkbox" name="has_ramp" required> Possuo rampa apropriada</label>' +
+      '<label class="fieldrow"><input type="checkbox" name="has_wheel_chock" required> Possuo suporte de roda adequado</label>' +
+      '<p class="small muted">Homologação de equipamento: '+
+        (cap?.verified_by_admin?'aprovada anteriormente':'aguardando revisão humana')+'</p>' +
+      '<button class="btn full" type="submit">Enviar capacidade para análise</button></form>';
+  }
+  function renderF3Order(order,quotes) {
+    if (!f3Active() || !order.service_types?.includes("reboque_moto")) return "";
+    const offers=state.f2Offers.filter(x=>x.request_id===order.id);
+    const pending=offers.some(o=>["offered","delivered","quoted"].includes(o.status));
+    const detail=state.f3TowDetails.find(x=>x.request_id===order.id);
+    const summary=state.f3Summaries[order.id];
+    let out='<div class="card"><h3>F3 · Reboque de moto (teste)</h3>' +
+      '<p class="small muted">Nenhuma cobrança, chat, transporte ou deslocamento real.</p>';
+    if (owns(order)) {
+      if (detail) out+='<p><b>Destino:</b> '+esc(detail.destination_city)+', '+
+        esc(detail.destination_state_code)+' · '+esc(detail.estimated_route_km)+
+        ' km estimados</p><p><b>Endereço privado, visível só ao cliente:</b> '+
+        esc(detail.destination_address)+'</p><p><b>Peso estimado:</b> '+
+        esc(detail.motorcycle_weight_kg)+' kg</p>';
+      if (order.status==="requested" && !pending)
+        out+='<button class="btn full" data-action="f3-distribute" data-id="'+esc(order.id)+
+          '">Buscar reboques homologados (teste)</button>';
+      if (order.status==="requested" && pending)
+        out+='<button class="btn outline sm" data-action="f2-expire" data-id="'+esc(order.id)+
+          '">Verificar vencimentos F3</button>';
+      out+=offers.map(o=>'<p class="small">Convite '+esc(o.provider_id)+
+        ' · '+esc(o.status)+'</p>').join("");
+      out+=quotes.filter(q=>offers.some(o=>o.quote_id===q.id)).map(q=>{
+        const items=state.f2QuoteItems.filter(item=>item.quote_id===q.id);
+        return '<div class="card"><p><b>Orçamento de reboque:</b> '+
+          amount(q.amount_cents)+' · '+esc(q.status)+'</p>' +
+          items.map(item=>'<p class="small">'+esc(item.code)+': '+
+            amount(item.amount_cents)+'</p>').join("") +
+          (order.status==="requested" && q.status==="proposed" ?
+            '<div class="actions"><button class="btn sm" data-action="f3-decide" data-id="'+
+              esc(q.id)+'" data-accept="true">Escolher orçamento F3</button>' +
+            '<button class="btn outline sm" data-action="f3-decide" data-id="'+
+              esc(q.id)+'" data-accept="false">Recusar proposta</button></div>' : '') +
+          '</div>';
+      }).join("");
+    }
+    const invite=f2InviteFor(order);
+    if(invite && order.status==="requested"){
+      if(summary)
+        out+='<p><b>Moto:</b> '+esc(summary.motorcycleBrand)+' '+
+          esc(summary.motorcycleModel)+' · '+esc(summary.motorcycleWeightKg)+
+          ' kg</p><p><b>Origem:</b> '+esc(summary.pickupCity)+
+          ' · <b>Destino aproximado:</b> '+esc(summary.destinationCity)+
+          ' · ~'+esc(summary.estimatedRouteKm)+' km</p>';
+      if(invite.status==="offered")
+        out+='<button class="btn full" data-action="f2-ack" data-id="'+esc(invite.id)+
+          '">Abrir convite F3 e iniciar prazo</button>';
+      if(invite.status==="delivered")
+        out+='<form class="f3-quote-form form" data-offer="'+esc(invite.id)+
+          '" data-request="'+esc(order.id)+'"><h4>Proposta de reboque discriminada</h4>'+
+          order.service_types.map(code=>label("Serviço: "+(F1.SERVICE_TYPES[code]||code)+
+            " (R$)","number","service_"+code,"Ex.: 230.00",true)).join("")+
+          label("Deslocamento (R$)","number","travel","Ex.: 40.00",true)+
+          label("Material (opcional)","text","part_name","Cinta de segurança",false)+
+          label("Preço do material (R$)","number","part_price","Ex.: 10.00",false)+
+          label("Observações sem contato externo","text","details","Descrição breve",false)+
+          '<button class="btn full" type="submit">Enviar proposta F3 de teste</button></form>';
+      if(["offered","delivered"].includes(invite.status))
+        out+='<button class="btn outline sm" data-action="f2-decline" data-id="'+
+          esc(invite.id)+'">Não posso transportar esta moto</button>';
+      if(invite.status==="quoted")out+='<p class="small muted">Proposta enviada. Aguardando cliente.</p>';
+    }
+    return out+'</div>';
+  }
   function renderProfile() {
     if (!state.user) return header("Minha conta", "Entre para acompanhar pedidos e cadastrar sua borracharia.") +
       '<button class="btn full" data-page="login">Entrar</button><button class="btn outline full" data-page="register">Criar conta</button>';
@@ -374,7 +460,7 @@
           : '<div class="notice">Disponibilidade será liberada após aprovação e habilitação do serviço delivery.</div>') :
        '<button class="btn full" data-page="provider-form">Cadastrar minha borracharia</button>') +
       '<button class="btn outline full" data-action="logout">Sair da conta</button></div>' +
-      renderF2Capacity();
+      renderF2Capacity() + renderF3Capacity();
   }
   function renderOrders() {
     if (!state.user) return header("Meus pedidos", "Entre para ver seus pedidos de teste.") +
