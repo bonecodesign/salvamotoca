@@ -40,6 +40,9 @@ A responsabilidade legal/contábil por eventuais impostos e despesas não é res
 - `.github/workflows/f4-tests.yml` — execução de testes de lógica, Chrome sem rede, PostgreSQL 17 isolado e regressões anteriores, sem acesso a PSP ou ao Supabase ativo.
 - `tests/f4-concurrency-setup.sql` + `tests/f4-concurrency.sh` — teste de concorrência com duas sessões PostgreSQL tentando processar o mesmo ID de evento mock; somente um recibo e um lançamento devem sobreviver, enquanto a solicitação segue em `awaiting_payment`.
 - `docs/F4_RESULTADOS_MODELO.md` — matriz auditável que distingue controles locais comprováveis de backup, migração real, PSP, documentação legal e homologação ainda pendentes.
+- `supabase/drafts/f4_double_entry_mock_candidate.sql` — **extensão exclusivamente local** com diário mock de partidas dobradas. Para um pagamento fictício de R$ 280,00: débito `mock_psp_clearing` R$ 280; crédito `mock_provider_payable` R$ 245,50; crédito `mock_platform_commission` R$ 34,50. Estorno integral inverte as três contas. Um trigger diferido exige, no commit, quantidade de linhas, contas, valores e equilíbrio exatos.
+- `tests/f4-double-entry.sql` — prova contas balanceadas, idempotência contábil, lançamento compensatório de estorno, bloqueio de elegibilidade por disputa, tentativa de journal vazio e proibição de editar/apagar partidas.
+- `supabase/rollback/f4_double_entry_only_if_empty.sql` e `tests/f4-double-entry-rollback-guard.sh` — rollback **apenas** da extensão contábil, negado com gate ligado ou entradas existentes, sem apagar tentativas fictícias da camada F4 anterior.
 
 ## Provedor de pagamentos: pesquisa técnica, sem conexão comercial
 
@@ -80,5 +83,11 @@ flowchart TD
 6. Fluxo de consentimento, confirmação clara de preço total, taxa, reembolso e custos da operação, sem surpresas.
 7. Cenários adversariais de webhooks assinados, duplicados, atrasados, fora de ordem, chargeback, devolução, perda de rede, estorno parcial e disputa, exclusivamente em sandbox isolado e após autorização apropriada.
 8. Sem pagamento real, o chat e rastreamento da F5 continuam fechados.
+
+### Distinção entre demonstração contábil e provedor de pagamentos
+
+O diário de partidas dobradas representa uma **obrigação econômica teórica**, não dinheiro possuído, sob custódia, disponível para repasse ou liquidado pelo PSP. A conta `mock_psp_clearing` é ficção contábil para testes. O banco só recebe eventos `mock_*`, usa assinaturas incompatíveis com Stripe e exige flag local de fixture. Mesmo a revisão de repasse positiva devolve `transferAuthorized=false` e requer confirmação humana, PSP e F6 real.
+
+A versão futura deverá separar autorização, captura, disponibilidade, recebível do prestador, comissões efetivamente auferidas, tarifas reais do PSP, contas de suspense, diferenças, chargebacks, estornos parciais, impostos, reservas e repasses. A contabilização de valores pré-liquidação dependerá da arquitetura contratual selecionada e de revisão contábil/jurídica.
 
 **Conclusão:** F4 agora inclui regras financeiras, verificador fictício e backend SQL candidato **testados isoladamente**. Ainda **não é** integração financeira homologada ou checkout utilizável. O ledger de teste **não é contabilidade de partidas dobradas nem prova de fundos existentes**. A futura arquitetura de produção precisará de processamento assinado do PSP, trilha financeira contábil, conciliação, webhook real, suporte a reembolso parcial, chargebacks e limite de retenção contratual. Toda integração real segue bloqueada até revisão e autorização. Toda integração real permanecerá bloqueada até revisão e autorização futura.
