@@ -110,6 +110,24 @@ begin
    raise exception 'Capacidade não certificada entrou na fila'; end if;
 end $noverified$;
 
+-- Campos nulos não podem usar lógica ternária SQL para escapar do servidor.
+do $reject_null$
+begin
+ begin
+   perform public.f3_create_tow_request(
+     '55555555-5555-4555-8555-555555555555',
+     '11111111-1111-4111-8111-111111111111/55555555-5555-4555-8555-555555555555.jpg',
+     'Honda','CG 160',2024,140,array['reboque_moto'],
+     'A moto está imobilizada com defeito fictício no pneu.',
+     null,-43.938,'Belo Horizonte','MG',
+     'Contagem','MG','Rua privada fictícia 123',20,'automatic',null);
+   raise exception using message='FALHA: latitude nula aceita',errcode='ZX111';
+ exception when others then
+   if sqlstate='ZX111' then raise; end if;
+   if sqlerrm not like '%Rota, destino ou modo inválidos%' then raise; end if;
+ end;
+end $reject_null$;
+
 -- A mesma chave deve ser idempotente APENAS com payload idêntico.
 select public.f3_create_tow_request(
  '55555555-5555-4555-8555-555555555555',
@@ -222,6 +240,23 @@ select set_config('request.jwt.claim.sub','22222222-2222-4222-8222-222222222222'
 select public.f2_ack_offer((select id from public.f2_request_offers
   where provider_id='aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa')) as ack_a \gset
 
+-- Contatos externos devem ser recusados NO SERVIDOR, não só no JavaScript.
+do $no_contact$
+begin
+ begin
+   perform public.f3_submit_tow_quote(
+     (select id from public.f2_request_offers
+       where provider_id='aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa'),
+     '[{"kind":"service","code":"reboque_moto","amountCents":23000},
+       {"kind":"travel","code":"deslocamento","amountCents":4000}]'::jsonb,
+     'Me envie mensagem no WhatsApp, valor negociável');
+   raise exception using message='FALHA: contato externo passou no orçamento',errcode='ZX112';
+ exception when others then
+   if sqlstate='ZX112' then raise; end if;
+   if sqlerrm not like '%contato externo%' then raise; end if;
+ end;
+end $no_contact$;
+
 -- Os dois orçamentos F3 são transacionais, com deslocamento e itens.
 select public.f3_submit_tow_quote(
  (select id from public.f2_request_offers
@@ -295,5 +330,49 @@ begin
    where code='reboque_moto' and paid_in_app)<>0
  then raise exception 'Categoria reboque permitiu pagamento'; end if;
 end $category$;
+-- Pedido manual não deve vincular prestador antes do convite.
+-- A preferência manual fica SOMENTE no dado privado F3, não provider_id F1.
+reset role;
+insert into storage.objects(bucket_id,name) values(
+ 'request-photos',
+ '11111111-1111-4111-8111-111111111111/77777777-7777-4777-8777-777777777777.jpg'
+);
+set role authenticated;
+select set_config('request.jwt.claim.sub','11111111-1111-4111-8111-111111111111',false);
+select public.f3_create_tow_request(
+ '77777777-7777-4777-8777-777777777777',
+ '11111111-1111-4111-8111-111111111111/77777777-7777-4777-8777-777777777777.jpg',
+ 'Honda','CG 160',2024,140,array['reboque_moto'],
+ 'A motocicleta fictícia necessita de reboque de teste.',
+ -19.924,-43.938,'Belo Horizonte','MG',
+ 'Contagem','MG','Rua fictícia de teste 456',20,'manual',
+ 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa'
+) as manual_id \gset
+select set_config('test.f3_manual_id',:'manual_id',false);
+do $manual_no_leak$
+begin
+ if (select provider_id from public.service_requests
+     where id=current_setting('test.f3_manual_id')::uuid) is not null
+ then raise exception 'Pré-atribuição manual expôs foto pela política F1'; end if;
+end $manual_no_leak$;
+select set_config('request.jwt.claim.sub','22222222-2222-4222-8222-222222222222',false);
+do $before_invite$
+begin
+ if exists(select 1 from storage.objects
+   where name='11111111-1111-4111-8111-111111111111/77777777-7777-4777-8777-777777777777.jpg')
+ then raise exception 'Prestador escolhido manualmente acessou foto ANTES de convite'; end if;
+end $before_invite$;
+select set_config('request.jwt.claim.sub','11111111-1111-4111-8111-111111111111',false);
+select public.f3_offer_candidates(current_setting('test.f3_manual_id')::uuid,3);
+do $manual_selection$
+begin
+ if (select count(*) from public.f2_request_offers where
+   request_id=current_setting('test.f3_manual_id')::uuid)<>1
+ or not exists(select 1 from public.f2_request_offers
+   where request_id=current_setting('test.f3_manual_id')::uuid
+     and provider_id='aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa')
+ then raise exception 'Seleção manual não foi respeitada na primeira rodada'; end if;
+end $manual_selection$;
+
 select 'F3: CRIAÇÃO ATÔMICA, PRIVACIDADE, HOMOLOGAÇÃO, 2 ORÇAMENTOS E 1 ACEITE OK' as resultado;
 rollback;
