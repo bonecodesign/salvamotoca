@@ -31,7 +31,9 @@
 
 ## Registros de incidentes
 
-- Links dos workflows e commit SHA: atualizar após checagem completa do CI.
+- **CI F4 validado no commit `9046c2c96e5ca85539f5f6679344cc7769d81f9e`:** [Actions F4 #43727962918](https://github.com/bonecodesign/salvamotoca/actions/runs/43727962918) — Node 40/40, Chrome 6/6 e PostgreSQL 17 (RLS, ledger, evento assinado mock, corrida de dois processos e rollback).
+- **Regressões no mesmo commit:** [F1](https://github.com/bonecodesign/salvamotoca/actions/runs/43727962917), [F2](https://github.com/bonecodesign/salvamotoca/actions/runs/43727962919) e [F3](https://github.com/bonecodesign/salvamotoca/actions/runs/43727962915) — todas aprovadas.
+- Esses resultados provam apenas os **testes locais e descartáveis**; nenhum PSP foi chamado e nenhum webhook real foi recebido.
 - Falhas e retestes: registrar erros e correções, sem credenciais.
 
 ## Decisão de liberação
