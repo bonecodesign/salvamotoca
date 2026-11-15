@@ -43,6 +43,10 @@ Depois de backup/restauração verificável de DB/Auth/Storage, revisão das F1�
 
 Modelar: assinatura inválida, replay, evento fora de ordem, alteração de valor, cobrança duplicada, corrida de webhooks, settlement concorrente, indisponibilidade PSP, chargeback, reversão e reembolso parcial. Primeiro mocks locais, depois sandbox controlado apenas se autorizado. Nenhuma cobrança real.
 
+**Concorrência já demonstrada localmente:** `tests/f4-concurrency-setup.sql` + `tests/f4-concurrency.sh` criam uma tentativa de pagamento fictícia em PostgreSQL descartável, processam o **mesmo evento em duas conexões simultâneas** e exigem uma única linha de recibo e de ledger. O teste só é executado **depois do rollback positivo em banco vazio**, recriando o SQL F4 no container descartável. Não é um teste de concorrência com Stripe real.
+
+Registrar resultados no arquivo `docs/F4_RESULTADOS_MODELO.md`, separando testes locais de gates financeiros nunca executados.
+
 ## Gate 4 — Integração com F5, F6 e F7
 
 F5 só libera chat, endereço exato e deslocamento após pagamento verificado no servidor. F6 oferece confirmação bilateral, mediação, contestação e avaliações com efeito sobre saldo elegível. F7 é homologação geral com especialistas e piloto assistido de Belo Horizonte.
