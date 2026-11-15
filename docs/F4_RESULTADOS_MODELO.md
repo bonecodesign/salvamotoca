@@ -15,6 +15,8 @@
 | Eventos duplicados e fora de ordem | Testes locais | Node + PostgreSQL inbox com chave única |
 | Duas conexões e evento idêntico | Testes locais | tests/f4-concurrency.sh em PostgreSQL descartável |
 | Ledger de teste imutável e estorno compensatório | Testes locais | SQL negando UPDATE/DELETE e compensação negativa |
+| Diário mock de partidas dobradas, inclusive comissão arredondada a zero | Testes locais | `tests/f4-double-entry.sql`, commit/trigger diferido e reversão das contas |
+| Reversão da extensão contábil | Testes locais | Bloqueio com gate/dados, rollback vazio preservando F4 base |
 | Rollback proibido com gate ativo ou registros | Testes locais | tests/f4-rollback-guard.sh |
 | Rollback vazio preserva tabelas F1–F3 | Testes locais | supabase/rollback/f4_only_if_empty.sql |
 | Backup restaurável de PostgreSQL/Auth/Storage | BLOQUEADO | Prova privada de restauração no ambiente existente |
