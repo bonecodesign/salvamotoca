@@ -1,0 +1,106 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Salva Motoca! — F5, demonstração OFFLINE</title>
+<style>
+:root{font:16px/1.45 system-ui,Arial,sans-serif;color:#191919;background:#f6f5f0}
+*{box-sizing:border-box}body{max-width:900px;margin:0 auto;padding:24px}
+h1{font-size:clamp(25px,5vw,38px);margin:0 0 8px}p{line-height:1.6}
+aside{padding:14px 16px;background:#ffe7a5;border:2px solid #151515;border-radius:12px}
+section{margin-top:20px;border:1px solid #bbb;background:white;border-radius:14px;padding:18px}
+button{font:inherit;cursor:pointer;border:2px solid #151515;background:#f7cc31;padding:10px 12px;border-radius:8px;margin:5px 6px 5px 0}
+button:focus-visible,input:focus-visible,select:focus-visible{outline:3px solid #2169bf;outline-offset:2px}
+input,select{font:inherit;border:1px solid #888;border-radius:7px;padding:9px;max-width:100%}
+pre{white-space:pre-wrap;overflow-wrap:anywhere;background:#f3f3f3;padding:12px;border-radius:9px;min-height:90px}
+small{color:#565656}.error{color:#a52216;font-weight:700}.ok{color:#1b5736}
+</style>
+</head>
+<body>
+<h1>Salva Motoca! — F5</h1>
+<aside><strong>PRÉVIA FICTÍCIA E SEM REDE.</strong> Não confirma pagamentos, não coleta GPS, não conecta prestadores e não envia mensagens. O pagamento de teste não libera operações no aplicativo.</aside>
+<section>
+<h2>Etapas de atendimento</h2>
+<p id="status" aria-live="polite">Aguardando pagamento fictício.</p>
+<button data-kind="mock_payment_confirmed">Simular pagamento fictício</button>
+<button data-kind="dispatch">Simular saída do prestador</button>
+<button data-kind="provider_location">Simular GPS sintético</button>
+<button data-kind="provider_arrived">Simular chegada</button>
+<button data-kind="service_started">Simular início do serviço</button>
+<button data-kind="handoff_f6">Encaminhar para F6</button>
+<button data-kind="request_support">Abrir suporte fictício</button>
+</section>
+<section>
+<h2>Conversa fictícia</h2>
+<label for="actor">Remetente</label>
+<select id="actor"><option value="customer">Motociclista</option><option value="provider">Prestador</option></select>
+<label for="msg">Mensagem</label>
+<input id="msg" maxlength="2000" placeholder="Digite uma mensagem de teste">
+<button id="send">Enviar no simulador</button>
+<p id="feedback" role="status"></p>
+</section>
+<section>
+<h2>Visão do motociclista</h2>
+<pre id="view" aria-live="polite"></pre>
+<small>Endereço exato e dados reais permanecem indisponíveis. A posição de exemplo, quando mostrada, é inventada e não registra percurso.</small>
+</section>
+<script src="../f5-offline-flow.js"></script>
+<script>
+(()=>{
+"use strict";
+const F=window.SMF5Offline;
+const IDs={customer:"11111111-1111-4111-8111-111111111111",
+ provider:"22222222-2222-4222-8222-222222222222",
+ request:"33333333-3333-4333-8333-333333333333",
+ quote:"44444444-4444-4444-8444-444444444444"};
+let session=F.createOfflineSession({requestId:IDs.request,quoteId:IDs.quote,
+ customerId:IDs.customer,providerId:IDs.provider,createdAt:1000});
+let counter=0;
+const $=id=>document.getElementById(id);
+function render(){
+ const v=F.viewFor(session,IDs.customer);
+ $("status").textContent="Estado fictício: "+session.status+" | eventos: "+session.version;
+ $("view").textContent=JSON.stringify(v,null,2);
+}
+function simulate(kind){
+ const at=2000+counter*1000;
+ const e={kind,id:"f5_demo_evt_"+String(++counter).padStart(5,"0"),at,
+ actorId:IDs.provider};
+ if(kind==="mock_payment_confirmed"){
+  e.actorId="offline_fixture";e.fixtureReceipt="F5_LOCAL_FIXTURE_NOT_PSP";
+  e.requestId=IDs.request;e.quoteId=IDs.quote;
+ }
+ if(kind==="dispatch")e.shareLocationConsent=true;
+ if(kind==="provider_location"){
+  e.lat=-19.924;e.lng=-43.938;e.accuracyMeters=20;e.sampledAt=at-100;
+ }
+ if(kind==="request_support")e.actorId=IDs.customer;
+ try{
+  session=F.applyOfflineEvent(session,e).state;
+  $("feedback").className="ok";$("feedback").textContent="Etapa simulada, sem efeitos reais.";
+ }catch(err){
+  $("feedback").className="error";$("feedback").textContent=err.message;
+ }
+ render();
+}
+document.querySelectorAll("[data-kind]").forEach(b=>
+ b.addEventListener("click",()=>simulate(b.dataset.kind)));
+$("send").addEventListener("click",()=>{
+ const kind=session.status==="support_review"?"support_message":"chat_message";
+ const at=2000+counter*1000;
+ const e={kind,id:"f5_demo_msg_"+String(++counter).padStart(5,"0"),at,
+ actorId:IDs[$("actor").value],text:$("msg").value};
+ try{
+  session=F.applyOfflineEvent(session,e).state;
+  $("msg").value="";
+  $("feedback").className="ok";$("feedback").textContent="Mensagem local registrada na simulação.";
+ }catch(err){
+  $("feedback").className="error";$("feedback").textContent=err.message;
+ }
+ render();
+});
+render();
+})();
+</script>
+</body></html>
