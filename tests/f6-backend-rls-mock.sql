@@ -95,6 +95,7 @@ end $$;
 set role authenticated;
 set request.jwt.claim.sub='11111111-1111-4111-8111-111111111111';
 set app.f6_test_only='local_fixture';
+set app.f5_test_only='local_fixture';
 do $$
 begin
  if (select count(*) from public.f6_mock_completions)<>0
@@ -103,13 +104,16 @@ begin
 end $$;
 reset role;
 
--- Teste forca gate local ligado, mas somente nesta transacao revertida.
+-- F6 so e visivel apos F5 permitir handoff. AMBAS as flags sao
+-- alteradas exclusivamente dentro da transacao efemera.
+update private.f5_mock_release_gate set enabled=true where singleton;
 update private.f6_mock_release_gate set enabled=true where singleton;
 
 -- Cliente A: apenas propria conclusao e avaliacao; nenhum suporte de B
 set role authenticated;
 set request.jwt.claim.sub='11111111-1111-4111-8111-111111111111';
 set app.f6_test_only='local_fixture';
+set app.f5_test_only='local_fixture';
 do $$
 begin
  if (select count(*) from public.f6_mock_completions)<>1
@@ -123,6 +127,7 @@ reset role;
 set role authenticated;
 set request.jwt.claim.sub='33333333-3333-4333-8333-333333333333';
 set app.f6_test_only='local_fixture';
+set app.f5_test_only='local_fixture';
 do $$
 begin
  if (select count(*) from public.f6_mock_completions)<>1
@@ -136,6 +141,7 @@ reset role;
 set role authenticated;
 set request.jwt.claim.sub='22222222-2222-4222-8222-222222222222';
 set app.f6_test_only='local_fixture';
+set app.f5_test_only='local_fixture';
 do $$
 begin
  if (select count(*) from public.f6_mock_completions)<>2
@@ -148,6 +154,7 @@ reset role;
 set role authenticated;
 set request.jwt.claim.sub='55555555-5555-4555-8555-555555555555';
 set app.f6_test_only='local_fixture';
+set app.f5_test_only='local_fixture';
 do $$
 begin
  if (select count(*) from public.f6_mock_completions)<>0
@@ -174,6 +181,7 @@ update public.f5_mock_sessions set status='support_review'
 set role authenticated;
 set request.jwt.claim.sub='11111111-1111-4111-8111-111111111111';
 set app.f6_test_only='local_fixture';
+set app.f5_test_only='local_fixture';
 do $$
 begin
  if (select count(*) from public.f6_mock_completions)<>0
@@ -242,6 +250,7 @@ update public.providers set status='suspended',is_active=false
 set role authenticated;
 set request.jwt.claim.sub='22222222-2222-4222-8222-222222222222';
 set app.f6_test_only='local_fixture';
+set app.f5_test_only='local_fixture';
 do $$
 begin
  if (select count(*) from public.f6_mock_completions)<>0
@@ -252,6 +261,7 @@ reset role;
 set role authenticated;
 set request.jwt.claim.sub='33333333-3333-4333-8333-333333333333';
 set app.f6_test_only='local_fixture';
+set app.f5_test_only='local_fixture';
 do $$
 begin
  if (select count(*) from public.f6_mock_completions)<>1
