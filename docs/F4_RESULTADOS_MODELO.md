@@ -44,6 +44,17 @@
 - Esses resultados provam apenas os **testes locais e descartáveis**; nenhum PSP foi chamado e nenhum webhook real foi recebido.
 - Falhas e retestes: registrar erros e correções, sem credenciais.
 
+## Última validação de implementação local — 15/11/2026
+
+**Commit validado:** `c5921edf279b56ac90cc7f3abb8d6e53b3368cf7`.
+
+- <https://github.com/bonecodesign/salvamotoca/actions/runs/43745768844> — **F4 APROVADA**, com 47 testes específicos Node, mais 78 testes de regressão Node, 6 testes Chrome e cenários PostgreSQL 17 descartáveis (incluindo disputa, estorno parcial, revisão idempotente, duas sessões simultâneas e rollback protegido).
+- <https://github.com/bonecodesign/salvamotoca/actions/runs/43745768909> — F1 APROVADA.
+- <https://github.com/bonecodesign/salvamotoca/actions/runs/43745768835> — F2 APROVADA.
+- <https://github.com/bonecodesign/salvamotoca/actions/runs/43745768865> — F3 APROVADA.
+
+**Escopo da evidência:** simulações locais no GitHub Actions. **Não** é teste com Stripe/PSP, não comprova saldos, pagamentos, backup/restauração, dispositivos reais ou prontidão de produção.
+
 ## Decisão de liberação
 
 **NO-GO para dinheiro real.** Flags F1–F4 continuam desativadas para fluxo financeiro e não há serviço contratado. PR #45 em revisão, sem merge.
