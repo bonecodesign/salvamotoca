@@ -38,6 +38,8 @@ A responsabilidade legal/contábil por eventuais impostos e despesas não é res
 - `f4-mock-webhook.js` + `tests/f4-mock-webhook.test.js` — verificador **HMAC fictício** `mock-v1`, exclusivamente offline, que demonstra janela temporal, alteração de conteúdo, replay, ordem dos eventos e proibição de marcar pagamento como real. **Não é compatível com Stripe nem substitui biblioteca oficial ou consulta ao PSP**. A inbox JavaScript é somente em memória; a versão SQL demonstra deduplicação persistente.
 - `supabase/rollback/f4_only_if_empty.sql` + `tests/f4-rollback-guard.sh` — reversão apenas quando gate desligado e **sem dados financeiros**; testes comprovam recusa com gate ativo ou registro e que F1/F2 não são removidas.
 - `.github/workflows/f4-tests.yml` — execução de testes de lógica, Chrome sem rede, PostgreSQL 17 isolado e regressões anteriores, sem acesso a PSP ou ao Supabase ativo.
+- `tests/f4-concurrency-setup.sql` + `tests/f4-concurrency.sh` — teste de concorrência com duas sessões PostgreSQL tentando processar o mesmo ID de evento mock; somente um recibo e um lançamento devem sobreviver, enquanto a solicitação segue em `awaiting_payment`.
+- `docs/F4_RESULTADOS_MODELO.md` — matriz auditável que distingue controles locais comprováveis de backup, migração real, PSP, documentação legal e homologação ainda pendentes.
 
 ## Provedor de pagamentos: pesquisa técnica, sem conexão comercial
 
