@@ -41,6 +41,7 @@ create or replace function private.f4_check_mock_journal_balance()
 returns trigger language plpgsql set search_path='' as $$
 declare v_id bigint;v_j record;v_attempt record;
   v_count integer;v_debits bigint;v_credits bigint;v_matched integer;
+  v_expected_lines integer;
 begin
  if tg_table_name='f4_mock_journals' then v_id:=new.id;
  else v_id:=new.journal_id; end if;
@@ -69,7 +70,9 @@ begin
    )
  into v_count,v_debits,v_credits,v_matched
  from private.f4_mock_journal_lines where journal_id=v_id;
- if v_count<>case when v_attempt.commission_cents>0 then 3 else 2 end
+ v_expected_lines:=2;
+ if v_attempt.commission_cents>0 then v_expected_lines:=3; end if;
+ if v_count<>v_expected_lines
    or v_count<>v_matched
    or v_debits<>v_credits
    or v_debits<>v_attempt.quote_total_cents
