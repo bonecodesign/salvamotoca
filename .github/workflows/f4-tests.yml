@@ -1,0 +1,63 @@
+name: F4 - finanças offline sem cobrança real
+on:
+  pull_request:
+    paths:
+      - 'f4-finance.js'
+      - 'config.js'
+      - 'docs/F4_*.md'
+      - 'docs/F4_PREVIEW.html'
+      - 'tests/f4-*.js'
+      - '.github/workflows/f4-tests.yml'
+  push:
+    branches:
+      - 'feat/f4-pagamentos-protegidos-simulador-seguro'
+    paths:
+      - 'f4-finance.js'
+      - 'config.js'
+      - 'docs/F4_*.md'
+      - 'docs/F4_PREVIEW.html'
+      - 'tests/f4-*.js'
+      - '.github/workflows/f4-tests.yml'
+permissions:
+  contents: read
+jobs:
+  regras-f4:
+    runs-on: ubuntu-latest
+    timeout-minutes: 6
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Sintaxe sem bibliotecas financeiras de produção
+        run: |
+          node --check f4-finance.js
+          node --check f3-tow.js
+          node --check live-app-current.js
+      - name: Simulações financeiras + guardas sem checkout
+        run: node --test tests/f4-finance.test.js tests/f4-release-guard.test.js
+      - name: Regressão do motor de prestadores, reboque e flags
+        run: |
+          node --test tests/f2-flow.test.js tests/f3-tow.test.js
+          node --test tests/f1-release-guard.test.js tests/f2-release-guard.test.js tests/f3-release-guard.test.js
+  chrome-f4:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Usar Chrome/Chromium do runner
+        run: |
+          if command -v google-chrome >/dev/null; then
+            echo "CHROME_BIN=$(command -v google-chrome)" >> "$GITHUB_ENV"
+          elif command -v chromium >/dev/null; then
+            echo "CHROME_BIN=$(command -v chromium)" >> "$GITHUB_ENV"
+          else
+            echo "Navegador indisponível" >&2; exit 1
+          fi
+      - name: Instalar somente Playwright Core pinado, sem instalar navegador
+        run: npm install --no-save --no-package-lock --ignore-scripts --no-audit --no-fund playwright-core@1.56.1
+      - name: Testar prévia F4 offline em Chrome desktop/celular
+        run: node --test tests/f4-browser.test.js
