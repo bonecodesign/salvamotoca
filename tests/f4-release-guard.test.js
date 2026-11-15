@@ -68,3 +68,34 @@ test("F4: reversão é bloqueada com dados e restaura sem tocar F1/F2",()=>{
  assert.doesNotMatch(rollback,/drop table public\.service_requests|drop table public\.f2_request_offers/);
  assert.match(file(".github/workflows/f4-tests.yml"),/f4-rollback-guard\.sh/);
 });
+
+
+test("F4: diário de partidas dobradas é privado e não existe no esquema remoto",()=>{
+ const ddl=file("supabase/drafts/f4_double_entry_mock_candidate.sql");
+ const migrations=fs.readdirSync(path.join(__dirname,"../supabase/migrations"));
+ assert.equal(migrations.some(x=>/f4|double_entry|ledger|stripe/i.test(x)),false);
+ assert.match(ddl,/create table private\.f4_mock_journals/);
+ assert.match(ddl,/create table private\.f4_mock_journal_lines/);
+ assert.match(ddl,/enable row level security/g);
+ assert.match(ddl,/revoke all on private\.f4_mock_journals/);
+ assert.match(ddl,/create constraint trigger f4_journal_balance_on_header/);
+ assert.match(ddl,/deferrable initially deferred/);
+ assert.match(ddl,/create constraint trigger f4_journal_balance_on_line/);
+});
+test("F4: decisão de repasse é exclusivamente informativa",()=>{
+ const ddl=file("supabase/drafts/f4_double_entry_mock_candidate.sql");
+ assert.match(ddl,/function private\.f4_mock_settlement_review/);
+ assert.match(ddl,/'transferAuthorized',false/);
+ assert.match(ddl,/'requiresPSPReconciliation',true/);
+ assert.match(ddl,/'requiresF6RealConfirmations',true/);
+ assert.match(ddl,/current_setting\('app\.f4_test_only',true\) is distinct from 'local_fixture'/);
+ assert.doesNotMatch(ddl,/create\s+function\s+public\.f4_transfer/);
+});
+test("F4: rollback da extensão só atua vazia, sem tocar esquema F2",()=>{
+ const rollback=file("supabase/rollback/f4_double_entry_only_if_empty.sql");
+ assert.match(rollback,/gate ativo/);
+ assert.match(rollback,/existem partidas/);
+ assert.doesNotMatch(rollback,/drop table public\./);
+ assert.match(file(".github/workflows/f4-tests.yml"),/tests\/f4-double-entry\.sql/);
+ assert.match(file(".github/workflows/f4-tests.yml"),/f4-double-entry-rollback-guard\.sh/);
+});
