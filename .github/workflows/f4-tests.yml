@@ -9,6 +9,7 @@ on:
       - 'tests/f4-*.js'
       - 'f4-mock-webhook.js'
       - 'tests/f4-rollback-guard.sh'
+      - 'tests/f4-concurrency.sh'
       - 'tests/f4-*.sql'
       - 'supabase/drafts/f4_financial_backend_candidate.sql'
       - 'supabase/rollback/f4_only_if_empty.sql'
@@ -24,6 +25,7 @@ on:
       - 'tests/f4-*.js'
       - 'f4-mock-webhook.js'
       - 'tests/f4-rollback-guard.sh'
+      - 'tests/f4-concurrency.sh'
       - 'tests/f4-*.sql'
       - 'supabase/drafts/f4_financial_backend_candidate.sql'
       - 'supabase/rollback/f4_only_if_empty.sql'
@@ -121,3 +123,8 @@ jobs:
           psql -X -v ON_ERROR_STOP=1 -Atqc "select to_regclass('private.f4_mock_payment_attempts') is null" | grep -qx t
           psql -X -v ON_ERROR_STOP=1 -Atqc "select to_regclass('public.f2_request_offers') is not null" | grep -qx t
           psql -X -v ON_ERROR_STOP=1 -Atqc "select to_regclass('public.service_requests') is not null" | grep -qx t
+      - name: Recriar modelo local e disputar o mesmo evento fictício em duas sessões
+        run: |
+          psql -X -v ON_ERROR_STOP=1 -f supabase/drafts/f4_financial_backend_candidate.sql
+          bash tests/f4-concurrency.sh
+
