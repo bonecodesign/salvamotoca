@@ -145,9 +145,11 @@ create policy f5_mock_messages_participants on public.f5_mock_messages
 for select to authenticated using (
   (select private.f5_mock_enabled())
   and exists(select 1 from public.f5_mock_sessions s
+     join public.providers p on p.id=s.provider_id
      where s.id=session_id and
         ((kind='participant' and s.status in
-          ('ready_for_dispatch','en_route','arrived','in_service'))
+          ('ready_for_dispatch','en_route','arrived','in_service')
+          and p.status='approved' and p.is_active)
          or (kind='support' and s.status='support_review')))
 );
 create policy f5_mock_presence_en_route on public.f5_mock_latest_location
