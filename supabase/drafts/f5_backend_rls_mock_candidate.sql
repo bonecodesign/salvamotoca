@@ -145,7 +145,7 @@ create policy f5_mock_messages_participants on public.f5_mock_messages
 for select to authenticated using (
   (select private.f5_mock_enabled())
   and exists(select 1 from public.f5_mock_sessions s
-     where s.id=session_id and s.mock_paid and
+     where s.id=session_id and
         ((kind='participant' and s.status in
           ('ready_for_dispatch','en_route','arrived','in_service'))
          or (kind='support' and s.status='support_review')))
@@ -156,7 +156,7 @@ for select to authenticated using (
   and sampled_at>=now()-interval '120 seconds' and sampled_at<=now()
   and exists(select 1 from public.f5_mock_sessions s
     join public.providers p on p.id=s.provider_id
-    where s.id=session_id and s.mock_paid and s.status='en_route'
+    where s.id=session_id and s.status='en_route'
       and s.tracking_consent
       and p.status='approved' and p.is_active)
 );
