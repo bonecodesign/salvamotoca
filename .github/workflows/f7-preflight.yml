@@ -1,0 +1,44 @@
+name: F7 - preflight de seguranca NO-GO offline
+on:
+  pull_request:
+    paths:
+      - 'config.js'
+      - 'scripts/f7-preflight-offline.mjs'
+      - 'tests/f7-preflight.test.mjs'
+      - 'docs/F7_*.md'
+      - '.github/workflows/f7-preflight.yml'
+  push:
+    branches:
+      - 'feat/f7-preflight-no-go-offline'
+    paths:
+      - 'config.js'
+      - 'scripts/f7-preflight-offline.mjs'
+      - 'tests/f7-preflight.test.mjs'
+      - 'docs/F7_*.md'
+      - '.github/workflows/f7-preflight.yml'
+permissions:
+  contents: read
+jobs:
+  offline-preflight:
+    runs-on: ubuntu-latest
+    timeout-minutes: 6
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Checar sintaxe e seis flags desligadas
+        run: |
+          node --check scripts/f7-preflight-offline.mjs
+          node scripts/f7-preflight-offline.mjs > /tmp/f7-static-result.json
+          node -e "const r=require('/tmp/f7-static-result.json');if(r.staticPreflight!=='PASS_STATIC_GUARDS_ONLY'||r.decision!=='NO_GO'||r.realReadinessVerified||r.paymentOrDispatchAuthorized)process.exit(1)"
+      - name: Provar NO-GO e falhas fechadas
+        run: node --test tests/f7-preflight.test.mjs
+      - name: Regressao local do atendimento e conclusao
+        run: |
+          node --test tests/f5-offline-flow.test.js tests/f5-release-guard.test.js
+          node --test tests/f6-offline-completion.test.js tests/f6-release-guard.test.js
+      - name: Nunca publicar artefatos com dados de pessoa ou segredo
+        run: |
+          test -f /tmp/f7-static-result.json
+          node -e "const r=require('/tmp/f7-static-result.json');if(r.decision!=='NO_GO')process.exit(1);console.log('F7: NO-GO mantido. Provas remotas nao validadas nesta CI.')"
