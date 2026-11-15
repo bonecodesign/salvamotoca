@@ -79,6 +79,48 @@ returns boolean language sql stable security definer set search_path='' as $$
 $$;
 revoke all on function private.f3_enabled() from public,anon,authenticated;
 
+-- Ampliação conservadora da autorização já usada pelas políticas de foto/pedido
+-- F2. Para reboque, não basta convite: requer F3 ativo e equipamento ainda
+-- certificado com capacidade suficiente. As outras categorias mantêm a regra F2.
+-- O rollback F3 restaura a definição anterior, sem mudar grants.
+create or replace function private.f2_can_view_request(p_request_id uuid)
+returns boolean language sql stable security definer set search_path='' as $$
+ select auth.uid() is not null
+   and exists(select 1 from private.f2_release_gate g where g.enabled)
+   and exists(
+     select 1 from public.f2_request_offers o
+     join public.providers p on p.id=o.provider_id
+     join public.service_requests r on r.id=o.request_id
+     where r.id=p_request_id and r.status='requested'
+       and p.owner_id=auth.uid() and p.status='approved' and p.is_active
+       and (
+         (o.status='offered' and o.offered_at+interval '5 minutes'>now())
+         or (o.status='delivered' and o.delivered_at is not null
+             and o.delivered_at+interval '5 minutes'>now())
+         or (o.status='quoted' and exists(
+           select 1 from public.service_quotes q
+           where q.id=o.quote_id and q.status='proposed'
+             and q.created_at+interval '5 minutes'>now()
+         ))
+       )
+       and (
+         not exists(select 1 from public.service_categories cat
+           where cat.id=r.category_id and cat.code='reboque_moto')
+         or (
+           private.f3_enabled()
+           and exists(
+             select 1 from public.f3_tow_provider_capacity cap
+             join public.f3_tow_requests tow on tow.request_id=r.id
+             where cap.provider_id=p.id and cap.verified_by_admin
+               and cap.has_ramp and cap.has_wheel_chock
+               and cap.tie_down_points>=2
+               and cap.max_moto_kg>=tow.motorcycle_weight_kg
+           )
+         )
+       )
+   );
+$$;
+
 -- Impedir envio direto para serviço de reboque por clientes legados/F1.
 -- RPC autorizada executa como o dono do banco; cliente via Data API opera
 -- sob role authenticated, e o gate impede ativação prematura em todo caso.
