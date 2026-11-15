@@ -83,7 +83,7 @@ button:focus-visible,input:focus-visible,select:focus-visible{outline:3px solid 
    if(parts)items.push({kind:"part",code:"material de apoio",amountCents:parts});
    const quote=F.quoteSnapshot({quoteId:qId,requestId:rId,items});
    const result=F.costBreakdown({quote,processingFeeCents:asCents("fee"),
-    feeConfirmedByProvider:true /* valor FICTÍCIO afirmado somente no próprio simulador */});
+    feeVerifiedByPSP:true /* valor FICTÍCIO afirmado somente no próprio simulador */});
    line("Serviço",result.serviceCents);
    line("Deslocamento",result.travelCents);
    line("Materiais",result.partsCents);
