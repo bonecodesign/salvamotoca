@@ -17,6 +17,10 @@
 | Ledger de teste imutável e estorno compensatório | Testes locais | SQL negando UPDATE/DELETE e compensação negativa |
 | Diário mock de partidas dobradas, inclusive comissão arredondada a zero | Testes locais | `tests/f4-double-entry.sql`, commit/trigger diferido e reversão das contas |
 | Reversão da extensão contábil | Testes locais | Bloqueio com gate/dados, rollback vazio preservando F4 base |
+| Casos de estorno parcial/integral e revisão de disputa (mock) | Testes locais | `tests/f4-risk-settlement.sql`: titulares, chaves idempotentes, orçamento e casos bloqueadores |
+| Concorrência entre reembolsos parciais | Testes locais | `tests/f4-risk-race.sh`: duas sessões, valor máximo e um caso por chave |
+| Repasse suspenso por contestação posterior | Testes locais | Gatilho de hold e recusa de reativação após encerramento sem ação |
+| Reversão da fila de risco | Testes locais | Recusa com gate/casos e remoção apenas da extensão vazia, preservando o journal anterior |
 | Rollback proibido com gate ativo ou registros | Testes locais | tests/f4-rollback-guard.sh |
 | Rollback vazio preserva tabelas F1–F3 | Testes locais | supabase/rollback/f4_only_if_empty.sql |
 | Backup restaurável de PostgreSQL/Auth/Storage | BLOQUEADO | Prova privada de restauração no ambiente existente |
@@ -30,6 +34,8 @@
 | Liberação comercial em piloto BH | NÃO EXECUTADO | Go/no-go de F7 com humanos responsáveis |
 
 **Importante:** os testes locais não demonstram que um PSP irá confirmar ou reter fundos. A infraestrutura financeira candidata `supabase/drafts/f4_financial_backend_candidate.sql` só admite estados `mock_*`, permanece atrás de gate desligado e não modifica `service_requests.status`.
+
+**Nova rodada de testes F4 de risco local:** [Actions #43745182251](https://github.com/bonecodesign/salvamotoca/actions/runs/43745182251) — PostgreSQL 17, controle de estorno parcial concorrente, rollback e regressões locais aprovados no commit `d9e2d18702a8d515da2920e995e108a5c61b61a0`. As novas regras de contestação permanecem sujeitas a reexecução no HEAD atual; conferir CI antes da decisão final.
 
 ## Registros de incidentes
 
