@@ -218,6 +218,9 @@ begin
  if p_selected_provider is not null and not exists(
    select 1 from public.providers p join public.provider_services ps
      on ps.provider_id=p.id and ps.category_id=v_category and ps.is_active
+   join public.f3_tow_provider_capacity cap on cap.provider_id=p.id
+     and cap.verified_by_admin and cap.has_ramp and cap.has_wheel_chock
+     and cap.tie_down_points>=2 and cap.max_moto_kg>=p_weight_kg
    where p.id=p_selected_provider and p.status='approved' and p.is_active
  ) then raise exception 'Prestador manual não homologado para reboque.'; end if;
  -- Em reenvios, somente payload estritamente idêntico pode retornar o ID.
@@ -258,7 +261,7 @@ begin
   motorcycle_year,service_types,photo_path,problem_description,
   latitude,longitude,status,f2_mode
  ) values (
-  p_request_key,v_user,v_category,p_selected_provider,btrim(p_brand),btrim(p_model),
+  p_request_key,v_user,v_category,null,btrim(p_brand),btrim(p_model),
   p_year,p_service_types,p_photo_path,btrim(p_description),
   p_pickup_lat,p_pickup_lng,'requested',p_mode
  ) returning id into v_request;
@@ -322,7 +325,7 @@ begin
    or not exists(select 1 from public.service_categories c
       where c.id=v_req.category_id and c.code='reboque_moto')
  then raise exception 'Pedido F3 não elegível.'; end if;
- select motorcycle_weight_kg,pickup_city,pickup_state_code
+ select motorcycle_weight_kg,pickup_city,pickup_state_code,selected_provider_id
   into v_tow from public.f3_tow_requests where request_id=p_request_id;
  if not found then raise exception 'Peso e destino do reboque não cadastrados.'; end if;
  if exists(select 1 from public.f2_request_offers
@@ -352,7 +355,7 @@ begin
        and (basic.service_types @> array_remove(v_req.service_types,'reboque_moto')
          or cardinality(array_remove(v_req.service_types,'reboque_moto'))=0)
        and (v_round>1 or coalesce(v_req.f2_mode,'automatic')='automatic'
-            or p.id=v_req.provider_id)
+            or p.id=v_tow.selected_provider_id)
        and not exists(select 1 from public.f2_request_offers o
           where o.request_id=p_request_id and o.provider_id=p.id
             and o.status in('offered','delivered','quoted','selected'))
