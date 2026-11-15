@@ -38,7 +38,7 @@ test("F4 assinatura mock: formato inválido e corpo grande não são aceitos",()
  assert.throws(()=>verifier(invalid,signature(invalid)),/Envelope inválido/);
  const tooLong="a".repeat(17000);
  assert.throws(()=>signature(tooLong),/muito grande/);
- const broken="{";
+ const broken="{invalid";
  assert.throws(()=>verifier(broken,signature(broken)),/Corpo mock não é JSON/);
 });
 test("F4 assinatura mock: não aceita moeda USD ou valor fracionado",()=>{
