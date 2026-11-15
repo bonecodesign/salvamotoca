@@ -144,11 +144,12 @@ for select to authenticated using (
  exists (
   select 1 from public.f5_mock_sessions s
    join public.providers p on p.id=s.provider_id
-  where s.id=session_id and s.status='handoff_f6'
-    and s.customer_id=customer_id and s.provider_owner_id=provider_owner_id
+  where s.id=public.f6_mock_completions.session_id and s.status='handoff_f6'
+    and s.customer_id=public.f6_mock_completions.customer_id
+    and s.provider_owner_id=public.f6_mock_completions.provider_owner_id
     and (
-      customer_id=(select auth.uid())
-      or (provider_owner_id=(select auth.uid())
+      public.f6_mock_completions.customer_id=(select auth.uid())
+      or (public.f6_mock_completions.provider_owner_id=(select auth.uid())
           and p.owner_id=(select auth.uid())
           and p.status='approved' and p.is_active)
     )
