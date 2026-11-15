@@ -65,9 +65,10 @@ select set_config('test.f4_intent_result',:'first_intent',true);
 select private.f4_queue_mock_settlement_review(
  current_setting('test.f4_risk_attempt')::uuid,
  'settle_mock_review_0001',true,true) as repeat_intent \gset
+select set_config('test.f4_intent_duplicate',:'repeat_intent',true);
 do $idempotency$
 declare first_json jsonb:=current_setting('test.f4_intent_result')::jsonb;
-declare second_json jsonb:=:'repeat_intent'::jsonb;
+declare second_json jsonb:=current_setting('test.f4_intent_duplicate')::jsonb;
 begin
  if first_json->>'intentId' is distinct from second_json->>'intentId'
     or (first_json->>'transferAuthorized')::boolean is distinct from false
@@ -102,9 +103,10 @@ select set_config('test.f4_partial_case',:'partial_case',true);
 select private.f4_open_mock_risk_case(
  current_setting('test.f4_risk_attempt')::uuid,
  'case_mock_partial_0001','refund_partial',7000) as duplicate_case \gset
+select set_config('test.f4_case_duplicate',:'duplicate_case',true);
 do $held$
 begin
- if current_setting('test.f4_partial_case')<>:'duplicate_case'
+ if current_setting('test.f4_partial_case')<>current_setting('test.f4_case_duplicate')
    or (select count(*) from private.f4_mock_risk_cases)<>1
    or (select status from private.f4_mock_settlement_intents)<>'held'
    or (select held_at from private.f4_mock_settlement_intents) is null
