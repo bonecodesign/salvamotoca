@@ -49,7 +49,7 @@ test("F6: cliente pode confirmar primeiro mas nao encerra sozinho",()=>{
  const c=cc(summary(make()));
  assert.equal(c.status,"awaiting_both");
  assert.equal(c.customerConfirmed,true);
- assert.equal(pc(c).status,"completed");
+ assert.equal(apply(c,{kind:"provider_confirm",id:"evt_provider_01",actorId:P,at:2300}).status,"completed");
 });
 test("F6: antes de resumo ninguem confirma",()=>{
  assert.throws(()=>pc(make()),/Confirmacao/);
