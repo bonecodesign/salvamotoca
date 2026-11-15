@@ -190,7 +190,8 @@ begin
  then raise exception 'Foto privada de titularidade inválida ou inexistente.'; end if;
  if p_brand is null or length(btrim(p_brand)) not between 2 and 70
    or p_model is null or length(btrim(p_model)) not between 2 and 90
-   or p_year not between 1950 and 2100 or p_weight_kg not between 40 and 650
+   or p_year is null or p_year not between 1950 and 2100
+   or p_weight_kg is null or p_weight_kg not between 40 and 650
    or p_description is null or length(btrim(p_description)) not between 10 and 500
    or p_service_types is null or cardinality(p_service_types) not between 1 and 6
    or array_position(p_service_types,null) is not null
@@ -200,14 +201,15 @@ begin
    or (select count(distinct x) from unnest(p_service_types) x)
        <>cardinality(p_service_types)
  then raise exception 'Dados de motocicleta, descrição ou serviço inválidos.'; end if;
- if p_pickup_lat not between -90 and 90 or p_pickup_lng not between -180 and 180
+ if p_pickup_lat is null or p_pickup_lng is null
+   or p_pickup_lat not between -90 and 90 or p_pickup_lng not between -180 and 180
    or length(btrim(coalesce(p_pickup_city,''))) not between 2 and 80
-   or p_pickup_state !~ '^[A-Z]{2}$'
+   or p_pickup_state is null or p_pickup_state !~ '^[A-Z]{2}$'
    or length(btrim(coalesce(p_destination_city,''))) not between 2 and 80
-   or p_destination_state !~ '^[A-Z]{2}$'
+   or p_destination_state is null or p_destination_state !~ '^[A-Z]{2}$'
    or length(btrim(coalesce(p_destination_address,''))) not between 5 and 240
-   or p_estimated_km not between 1 and 500
-   or p_mode not in ('manual','automatic')
+   or p_estimated_km is null or p_estimated_km not between 1 and 500
+   or p_mode is null or p_mode not in ('manual','automatic')
    or (p_mode='manual' and p_selected_provider is null)
    or (p_mode='automatic' and p_selected_provider is not null)
  then raise exception 'Rota, destino ou modo inválidos.'; end if;
@@ -391,7 +393,9 @@ begin
  if p_items is null or jsonb_typeof(p_items)<>'array'
    or jsonb_array_length(p_items) not between 2 and 16
    or length(coalesce(p_details,''))>350
- then raise exception 'Itens inválidos.'; end if;
+   or coalesce(p_details,'') ~*
+       '(https?://|www[.]|wa[.]me|whats[[:space:]]*app|chave[[:space:]]*pix|@[-_[:alnum:].]+|([0-9][[:space:]().-]*){9,})'
+ then raise exception 'Itens inválidos ou descrição contém contato externo.'; end if;
  select o.id,o.request_id,o.provider_id,o.status,o.delivered_at
    into v_offer from public.f2_request_offers o
    join public.providers p on p.id=o.provider_id and p.owner_id=v_user
@@ -439,7 +443,7 @@ begin
    elsif v_kind='part' then
      v_parts:=v_parts+1;
      if v_parts>10 or v_amount=0 or v_code ~*
-       '(https?://|www[.]|wa[.]me|whats[[:space:]]*app|pix|@[-_[:alnum:].]+)'
+       '(https?://|www[.]|wa[.]me|whats[[:space:]]*app|chave[[:space:]]*pix|@[-_[:alnum:].]+|([0-9][[:space:]().-]*){9,})'
      then raise exception 'Material inválido ou contém contato externo.'; end if;
    else raise exception 'Tipo de linha inválido.'; end if;
    v_total:=v_total+v_amount;
