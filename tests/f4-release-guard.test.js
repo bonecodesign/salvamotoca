@@ -114,7 +114,7 @@ test("F4: a fila privada de risco não possui políticas de acesso a clientes",(
 test("F4: reembolso parcial e disputa não causam repasse ou dinheiro real",()=>{
  const ddl=file("supabase/drafts/f4_risk_settlement_mock_candidate.sql");
  assert.match(ddl,/v_total\+p_requested_cents>v_attempt\.quote_total_cents/);
- assert.match(ddl,/and v_attempt\.status='mock_verified'/);
+ assert.match(ddl,/if v_attempt\.status<>'mock_verified'/);
  assert.match(ddl,/create trigger f4_mock_risk_hold_settlement/);
  assert.match(ddl,/'transferAuthorized',false/);
  assert.match(ddl,/'pspFundsConfirmed',false/);
