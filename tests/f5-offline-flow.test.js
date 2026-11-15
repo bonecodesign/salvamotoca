@@ -77,7 +77,7 @@ test("F5: somente prestador envia coordenada recente e precisa",()=>{
  assert.throws(()=>apply(s,location({actorId:C})),/GPS disponível/);
  assert.throws(()=>apply(s,location({accuracyMeters:900})),/Precisão/);
  assert.throws(()=>apply(s,location({lat:200})),/Coordenada/);
- assert.throws(()=>apply(s,location({sampledAt:1100})),/antiga/);
+ assert.throws(()=>apply(s,location({at:250000,sampledAt:1100})),/antiga/);
  assert.throws(()=>apply(s,location({sampledAt:1500})),/antiga/);
  const next=apply(s,location());
  assert.equal(F.viewFor(next,C).lastLocation.lat,-19.924);
