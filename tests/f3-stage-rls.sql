@@ -194,6 +194,27 @@ begin
  then raise exception 'Prestador convidado não vê o pedido mínimo F2'; end if;
 end $summary$;
 
+-- A RPC genérica de abertura F2 não pode burlar o gate desligado da F3.
+reset role;
+update private.f3_release_gate set enabled=false;
+set role authenticated;
+select set_config('request.jwt.claim.sub','33333333-3333-4333-8333-333333333333',false);
+do $off_block$
+begin
+  begin
+    perform public.f2_ack_offer((select id from public.f2_request_offers
+      where provider_id='bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb'));
+    raise exception using message='FALHA: F2 abriu F3 desligada',errcode='ZX109';
+  exception when others then
+    if sqlstate='ZX109' then raise; end if;
+    if sqlerrm not like '%Convite F3 desativado%' then raise; end if;
+  end;
+end $off_block$;
+reset role;
+update private.f3_release_gate set enabled=true;
+set role authenticated;
+select set_config('request.jwt.claim.sub','33333333-3333-4333-8333-333333333333',false);
+
 -- F2 faz ACK de convites F3, após homologação de capacidade.
 select public.f2_ack_offer((select id from public.f2_request_offers
   where provider_id='bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb')) as ack_b \gset
@@ -223,6 +244,17 @@ reset role;
 update public.f3_tow_provider_capacity set verified_by_admin=false
   where provider_id='bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb';
 set role authenticated;
+select set_config('request.jwt.claim.sub','33333333-3333-4333-8333-333333333333',false);
+do $revoked_photo$
+begin
+ if exists(select 1 from storage.objects where bucket_id='request-photos')
+ then raise exception 'Prestador sem equipamento aprovado mantém foto'; end if;
+ begin
+   perform public.f3_tow_summary(current_setting('test.f3_request_id')::uuid);
+   raise exception using message='FALHA: resumo visível sem homologação',errcode='ZX110';
+ exception when others then if sqlstate='ZX110' then raise; end if;
+ end;
+end $revoked_photo$;
 select set_config('request.jwt.claim.sub','11111111-1111-4111-8111-111111111111',false);
 select set_config('test.f3_quote_b',:'quote_b',false);
 do $generic_bypass$
