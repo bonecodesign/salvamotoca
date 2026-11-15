@@ -1,0 +1,68 @@
+name: F6 - backend RLS mock e janela de confirmacao (isolado)
+on:
+  pull_request:
+    paths:
+      - 'supabase/drafts/f6_backend_rls_mock_candidate.sql'
+      - 'tests/f6-backend-rls-mock.sql'
+      - 'docs/F6_BACKEND_CANDIDATE.md'
+      - '.github/workflows/f6-backend-rls-mock.yml'
+  push:
+    branches:
+      - 'feat/f6-backend-rls-mock-candidate'
+    paths:
+      - 'supabase/drafts/f6_backend_rls_mock_candidate.sql'
+      - 'tests/f6-backend-rls-mock.sql'
+      - 'docs/F6_BACKEND_CANDIDATE.md'
+      - '.github/workflows/f6-backend-rls-mock.yml'
+permissions:
+  contents: read
+jobs:
+  postgres-f6:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: f6_disposable
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d f6_disposable"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      PGHOST: localhost
+      PGPORT: 5432
+      PGUSER: postgres
+      PGPASSWORD: postgres
+      PGDATABASE: f6_disposable
+    steps:
+      - uses: actions/checkout@v4
+      - name: Localizar cliente PostgreSQL
+        run: command -v psql || (sudo apt-get update -qq && sudo apt-get install -y postgresql-client)
+      - name: Fixture isolada F2 (sem hosted Supabase)
+        run: psql -X -v ON_ERROR_STOP=1 -f tests/f2-stage-setup.sql
+      - name: Camada F5 mock no banco descartavel
+        run: psql -X -v ON_ERROR_STOP=1 -f supabase/drafts/f5_backend_rls_mock_candidate.sql
+      - name: Backend F6 mock fail-closed
+        run: psql -X -v ON_ERROR_STOP=1 -f supabase/drafts/f6_backend_rls_mock_candidate.sql
+      - name: Casos adversariais de RLS, janela e avaliacao
+        run: psql -X -v ON_ERROR_STOP=1 -f tests/f6-backend-rls-mock.sql
+      - name: Gate fechado, nada persistido e nenhum pagamento real
+        run: |
+          psql -X -v ON_ERROR_STOP=1 -Atqc "select not enabled from private.f5_mock_release_gate where singleton" | grep -qx t
+          psql -X -v ON_ERROR_STOP=1 -Atqc "select not enabled from private.f6_mock_release_gate where singleton" | grep -qx t
+          psql -X -v ON_ERROR_STOP=1 -Atqc "select count(*) from public.f6_mock_completions" | grep -qx 0
+          psql -X -v ON_ERROR_STOP=1 -Atqc "select count(*) from public.f6_mock_support_messages" | grep -qx 0
+          psql -X -v ON_ERROR_STOP=1 -Atqc "select count(*) from public.service_requests" | grep -qx 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Regressao do dominio F6 e guardas
+        run: node --test tests/f6-offline-completion.test.js tests/f6-release-guard.test.js
+      - name: Regressao dominio F5 sem chamadas remotas
+        run: node --test tests/f5-offline-flow.test.js tests/f5-release-guard.test.js
