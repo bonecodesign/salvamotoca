@@ -154,3 +154,18 @@ test("F6: eventos anteriores ao handoff nao sao aceitos",()=>{
  assert.throws(()=>apply(make(),{kind:"request_support",id:"evt_support_01",
   actorId:C,at:999,reason:"Atendimento atrasou"}),/anterior/);
 });
+
+test("F6: contestacao posterior a confirmacao dupla suspende a conclusao",()=>{
+ const s=finished();
+ const a=apply(s,{kind:"request_support",id:"evt_support_after",
+  actorId:C,at:3000,reason:"Divergencia identificada apos o servico"});
+ assert.equal(a.status,"support_review");
+ assert.equal(F.settlementCandidate(a).authorized,false);
+ assert.throws(()=>apply(a,{kind:"rate_provider",id:"evt_rating_late",
+  actorId:C,at:3100,stars:5}),/Avaliacao/);
+});
+test("F6: nao permite nova transicao com horario anterior ao ultimo evento",()=>{
+ const s=summary(make());
+ assert.throws(()=>apply(s,{kind:"provider_confirm",id:"evt_provider_01",
+  actorId:P,at:1999}),/anterior ao ultimo/);
+});
