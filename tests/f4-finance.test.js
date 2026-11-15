@@ -22,14 +22,14 @@ test("F4: base da comissão inclui somente serviço (15%)",()=>{
 test("F4: tarifa do cliente exige comprovação do PSP; não fixar tarifa fictícia",()=>{
  const q=quote();
  assert.throws(()=>F.costBreakdown({quote:q,processingFeeCents:350}),/processador/);
- const x=F.costBreakdown({quote:q,processingFeeCents:350,feeConfirmedByProvider:true});
+ const x=F.costBreakdown({quote:q,processingFeeCents:350,feeVerifiedByPSP:true});
  assert.equal(x.customerTotalCents,28350);
  assert.equal(x.processingFeeCents,350);
  assert.equal(x.commissionCents,3450);
  assert.equal(x.providerReceivableCents,24550);
 });
 test("F4: tarifa zero autorizada pelo PSP permanece discriminada",()=>{
- const x=F.costBreakdown({quote:quote(),processingFeeCents:0,feeConfirmedByProvider:true});
+ const x=F.costBreakdown({quote:quote(),processingFeeCents:0,feeVerifiedByPSP:true});
  assert.equal(x.customerTotalCents,28000);
  assert.equal(x.processingFeeChargedToCustomer,true);
 });
@@ -69,7 +69,7 @@ test("F4: recusa taxa negativa, excessiva ou não inteira",()=>{
  const q=quote();
  for(const val of [-1,1.5,600000])
   assert.throws(()=>F.costBreakdown({quote:q,
-    processingFeeCents:val,feeConfirmedByProvider:true}),/Tarifa/);
+    processingFeeCents:val,feeVerifiedByPSP:true}),/Tarifa/);
 });
 test("F4: pagamento nunca é confirmado por evento fabricado no navegador",()=>{
  for(const input of [
