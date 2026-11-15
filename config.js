@@ -14,5 +14,7 @@ window.BJ_CONFIG = {
   f4PaymentsEnabled: false,
   // F5 é exclusivamente um simulador offline: sem backend, chat, GPS nem despacho real.
   f5OperationsEnabled: false,
+  // F6: conclusao, avaliacao e mediacao ainda sem backend ou pagamento real.
+  f6CompletionEnabled: false,
   supabasePublishableKey: 'sb_publishable_SKToaitJDdgDAYUrwChkbg__ntPtZd3'
 };
