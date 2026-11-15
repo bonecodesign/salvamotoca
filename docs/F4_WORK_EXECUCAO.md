@@ -2,7 +2,7 @@
 
 **Projeto:** Salva Motoca! · **Dependências:** F1, PR #42 (F2) e PR #44 (F3). Este PR deve ficar empilhado sobre F3 até a revisão das fases anteriores.
 
-**Estado:** apenas regras matemáticas e prévia offline. Nenhuma integração financeira implantada, nenhuma conta financeira ou cobrança criada.
+**Estado:** regras matemáticas, assinatura fictícia de eventos e SQL candidato em PostgreSQL descartável. **Nenhuma integração financeira remota implantada, nenhuma conta ou cobrança criada.**
 
 ## Restrições inegociáveis
 
@@ -21,7 +21,7 @@ Não criar novo Supabase, contratar serviços, cadastrar dados bancários reais,
 
 Executar testes Node de cálculo, flags e regressões F1–F3. Testar a prévia em Chrome bloqueando rede externa, desktop e celular. Provar ausência de SDK Stripe, chamadas financeiras, segredos e status paid no navegador.
 
-Arquivos: f4-finance.js; tests/f4-finance.test.js; tests/f4-release-guard.test.js; tests/f4-browser.test.js; docs/F4_PREVIEW.html; .github/workflows/f4-tests.yml.
+Arquivos: `f4-finance.js`, `f4-mock-webhook.js`, `tests/f4-finance.test.js`, `tests/f4-mock-webhook.test.js`, `tests/f4-release-guard.test.js`, `tests/f4-browser.test.js`, `docs/F4_PREVIEW.html` e `.github/workflows/f4-tests.yml`.
 
 ## Gate 2 — Viabilidade real do PSP, apenas documental
 
@@ -35,7 +35,11 @@ IMPORTANTE: Stripe não fornece escrow. Não prometer retenção indefinida nem 
 
 ## Gate 3 — Backend futuro, SEM executar no Supabase remoto
 
-Após backup/restauração verificável de DB/Auth/Storage e revisão das F1–F3, preparar em PR isolado schema candidato com payment_attempt, financial_ledger, webhook_inbox, settlement_intent, refund_case e audit_event. Usar RLS, grants mínimos, autorização no servidor, trilha de auditoria, idempotência e flags desligadas.
+Já existe um **SQL candidato demonstrativo**, `supabase/drafts/f4_financial_backend_candidate.sql`, com `private.f4_release_gate.enabled=false`, mock de tentativa, recibos e ledger privado. NÃO executar no projeto remoto. Execute exclusivamente em PostgreSQL 17 descartável, precedido de `tests/f2-stage-setup.sql` e `supabase/drafts/f2_backend_candidate.sql`, seguido de `tests/f4-stage-rls.sql`. O CI também testa `tests/f4-rollback-guard.sh` e `supabase/rollback/f4_only_if_empty.sql`.
+
+**O SQL atual não é schema financeiro pronto para produção.** Ele usa eventos `mock_*` e GUC `app.f4_test_only=local_fixture`, nunca consulta PSP nem altera status operacional. Não habilitar RPCs financeiras aos usuários.
+
+Depois de backup/restauração verificável de DB/Auth/Storage, revisão das F1–F3, definição do PSP e aprovação jurídica/financeira, gerar **PR separado de migration real** a partir de desenho próprio: payment_attempt, ledger contábil, webhook_inbox persistente, settlement_intent, refund_case, auditoria, RLS e controle de acesso. Não reaproveitar o verificador HMAC `mock-v1` como Stripe webhook.
 
 Modelar: assinatura inválida, replay, evento fora de ordem, alteração de valor, cobrança duplicada, corrida de webhooks, settlement concorrente, indisponibilidade PSP, chargeback, reversão e reembolso parcial. Primeiro mocks locais, depois sandbox controlado apenas se autorizado. Nenhuma cobrança real.
 
