@@ -13,6 +13,8 @@ on:
       - 'tests/f4-*.sql'
       - 'supabase/drafts/f4_financial_backend_candidate.sql'
       - 'supabase/drafts/f4_double_entry_mock_candidate.sql'
+      - 'supabase/drafts/f4_risk_settlement_mock_candidate.sql'
+      - 'supabase/rollback/f4_risk_only_if_empty.sql'
       - 'supabase/rollback/f4_double_entry_only_if_empty.sql'
       - 'tests/f4-double-entry-rollback-guard.sh'
       - 'supabase/rollback/f4_only_if_empty.sql'
@@ -32,6 +34,8 @@ on:
       - 'tests/f4-*.sql'
       - 'supabase/drafts/f4_financial_backend_candidate.sql'
       - 'supabase/drafts/f4_double_entry_mock_candidate.sql'
+      - 'supabase/drafts/f4_risk_settlement_mock_candidate.sql'
+      - 'supabase/rollback/f4_risk_only_if_empty.sql'
       - 'supabase/rollback/f4_double_entry_only_if_empty.sql'
       - 'tests/f4-double-entry-rollback-guard.sh'
       - 'supabase/rollback/f4_only_if_empty.sql'
@@ -144,5 +148,21 @@ jobs:
           psql -X -v ON_ERROR_STOP=1 -Atqc "select status from public.service_requests limit 1" | grep -qx awaiting_payment
       - name: Negar reversão com dados/gate e remover só camada contábil vazia
         run: bash tests/f4-double-entry-rollback-guard.sh
+      - name: Recriar journal de teste e instalar extensão de risco privada
+        run: |
+          psql -X -v ON_ERROR_STOP=1 -f supabase/drafts/f4_double_entry_mock_candidate.sql
+          psql -X -v ON_ERROR_STOP=1 -f supabase/drafts/f4_risk_settlement_mock_candidate.sql
+      - name: Exercitar estornos parciais, disputas e revisão idempotente fictícia
+        run: psql -X -v ON_ERROR_STOP=1 -f tests/f4-risk-settlement.sql
+      - name: Validar ausência de persistência dos cenários
+        run: |
+          psql -X -v ON_ERROR_STOP=1 -Atqc "select not enabled from private.f4_release_gate where singleton" | grep -qx t
+          psql -X -v ON_ERROR_STOP=1 -Atqc "select count(*) from private.f4_mock_risk_cases" | grep -qx 0
+          psql -X -v ON_ERROR_STOP=1 -Atqc "select count(*) from private.f4_mock_settlement_intents" | grep -qx 0
+      - name: Reverter apenas extensão de risco vazia preservando ledger anterior
+        run: |
+          psql -X -v ON_ERROR_STOP=1 -f supabase/rollback/f4_risk_only_if_empty.sql
+          psql -X -v ON_ERROR_STOP=1 -Atqc "select to_regclass('private.f4_mock_risk_cases') is null" | grep -qx t
+          psql -X -v ON_ERROR_STOP=1 -Atqc "select to_regclass('private.f4_mock_journals') is not null" | grep -qx t
 
 
