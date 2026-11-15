@@ -1,0 +1,122 @@
+<!doctype html><html lang="pt-BR"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Salva Motoca! — F4, prévia financeira offline</title>
+<style>
+*{box-sizing:border-box}body{margin:0;font:16px/1.5 system-ui,Arial,sans-serif;background:#111418;color:#f9fbff}
+main{max-width:980px;margin:auto;padding:24px 16px 80px}
+header{margin-bottom:25px}.logo{font-size:13px;color:#ffd061;font-weight:900;letter-spacing:.12em}
+h1{font-size:clamp(26px,4vw,38px);line-height:1.15;margin:6px 0 12px}
+h2{font-size:18px;margin:4px 0 16px}.lead{color:#bdc8d7;max-width:680px}
+.notice{padding:12px 15px;background:#433719;border:1px solid #ba983e;color:#fff2bd;border-radius:10px;margin:20px 0}
+.grid{display:grid;grid-template-columns:1fr 1fr;gap:18px}.card{background:#21272f;border:1px solid #42505b;border-radius:14px;padding:20px;margin-bottom:18px}
+label{display:block;margin:0 0 13px;font-weight:600;font-size:14px}
+input,select{width:100%;margin-top:5px;padding:10px 11px;background:#151b21;border:1px solid #728294;border-radius:8px;color:#fff;font:inherit}
+button{display:inline-flex;align-items:center;justify-content:center;padding:12px 17px;border-radius:9px;font:inherit;font-weight:750;background:#f9c84e;border:0;cursor:pointer;color:#201b0c}
+button:focus-visible,input:focus-visible,select:focus-visible{outline:3px solid #ffdf71;outline-offset:2px}
+.result{display:flex;justify-content:space-between;border-bottom:1px solid #4a5764;padding:9px 0;gap:15px}
+.result strong{white-space:nowrap}.total{font-size:20px;font-weight:800;color:#ffda76}
+.hint{color:#aebdcf;font-size:13px}.state{background:#303b46;border-radius:9px;padding:13px;min-height:45px}
+@media(max-width:700px){.grid{grid-template-columns:1fr}main{padding:16px 12px 42px}.card{padding:16px}}
+</style>
+</head><body><main>
+<header><div class="logo">SALVA MOTOCA! · F4</div>
+<h1>Pagamentos protegidos — simulação</h1>
+<p class="lead">Entenda a composição de um orçamento, a comissão de 15% e as regras preliminares de estorno e repasse, sem qualquer cobrança.</p>
+<div class="notice" role="status"><strong>Simulador 100% offline.</strong> Não coleta dados de cartão, não conecta Stripe nem Supabase, não cria Pix, não libera chat, rastreamento, serviço ou transferência.</div>
+</header>
+<div class="grid"><div>
+<section class="card"><h2>1. Orçamento escolhido (fictício)</h2>
+<label>Valor do serviço (R$)<input id="service" type="number" value="230.00" min="1" step=".01"></label>
+<label>Deslocamento (R$)<input id="travel" type="number" value="40.00" min="0" step=".01"></label>
+<label>Materiais e peças (R$)<input id="parts" type="number" value="10.00" min="0" step=".01"></label>
+<label>Tarifa do processador (R$) — apenas para simulação<input id="fee" type="number" value="3.50" min="0" step=".01"></label>
+<p class="hint">O valor da tarifa acima é fictício. Para uma cobrança real, o PSP e a análise jurídica devem confirmar o valor e sua aplicação ao cliente.</p>
+<button id="calculate" type="button">Simular cálculo</button>
+</section>
+<section class="card"><h2>2. Cancelamento</h2>
+<label>Quem solicita<select id="cancelBy"><option value="customer">Motociclista</option><option value="provider">Prestador</option><option value="support">Suporte</option></select></label>
+<label>Momento<select id="cancelPhase"><option value="before">Antes do deslocamento</option><option value="after">Depois do deslocamento</option></select></label>
+<label>Pagamento recebido<select id="paid"><option value="no">Não confirmado</option><option value="yes">Simulado como verificado no servidor</option></select></label>
+<button id="cancel" type="button">Simular decisão</button>
+<p class="state" id="refundState" aria-live="polite">Nenhum cancelamento foi simulado.</p>
+</section>
+</div><div>
+<section class="card"><h2>3. Demonstrativo (não é cobrança)</h2>
+<div id="breakdown" aria-live="polite"><p class="hint">Calcule um exemplo para visualizar a composição.</p></div>
+</section>
+<section class="card"><h2>4. Confirmação e repasse</h2>
+<label><input id="providerDone" type="checkbox" style="width:auto;margin-right:8px"> Prestador confirmou conclusão</label>
+<label><input id="customerDone" type="checkbox" style="width:auto;margin-right:8px"> Motociclista confirmou conclusão</label>
+<label><input id="dispute" type="checkbox" style="width:auto;margin-right:8px"> Existe disputa pendente</label>
+<button id="settlement" type="button">Verificar elegibilidade</button>
+<p class="state" id="settlementState" aria-live="polite">Sem análise de repasse.</p>
+<p class="hint">Mesmo quando elegível, uma transferência só pode ser iniciada pelo backend homologado e por regras do processador. Não há "escrow" contratado nesta fase.</p>
+</section>
+</div></div>
+</main>
+<script src="../f4-finance.js"></script>
+<script>
+(function(){
+ "use strict";
+ const F=window.SMF4Finance,by=id=>document.getElementById(id);
+ const qId="11111111-1111-4111-8111-111111111111",rId="22222222-2222-4222-8222-222222222222";
+ const currency=value=>new Intl.NumberFormat("pt-BR",{style:"currency",currency:"BRL"}).format(value/100);
+ function asCents(id){
+  const raw=by(id).value;
+  if(!/^\d{1,5}(?:\.\d{1,2})?$/.test(raw))throw new Error("Valor inválido em "+id);
+  const [whole,frac=""]=raw.split(".");
+  return Number(whole)*100+Number((frac+"00").slice(0,2));
+ }
+ function line(label,value,primary=false){
+  const row=document.createElement("div");row.className="result"+(primary?" total":"");
+  const name=document.createElement("span");name.textContent=label;
+  const money=document.createElement("strong");money.textContent=currency(value);
+  row.append(name,money);
+  by("breakdown").append(row);
+ }
+ by("calculate").addEventListener("click",()=>{
+  by("breakdown").replaceChildren();
+  try{
+   const service=asCents("service"),travel=asCents("travel"),parts=asCents("parts");
+   const items=[{kind:"service",code:"reboque_moto",amountCents:service},
+    {kind:"travel",code:"deslocamento",amountCents:travel}];
+   if(parts)items.push({kind:"part",code:"material de apoio",amountCents:parts});
+   const quote=F.quoteSnapshot({quoteId:qId,requestId:rId,items});
+   const result=F.costBreakdown({quote,processingFeeCents:asCents("fee"),
+    feeVerifiedByPSP:true /* valor FICTÍCIO afirmado somente no próprio simulador */});
+   line("Serviço",result.serviceCents);
+   line("Deslocamento",result.travelCents);
+   line("Materiais",result.partsCents);
+   line("Comissão (15% do serviço)",result.commissionCents);
+   line("Saldo econômico previsto ao prestador",result.providerReceivableCents);
+   line("Tarifa do PSP (hipotética)",result.processingFeeCents);
+   line("Total hipotético do cliente",result.customerTotalCents,true);
+  }catch(error){const p=document.createElement("p");p.textContent=error.message;by("breakdown").append(p)}
+ });
+ by("cancel").addEventListener("click",()=>{
+  const result=F.refundDecision({
+   paymentVerifiedByServer:by("paid").value==="yes",
+   requestedBy:by("cancelBy").value,
+   providerDispatched:by("cancelPhase").value==="after"
+  });
+  const labels={
+   cancel_without_refund:"Sem pagamento verificado: cancelar sem solicitar estorno.",
+   hold_for_mediation:"Suspender decisão financeira e encaminhar para mediação humana.",
+   request_full_refund_from_psp:"Solicitar ao PSP reembolso integral, inclusive tarifa. Não foi executado.",
+   no_duplicate_refund:"Estorno já solicitado: não duplicar."
+  };
+  by("refundState").textContent=labels[result.action]||result.action;
+ });
+ by("settlement").addEventListener("click",()=>{
+  const result=F.settlementEligibility({
+   paymentVerifiedByServer:by("paid").value==="yes",
+   providerConfirmed:by("providerDone").checked,
+   customerConfirmed:by("customerDone").checked,
+   disputeOpen:by("dispute").checked
+  });
+  by("settlementState").textContent=result.candidateForServerSettlement?
+   "Candidato para análise de repasse. Transferência desativada; PSP e operador devem autorizar.":
+   "Repasse bloqueado. Necessário pagamento verificado, dupla confirmação e ausência de disputa.";
+ });
+})();
+</script></body></html>

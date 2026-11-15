@@ -10,5 +10,7 @@ window.BJ_CONFIG = {
   f2TestOffersEnabled: false,
   // F3 depende da F1/F2 e de backup+homologação. Nunca ativar por merge.
   f3TowEnabled: false,
+  // F4: pagamentos, comissões e repasses indisponíveis até PSP, jurídico e E2E.
+  f4PaymentsEnabled: false,
   supabasePublishableKey: 'sb_publishable_SKToaitJDdgDAYUrwChkbg__ntPtZd3'
 };
