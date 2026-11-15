@@ -37,6 +37,10 @@ IMPORTANTE: Stripe não fornece escrow. Não prometer retenção indefinida nem 
 
 Já existe um **SQL candidato demonstrativo**, `supabase/drafts/f4_financial_backend_candidate.sql`, com `private.f4_release_gate.enabled=false`, mock de tentativa, recibos e ledger privado. NÃO executar no projeto remoto. Execute exclusivamente em PostgreSQL 17 descartável, precedido de `tests/f2-stage-setup.sql` e `supabase/drafts/f2_backend_candidate.sql`, seguido de `tests/f4-stage-rls.sql`. O CI também testa `tests/f4-rollback-guard.sh` e `supabase/rollback/f4_only_if_empty.sql`.
 
+**Extensão contábil mock concluída localmente:** `supabase/drafts/f4_double_entry_mock_candidate.sql`, executada **após** a etapa de concorrência fictícia do CI (que recria a camada F4 base). Executar em PostgreSQL17 descartável e testar com `tests/f4-double-entry.sql`. A camada registra três linhas contábeis com débitos e créditos rigorosamente balanceados no commit (ou duas quando a comissão é 0 centavo), estorno compensatório, defesa contra disputa e elegibilidade apenas para revisão. Reverter apenas vazia via `supabase/rollback/f4_double_entry_only_if_empty.sql` com teste `tests/f4-double-entry-rollback-guard.sh`. Não há dinheiro real nem PSP e nenhuma função concede transferência.
+
+**Contrato futuro sem implementação live:** `docs/F4_CONTRATO_FINANCEIRO_E_LEDGER.md` especifica endpoints do servidor, autoria de estados, conciliação real, repasses e análise jurídica/contábil. Não criar os endpoints nem credenciais até revisão e autorização.
+
 **O SQL atual não é schema financeiro pronto para produção.** Ele usa eventos `mock_*` e GUC `app.f4_test_only=local_fixture`, nunca consulta PSP nem altera status operacional. Não habilitar RPCs financeiras aos usuários.
 
 Depois de backup/restauração verificável de DB/Auth/Storage, revisão das F1–F3, definição do PSP e aprovação jurídica/financeira, gerar **PR separado de migration real** a partir de desenho próprio: payment_attempt, ledger contábil, webhook_inbox persistente, settlement_intent, refund_case, auditoria, RLS e controle de acesso. Não reaproveitar o verificador HMAC `mock-v1` como Stripe webhook.
