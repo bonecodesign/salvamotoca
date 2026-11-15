@@ -6,6 +6,8 @@ on:
       - 'tests/f1-recovery-fixture.sql'
       - 'tests/f1-recovery-assert.sql'
       - 'docs/F1_BACKUP_RECOVERY_PREP_2026-11-15.md'
+      - 'docs/F1_RPC_SECURITY_REVIEW_2026-11-15.md'
+      - 'docs/F1_RPC_PRECHECK_READONLY.sql'
       - '.github/workflows/f1-recovery-drill.yml'
   push:
     branches:
@@ -14,6 +16,8 @@ on:
       - 'tests/f1-recovery-fixture.sql'
       - 'tests/f1-recovery-assert.sql'
       - 'docs/F1_BACKUP_RECOVERY_PREP_2026-11-15.md'
+      - 'docs/F1_RPC_SECURITY_REVIEW_2026-11-15.md'
+      - 'docs/F1_RPC_PRECHECK_READONLY.sql'
       - '.github/workflows/f1-recovery-drill.yml'
 
 permissions:
