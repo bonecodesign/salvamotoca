@@ -90,6 +90,9 @@ begin
  then raise exception 'Caso requer pagamento fictício contabilizado sem estorno integral.'; end if;
  if p_kind in('refund_partial','refund_full') then
    if v_attempt.status<>'mock_verified'
+     or exists(select 1 from private.f4_mock_risk_cases
+       where attempt_id=p_attempt_id and status='review_required'
+         and kind in('dispute','chargeback'))
    then raise exception 'Pagamento disputado exige mediação antes de estorno.'; end if;
    if p_kind='refund_full' and p_requested_cents<>v_attempt.quote_total_cents
    then raise exception 'Estorno integral precisa corresponder ao valor do orçamento.'; end if;
