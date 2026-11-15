@@ -21,7 +21,8 @@
     message: "", error: "", uploadedPhotoKey: null, uploadedPhotoSignature: null,
     requestSignature: null, photoPreview: {},
     f2Offers: [], f2QuoteItems: [], f2Capacity: null,
-    f2AlertsEnabled: false, f2SeenOffers: new Set()
+    f2AlertsEnabled: false, f2SeenOffers: new Set(),
+    f3Capacity: null, f3TowDetails: [], f3Summaries: {}, f3Eligible: []
   };
   // Alteração de identidade invalida GPS, fotos assinadas, pedidos e uploads pendentes.
   // O marcador de geração protege tarefas assíncronas iniciadas por outra conta.
@@ -37,6 +38,7 @@
     state.orders = []; state.quotes = []; state.photoPreview = {};
     state.f2Offers = []; state.f2QuoteItems = []; state.f2Capacity = null;
     state.f2AlertsEnabled = false; state.f2SeenOffers = new Set();
+    state.f3Capacity = null; state.f3TowDetails = []; state.f3Summaries = {}; state.f3Eligible = [];
     state.requestKey = null; state.uploadedPhotoKey = null; state.uploadedPhotoSignature = null;
     state.requestSignature = null;
     state.location = null; state.selected = null; state.mode = "manual";
@@ -77,7 +79,8 @@
     (required ? "required" : "") + "></label>";
   const nav = page => {
     // Um pedido pendente não pode continuar se o usuário abandonou o formulário.
-    if (state.page === "request-form" && page !== "request-form") requestContextVersion++;
+    if (["request-form", "f3-tow"].includes(state.page) && page !== state.page)
+      requestContextVersion++;
     // Nao manter URLs assinadas de fotos ao sair da tela de pedidos.
     if (page !== "orders") state.photoPreview = {};
     state.page = page;
@@ -107,6 +110,8 @@
   const providerOwns = order => state.ownProvider && order.provider_id === state.ownProvider.id;
   const f2Active = () => config.f1TestRequestsEnabled === true &&
     config.f2TestOffersEnabled === true && Boolean(window.SMF2Flow);
+  const f3Active = () => f2Active() && config.f3TowEnabled === true &&
+    Boolean(window.SMF3Tow);
   const f2InviteFor = order => f2Active() && state.ownProvider &&
     state.f2Offers.find(o => o.request_id === order.id &&
       o.provider_id === state.ownProvider.id &&
@@ -146,6 +151,9 @@
       '<small>Somente profissionais aprovados</small></span><span class="arrow">›</span></button>' +
       '<button class="menu-card" data-page="request"><span class="emoji">🧰</span><span><b>Borracheiro no local</b>' +
       '<small>Escolha ou busca automática, sem pagamento real nesta etapa</small></span><span class="arrow">›</span></button>' +
+      (f3Active() ? '<button class="menu-card" data-page="f3-tow"><span class="emoji">🚚</span>' +
+        '<span><b>Reboque de moto (teste)</b><small>Equipamentos homologados, sem despacho ou pagamento</small></span>' +
+        '<span class="arrow">›</span></button>' : '') +
       '<div class="grid2"><div class="stat"><strong>' + state.directory.length +
       '</strong><small>Prestadores aprovados e ativos</small></div><div class="stat"><strong>' + available().length +
       '</strong><small>Online para receber pedidos delivery</small></div></div>';
@@ -210,6 +218,42 @@
       '<textarea name="address" minlength="6" maxlength="280" required class="field" placeholder="Rua, número e referência"></textarea></label>' +
       '<p class="notice">Somente TESTES: não envie dados ou localizações reais nesta fase. A foto poderá ser vista pelo prestador designado para preparar o orçamento; endereço exato continua restrito antes do pagamento. Nenhum socorro ou pagamento é ativado.</p>' +
       '<button class="btn full" type="submit"' + (f1Enabled ? '' : ' disabled aria-disabled="true"') + '>Revisar e criar pedido de teste</button></form>';
+  }
+  function renderF3Request() {
+    if (!f3Active())
+      return header("Reboque de motos", "F3 desativada. Nenhum pedido pode ser criado.");
+    if (!state.user)
+      return header("Solicitar reboque", "Entre na conta para acessar a demonstração protegida.") +
+        '<button class="btn full" data-page="login">Entrar</button>';
+    return header("Reboque de motocicleta (teste)",
+      "Transporte com profissional homologado. Sem cobrança, notificações externas ou despacho.") +
+      '<div class="notice">O endereço completo do destino é privado. Até o pagamento legítimo, ' +
+      'o prestador vê somente município, peso da moto e distância aproximada.</div>' +
+      '<div class="actions"><button class="btn outline" type="button" data-action="gps">Compartilhar GPS para testar</button></div>' +
+      (state.location ?
+        '<p class="small muted">Localização de origem capturada nesta sessão. Não será enviada antes da confirmação.</p>' :
+        '<p class="small muted">Localização é obrigatória para buscar prestadores por proximidade.</p>') +
+      '<form id="f3-request-form" class="card form">' +
+      label("Marca", "text", "brand", "Ex.: Honda", true) +
+      label("Modelo", "text", "model", "Ex.: CG 160", true) +
+      label("Ano", "number", "year", "2024", true) +
+      label("Peso estimado da motocicleta (kg)", "number", "weight", "140", true) +
+      '<fieldset><legend>Serviço</legend><p>🚚 Reboque da motocicleta</p>' +
+      Object.entries(F1.SERVICE_TYPES).filter(([code]) => code !== "reboque_moto")
+        .map(([code,name]) => '<label class="fieldrow"><input name="extras" type="checkbox" value="' +
+          esc(code) + '"> ' + esc(name) + ' (opcional)</label>').join("") +
+      '</fieldset>' +
+      label("Município de destino", "text", "destination_city", "Contagem", true) +
+      label("UF do destino", "text", "destination_state", "MG", true) +
+      label("Endereço exato de destino (privado)", "text", "destination_address", "Rua, número e referência", true) +
+      label("Distância estimada do transporte (km)", "number", "route_km", "20", true) +
+      '<label class="fieldrow"><span class="label">Descreva o problema</span>' +
+      '<textarea class="field" name="problem" minlength="10" maxlength="500" required></textarea></label>' +
+      '<label class="fieldrow"><span class="label">Foto do problema (JPG/PNG/WebP)</span>' +
+      '<input class="field" type="file" name="photo" accept="image/jpeg,image/png,image/webp" required></label>' +
+      '<p class="small muted">A fotografia é convertida para JPG sem EXIF e armazenada no bucket privado da F1.</p>' +
+      '<button class="btn full" type="submit"' + (state.location ? '' : ' disabled') +
+      '>Revisar e criar pedido fictício de reboque</button></form>';
   }
   function renderLogin() {
     return header("Entrar", "A conta é necessária para cadastros e solicitações de teste.") +
@@ -381,7 +425,8 @@
     banner.innerHTML = '🧪 <b>Piloto conectado ao banco</b> — sem cobrança real, sem despacho e sem assistência emergencial.';
     const screens = {
       home: renderHome, map: renderMap, detail: renderDetail, request: renderRequest,
-      "request-form": renderOrderForm, login: renderLogin, register: renderRegister,
+      "request-form": renderOrderForm, "f3-tow": renderF3Request,
+      login: renderLogin, register: renderRegister,
       orders: renderOrders, profile: renderProfile, "provider-form": renderProviderForm
     };
     const view = screens[state.page] || screens.home;
