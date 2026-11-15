@@ -192,5 +192,47 @@ begin
  if (j->>'transferAuthorized')::boolean then
    raise exception 'Dinheiro real liberado'; end if;
 end $dispute_blocks$;
+-- Canto de arredondamento: serviço de R$ 0,01 dá comissão R$ 0,00.
+-- O diário deve ter DUAS linhas (sem linha de comissão de valor zero).
+insert into public.service_requests(id,customer_id,provider_id,category_id,
+ service_types,status)
+values('dddddddd-2222-4222-8222-dddddddddddd',
+ '11111111-1111-4111-8111-111111111111',
+ 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',2,
+ array['pneu_furado'],'awaiting_payment');
+insert into public.service_quotes(id,request_id,provider_id,amount_cents,status)
+values('eeeeeeee-2222-4222-8222-eeeeeeeeeeee',
+ 'dddddddd-2222-4222-8222-dddddddddddd',
+ 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',100,'accepted');
+insert into public.f2_quote_items(quote_id,line_no,kind,code,amount_cents)
+values('eeeeeeee-2222-4222-8222-eeeeeeeeeeee',1,'service','pneu_furado',1),
+ ('eeeeeeee-2222-4222-8222-eeeeeeeeeeee',2,'travel','deslocamento',99);
+select private.f4_prepare_mock_attempt('eeeeeeee-2222-4222-8222-eeeeeeeeeeee') as cents_attempt \gset
+select set_config('test.f4_zero_fee_attempt',:'cents_attempt',false);
+select private.f4_ingest_mock_event(
+ current_setting('test.f4_zero_fee_attempt')::uuid,
+ 'evt_mock_zero_commission','mock_payment_verified',100);
+select private.f4_post_mock_double_entry(
+ (select id from private.f4_mock_webhook_receipts
+  where mock_event_id='evt_mock_zero_commission')) as cents_journal \gset
+select set_config('test.f4_zero_fee_journal',:'cents_journal',false);
+do $zero_commission$
+declare v_attempt uuid:=current_setting('test.f4_zero_fee_attempt')::uuid;
+begin
+ if (select commission_cents from private.f4_mock_payment_attempts
+   where id=v_attempt)<>0
+   or (select count(*) from private.f4_mock_journal_lines where
+     journal_id=current_setting('test.f4_zero_fee_journal')::bigint)<>2
+   or (select count(*) from private.f4_mock_journal_lines where
+     journal_id=current_setting('test.f4_zero_fee_journal')::bigint
+     and account='mock_platform_commission')<>0
+   or (select sum(amount_cents) from private.f4_mock_journal_lines where
+     journal_id=current_setting('test.f4_zero_fee_journal')::bigint
+     and side='debit')<>100
+   or (select sum(amount_cents) from private.f4_mock_journal_lines where
+     journal_id=current_setting('test.f4_zero_fee_journal')::bigint
+     and side='credit')<>100
+ then raise exception 'Canto de arredondamento gerou journal inválido'; end if;
+end $zero_commission$;
 select 'F4: JOURNAL MOCK BALANCEADO, ESTORNO, REPLAY, DISPUTA E SEM REPASSE OK' as resultado;
 rollback;
