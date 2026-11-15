@@ -21,7 +21,8 @@
     message: "", error: "", uploadedPhotoKey: null, uploadedPhotoSignature: null,
     requestSignature: null, photoPreview: {},
     f2Offers: [], f2QuoteItems: [], f2Capacity: null,
-    f2AlertsEnabled: false, f2SeenOffers: new Set()
+    f2AlertsEnabled: false, f2SeenOffers: new Set(),
+    f3Capacity: null, f3TowDetails: [], f3Summaries: {}, f3Eligible: []
   };
   // Alteração de identidade invalida GPS, fotos assinadas, pedidos e uploads pendentes.
   // O marcador de geração protege tarefas assíncronas iniciadas por outra conta.
@@ -37,6 +38,7 @@
     state.orders = []; state.quotes = []; state.photoPreview = {};
     state.f2Offers = []; state.f2QuoteItems = []; state.f2Capacity = null;
     state.f2AlertsEnabled = false; state.f2SeenOffers = new Set();
+    state.f3Capacity = null; state.f3TowDetails = []; state.f3Summaries = {}; state.f3Eligible = [];
     state.requestKey = null; state.uploadedPhotoKey = null; state.uploadedPhotoSignature = null;
     state.requestSignature = null;
     state.location = null; state.selected = null; state.mode = "manual";
@@ -77,7 +79,8 @@
     (required ? "required" : "") + "></label>";
   const nav = page => {
     // Um pedido pendente não pode continuar se o usuário abandonou o formulário.
-    if (state.page === "request-form" && page !== "request-form") requestContextVersion++;
+    if (["request-form", "f3-tow"].includes(state.page) && page !== state.page)
+      requestContextVersion++;
     // Nao manter URLs assinadas de fotos ao sair da tela de pedidos.
     if (page !== "orders") state.photoPreview = {};
     state.page = page;
@@ -107,6 +110,8 @@
   const providerOwns = order => state.ownProvider && order.provider_id === state.ownProvider.id;
   const f2Active = () => config.f1TestRequestsEnabled === true &&
     config.f2TestOffersEnabled === true && Boolean(window.SMF2Flow);
+  const f3Active = () => f2Active() && config.f3TowEnabled === true &&
+    Boolean(window.SMF3Tow);
   const f2InviteFor = order => f2Active() && state.ownProvider &&
     state.f2Offers.find(o => o.request_id === order.id &&
       o.provider_id === state.ownProvider.id &&
@@ -146,6 +151,9 @@
       '<small>Somente profissionais aprovados</small></span><span class="arrow">›</span></button>' +
       '<button class="menu-card" data-page="request"><span class="emoji">🧰</span><span><b>Borracheiro no local</b>' +
       '<small>Escolha ou busca automática, sem pagamento real nesta etapa</small></span><span class="arrow">›</span></button>' +
+      (f3Active() ? '<button class="menu-card" data-page="f3-tow"><span class="emoji">🚚</span>' +
+        '<span><b>Reboque de moto (teste)</b><small>Equipamentos homologados, sem despacho ou pagamento</small></span>' +
+        '<span class="arrow">›</span></button>' : '') +
       '<div class="grid2"><div class="stat"><strong>' + state.directory.length +
       '</strong><small>Prestadores aprovados e ativos</small></div><div class="stat"><strong>' + available().length +
       '</strong><small>Online para receber pedidos delivery</small></div></div>';
@@ -211,6 +219,42 @@
       '<p class="notice">Somente TESTES: não envie dados ou localizações reais nesta fase. A foto poderá ser vista pelo prestador designado para preparar o orçamento; endereço exato continua restrito antes do pagamento. Nenhum socorro ou pagamento é ativado.</p>' +
       '<button class="btn full" type="submit"' + (f1Enabled ? '' : ' disabled aria-disabled="true"') + '>Revisar e criar pedido de teste</button></form>';
   }
+  function renderF3Request() {
+    if (!f3Active())
+      return header("Reboque de motos", "F3 desativada. Nenhum pedido pode ser criado.");
+    if (!state.user)
+      return header("Solicitar reboque", "Entre na conta para acessar a demonstração protegida.") +
+        '<button class="btn full" data-page="login">Entrar</button>';
+    return header("Reboque de motocicleta (teste)",
+      "Transporte com profissional homologado. Sem cobrança, notificações externas ou despacho.") +
+      '<div class="notice">O endereço completo do destino é privado. Até o pagamento legítimo, ' +
+      'o prestador vê somente município, peso da moto e distância aproximada.</div>' +
+      '<div class="actions"><button class="btn outline" type="button" data-action="gps">Compartilhar GPS para testar</button></div>' +
+      (state.location ?
+        '<p class="small muted">Localização de origem capturada nesta sessão. Não será enviada antes da confirmação.</p>' :
+        '<p class="small muted">Localização é obrigatória para buscar prestadores por proximidade.</p>') +
+      '<form id="f3-request-form" class="card form">' +
+      label("Marca", "text", "brand", "Ex.: Honda", true) +
+      label("Modelo", "text", "model", "Ex.: CG 160", true) +
+      label("Ano", "number", "year", "2024", true) +
+      label("Peso estimado da motocicleta (kg)", "number", "weight", "140", true) +
+      '<fieldset><legend>Serviço</legend><p>🚚 Reboque da motocicleta</p>' +
+      Object.entries(F1.SERVICE_TYPES).filter(([code]) => code !== "reboque_moto")
+        .map(([code,name]) => '<label class="fieldrow"><input name="extras" type="checkbox" value="' +
+          esc(code) + '"> ' + esc(name) + ' (opcional)</label>').join("") +
+      '</fieldset>' +
+      label("Município de destino", "text", "destination_city", "Contagem", true) +
+      label("UF do destino", "text", "destination_state", "MG", true) +
+      label("Endereço exato de destino (privado)", "text", "destination_address", "Rua, número e referência", true) +
+      label("Distância estimada do transporte (km)", "number", "route_km", "20", true) +
+      '<label class="fieldrow"><span class="label">Descreva o problema</span>' +
+      '<textarea class="field" name="problem" minlength="10" maxlength="500" required></textarea></label>' +
+      '<label class="fieldrow"><span class="label">Foto do problema (JPG/PNG/WebP)</span>' +
+      '<input class="field" type="file" name="photo" accept="image/jpeg,image/png,image/webp" required></label>' +
+      '<p class="small muted">A fotografia é convertida para JPG sem EXIF e armazenada no bucket privado da F1.</p>' +
+      '<button class="btn full" type="submit"' + (state.location ? '' : ' disabled') +
+      '>Revisar e criar pedido fictício de reboque</button></form>';
+  }
   function renderLogin() {
     return header("Entrar", "A conta é necessária para cadastros e solicitações de teste.") +
       '<form id="login-form" class="form card">' +
@@ -236,6 +280,7 @@
       label("Endereço do estabelecimento", "text", "address", "Rua e número", false) +
       '<label class="fieldrow"><input type="checkbox" name="offer_map" checked> Atendimento no estabelecimento</label>' +
       '<label class="fieldrow"><input type="checkbox" name="offer_delivery"> Atendimento delivery no local da moto</label>' +
+      (f3Active() ? '<label class="fieldrow"><input type="checkbox" name="offer_reboque"> Reboque de motocicletas (exige equipamento homologado)</label>' : '') +
       '<p class="small muted">Cidade piloto: Belo Horizonte, MG. Os serviços começam desativados até verificação administrativa.</p>' +
       '<button class="btn full" type="submit">Solicitar cadastro</button></form>';
   }
@@ -257,6 +302,8 @@
       '</button><p class="small muted">Somente no app aberto. Não envia push externo e não confirma entrega automaticamente.</p>';
   }
   function renderF2Order(order, quotes) {
+    if (f3Active() && order.service_types?.includes("reboque_moto"))
+      return renderF3Order(order,quotes);
     if (!f2Active() || !order.service_types?.length) return "";
     const offers = state.f2Offers.filter(offer => offer.request_id === order.id);
     const pending = offers.some(offer => ["offered", "delivered", "quoted"].includes(offer.status));
@@ -312,6 +359,90 @@
     }
     return content + '</div>';
   }
+  function renderF3Capacity() {
+    if (!f3Active() || !state.ownProvider) return "";
+    const cap=state.f3Capacity;
+    const equipment=cap?.equipment||"plataforma";
+    return '<form id="f3-capacity-form" class="card form">' +
+      '<h3>F3 · Equipamento para reboque (teste)</h3>' +
+      '<p class="small muted">Sua declaração não habilita atendimento. A certificação é administrativa e qualquer alteração exige nova revisão.</p>' +
+      '<label class="fieldrow"><span class="label">Equipamento</span><select class="field" name="equipment">' +
+      window.SMF3Tow.EQUIPMENT.map(v=>'<option value="'+esc(v)+'"'+
+        (v===equipment?' selected':'')+'>'+esc(v.replaceAll("_"," "))+'</option>').join("") +
+      '</select></label>' +
+      label("Carga máxima por moto (kg)", "number", "max_moto_kg", "250", true) +
+      label("Raio de cobertura declarado (km)", "number", "coverage_km", "25", true) +
+      label("Pontos de amarração", "number", "tie_down_points", "4", true) +
+      '<label class="fieldrow"><input type="checkbox" name="has_ramp" required> Possuo rampa apropriada</label>' +
+      '<label class="fieldrow"><input type="checkbox" name="has_wheel_chock" required> Possuo suporte de roda adequado</label>' +
+      '<p class="small muted">Homologação de equipamento: '+
+        (cap?.verified_by_admin?'aprovada anteriormente':'aguardando revisão humana')+'</p>' +
+      '<button class="btn full" type="submit">Enviar capacidade para análise</button></form>';
+  }
+  function renderF3Order(order,quotes) {
+    if (!f3Active() || !order.service_types?.includes("reboque_moto")) return "";
+    const offers=state.f2Offers.filter(x=>x.request_id===order.id);
+    const pending=offers.some(o=>["offered","delivered","quoted"].includes(o.status));
+    const detail=state.f3TowDetails.find(x=>x.request_id===order.id);
+    const summary=state.f3Summaries[order.id];
+    let out='<div class="card"><h3>F3 · Reboque de moto (teste)</h3>' +
+      '<p class="small muted">Nenhuma cobrança, chat, transporte ou deslocamento real.</p>';
+    if (owns(order)) {
+      if (detail) out+='<p><b>Destino:</b> '+esc(detail.destination_city)+', '+
+        esc(detail.destination_state_code)+' · '+esc(detail.estimated_route_km)+
+        ' km estimados</p><p><b>Endereço privado, visível só ao cliente:</b> '+
+        esc(detail.destination_address)+'</p><p><b>Peso estimado:</b> '+
+        esc(detail.motorcycle_weight_kg)+' kg</p>';
+      if (order.status==="requested" && !pending)
+        out+='<button class="btn full" data-action="f3-distribute" data-id="'+esc(order.id)+
+          '">Buscar reboques homologados (teste)</button>';
+      if (order.status==="requested" && pending)
+        out+='<button class="btn outline sm" data-action="f2-expire" data-id="'+esc(order.id)+
+          '">Verificar vencimentos F3</button>';
+      out+=offers.map(o=>'<p class="small">Convite '+esc(o.provider_id)+
+        ' · '+esc(o.status)+'</p>').join("");
+      out+=quotes.filter(q=>offers.some(o=>o.quote_id===q.id)).map(q=>{
+        const items=state.f2QuoteItems.filter(item=>item.quote_id===q.id);
+        return '<div class="card"><p><b>Orçamento de reboque:</b> '+
+          amount(q.amount_cents)+' · '+esc(q.status)+'</p>' +
+          items.map(item=>'<p class="small">'+esc(item.code)+': '+
+            amount(item.amount_cents)+'</p>').join("") +
+          (order.status==="requested" && q.status==="proposed" ?
+            '<div class="actions"><button class="btn sm" data-action="f3-decide" data-id="'+
+              esc(q.id)+'" data-accept="true">Escolher orçamento F3</button>' +
+            '<button class="btn outline sm" data-action="f3-decide" data-id="'+
+              esc(q.id)+'" data-accept="false">Recusar proposta</button></div>' : '') +
+          '</div>';
+      }).join("");
+    }
+    const invite=f2InviteFor(order);
+    if(invite && order.status==="requested"){
+      if(summary)
+        out+='<p><b>Moto:</b> '+esc(summary.motorcycleBrand)+' '+
+          esc(summary.motorcycleModel)+' · '+esc(summary.motorcycleWeightKg)+
+          ' kg</p><p><b>Origem:</b> '+esc(summary.pickupCity)+
+          ' · <b>Destino aproximado:</b> '+esc(summary.destinationCity)+
+          ' · ~'+esc(summary.estimatedRouteKm)+' km</p>';
+      if(invite.status==="offered")
+        out+='<button class="btn full" data-action="f2-ack" data-id="'+esc(invite.id)+
+          '">Abrir convite F3 e iniciar prazo</button>';
+      if(invite.status==="delivered")
+        out+='<form class="f3-quote-form form" data-offer="'+esc(invite.id)+
+          '" data-request="'+esc(order.id)+'"><h4>Proposta de reboque discriminada</h4>'+
+          order.service_types.map(code=>label("Serviço: "+(F1.SERVICE_TYPES[code]||code)+
+            " (R$)","number","service_"+code,"Ex.: 230.00",true)).join("")+
+          label("Deslocamento (R$)","number","travel","Ex.: 40.00",true)+
+          label("Material (opcional)","text","part_name","Cinta de segurança",false)+
+          label("Preço do material (R$)","number","part_price","Ex.: 10.00",false)+
+          label("Observações sem contato externo","text","details","Descrição breve",false)+
+          '<button class="btn full" type="submit">Enviar proposta F3 de teste</button></form>';
+      if(["offered","delivered"].includes(invite.status))
+        out+='<button class="btn outline sm" data-action="f2-decline" data-id="'+
+          esc(invite.id)+'">Não posso transportar esta moto</button>';
+      if(invite.status==="quoted")out+='<p class="small muted">Proposta enviada. Aguardando cliente.</p>';
+    }
+    return out+'</div>';
+  }
   function renderProfile() {
     if (!state.user) return header("Minha conta", "Entre para acompanhar pedidos e cadastrar sua borracharia.") +
       '<button class="btn full" data-page="login">Entrar</button><button class="btn outline full" data-page="register">Criar conta</button>';
@@ -330,7 +461,7 @@
           : '<div class="notice">Disponibilidade será liberada após aprovação e habilitação do serviço delivery.</div>') :
        '<button class="btn full" data-page="provider-form">Cadastrar minha borracharia</button>') +
       '<button class="btn outline full" data-action="logout">Sair da conta</button></div>' +
-      renderF2Capacity();
+      renderF2Capacity() + renderF3Capacity();
   }
   function renderOrders() {
     if (!state.user) return header("Meus pedidos", "Entre para ver seus pedidos de teste.") +
@@ -381,7 +512,8 @@
     banner.innerHTML = '🧪 <b>Piloto conectado ao banco</b> — sem cobrança real, sem despacho e sem assistência emergencial.';
     const screens = {
       home: renderHome, map: renderMap, detail: renderDetail, request: renderRequest,
-      "request-form": renderOrderForm, login: renderLogin, register: renderRegister,
+      "request-form": renderOrderForm, "f3-tow": renderF3Request,
+      login: renderLogin, register: renderRegister,
       orders: renderOrders, profile: renderProfile, "provider-form": renderProviderForm
     };
     const view = screens[state.page] || screens.home;
@@ -524,6 +656,32 @@
         state.f2QuoteItems = items.data || [];
       }
     }
+    state.f3Capacity=null;state.f3TowDetails=[];state.f3Summaries={};
+    if (f3Active()) {
+      const [capacity,towDetails] = await Promise.all([
+        state.ownProvider ? db.from("f3_tow_provider_capacity")
+          .select("provider_id,equipment,max_moto_kg,coverage_km,tie_down_points,has_ramp,has_wheel_chock,verified_by_admin")
+          .eq("provider_id",state.ownProvider.id).maybeSingle() :
+          Promise.resolve({data:null,error:null}),
+        db.from("f3_tow_requests")
+          .select("request_id,motorcycle_weight_kg,pickup_city,pickup_state_code,destination_city,destination_state_code,destination_address,estimated_route_km")
+          .limit(50)
+      ]);
+      if (identityGeneration !== activeGeneration || state.user?.id !== activeUserId) return;
+      if (capacity.error) throw capacity.error;
+      if (towDetails.error) throw towDetails.error;
+      state.f3Capacity=capacity.data;
+      state.f3TowDetails=towDetails.data||[];
+      const visibleTow=state.orders.filter(o=>
+        o.service_types?.includes("reboque_moto") &&
+        (owns(o)||Boolean(f2InviteFor(o)))).slice(0,20);
+      for (const order of visibleTow) {
+        const response=await db.rpc("f3_tow_summary",{p_request_id:order.id});
+        if (identityGeneration !== activeGeneration || state.user?.id !== activeUserId) return;
+        if (!response.error && response.data)
+          state.f3Summaries[order.id]=response.data;
+      }
+    }
   }
   async function allRefresh() {
     try { await refreshDirectory(); await refreshIdentity(); state.error = ""; }
@@ -613,6 +771,42 @@
         "Avisos de convite ativos somente enquanto o aplicativo estiver aberto." :
         "Avisos de convite desativados nesta sessão.";
       render();
+      return;
+    }
+    if (["f3-distribute","f3-decide"].includes(action)) {
+      if (!f3Active() || !state.user || state.loading) return;
+      const uid=state.user.id,generation=identityGeneration;
+      let rpc,args,success;
+      if (action==="f3-distribute") {
+        if (!state.orders.some(o=>o.id===id && owns(o) &&
+          o.status==="requested" && o.service_types?.includes("reboque_moto"))) return;
+        if (!window.confirm("Convidar reboques fictícios elegíveis? Não são enviadas notificações reais."))return;
+        rpc="f3_offer_candidates";args={p_request_id:id,p_max_offers:3};
+        success="A busca de reboque de teste foi registrada sem despacho real.";
+      }else{
+        const quote=state.quotes.find(q=>q.id===id && q.status==="proposed");
+        if(!quote || !state.orders.some(o=>o.id===quote.request_id && owns(o) &&
+          o.service_types?.includes("reboque_moto")))return;
+        const accept=target.dataset.accept==="true";
+        if(accept&&!window.confirm("Escolher este reboque apenas para teste, sem pagamento?"))return;
+        rpc="f3_decide_tow_quote";args={p_quote_id:id,p_accept:accept};
+        success=accept?"Proposta de reboque escolhida. Aguardando pagamento não habilitado.":
+          "Proposta de reboque recusada.";
+      }
+      state.loading=true;
+      try{
+        const result=await db.rpc(rpc,args);
+        if(identityGeneration!==generation||state.user?.id!==uid)return;
+        if(result.error)throw result.error;
+        await refreshIdentity();
+        if(identityGeneration!==generation||state.user?.id!==uid)return;
+        state.error="";
+        state.message=action==="f3-distribute" && Number(result.data)===0 ?
+          "Nenhum equipamento homologado compatível nesta rodada." : success;
+      }catch(error){
+        if(identityGeneration===generation&&state.user?.id===uid)
+          state.error=errorText(error);
+      }finally{state.loading=false;render()}
       return;
     }
     if (["f2-distribute","f2-ack","f2-decline","f2-decide","f2-expire"].includes(action)) {
@@ -770,6 +964,7 @@
       const selectedCodes = [];
       if (data.get("offer_map")) selectedCodes.push("map_borracharia");
       if (data.get("offer_delivery")) selectedCodes.push("borracharia_delivery");
+      if (f3Active() && data.get("offer_reboque")) selectedCodes.push("reboque_moto");
       if (!selectedCodes.length) throw new Error("Selecione ao menos um tipo de atendimento.");
       const provider = await db.from("providers").insert({
         owner_id: state.user.id, display_name: name, description, street_address: address || null,
@@ -783,6 +978,165 @@
       })));
       if (services.error) throw services.error;
       await refreshIdentity(); nav("profile"); state.message = "Cadastro e serviços enviados. Aguarde homologação.";
+    });
+    if (form.id === "f3-request-form") submitForm(form, async data => {
+      if (!f3Active() || !state.user || !window.SMRequestF1)
+        throw new Error("Reboque não está homologado para envio.");
+      const uid = state.user.id, generation = identityGeneration;
+      const context = requestContextVersion;
+      const ensureSession = () => {
+        if (identityGeneration !== generation || state.user?.id !== uid ||
+            requestContextVersion !== context || state.page !== "f3-tow")
+          throw new Error("Sessão ou formulário mudou durante o pedido de reboque. Reinicie a solicitação.");
+      };
+      const file = data.get("photo");
+      F1.validatePhoto(file);
+      const problem = String(data.get("problem") || "").trim();
+      if (problem.length < 10 || problem.length > 500)
+        throw new Error("A descrição do reboque deve ter entre 10 e 500 caracteres.");
+      const request = window.SMF3Tow.validateTowRequest({
+        serviceTypes:["reboque_moto",...data.getAll("extras")],
+        motorcycleBrand:data.get("brand"),motorcycleModel:data.get("model"),
+        motorcycleYear:Number(data.get("year")),
+        motorcycleWeightKg:Number(data.get("weight")),
+        pickupCity:"Belo Horizonte",pickupStateCode:"MG",
+        pickupLocation:state.location,
+        destinationCity:data.get("destination_city"),
+        destinationStateCode:String(data.get("destination_state")||"").trim().toUpperCase(),
+        destinationAddress:data.get("destination_address"),
+        estimatedRouteKm:Number(data.get("route_km"))
+      });
+      const summary = window.SMF3Tow.publicSummary(request);
+      const confirmation = [
+        "PEDIDO DE REBOQUE — SOMENTE TESTE",
+        "Moto: "+summary.motorcycle.brand+" "+summary.motorcycle.model+
+          " / "+summary.motorcycle.weightKg+" kg",
+        "Origem: "+summary.pickup.city+"; destino: "+summary.destination.city,
+        "Endereço de destino será armazenado em tabela privada.",
+        "Nenhum reboque, chat, pagamento ou despacho será ativado.",
+        "Confirmar cadastro de teste?"
+      ].join("\n");
+      if (!window.confirm(confirmation)) return;
+      ensureSession();
+      const lat = request.pickupLocation.lat, lng = request.pickupLocation.lng;
+      const signature = [file.name,file.size,file.lastModified,file.type].join("|");
+      const draftSignature = JSON.stringify([uid,request.serviceTypes,
+        request.motorcycle,request.pickup,request.destination,request.estimatedRouteKm,
+        request.private.destinationAddress,problem,lat,lng,signature]);
+      if (!state.requestKey) {
+        if (!globalThis.crypto?.randomUUID) throw new Error("É necessário HTTPS ou localhost.");
+        state.requestKey = globalThis.crypto.randomUUID();
+        state.requestSignature = draftSignature;
+      }
+      if (state.requestSignature !== draftSignature ||
+        (state.uploadedPhotoKey === state.requestKey &&
+         state.uploadedPhotoSignature !== signature))
+        throw new Error("Os dados ou a foto mudaram após o envio. Reinicie o formulário.");
+      const photoPath = F1.makePhotoPath(uid,state.requestKey);
+      if (state.uploadedPhotoKey !== state.requestKey) {
+        const jpeg = await preparePrivatePhoto(file);
+        ensureSession();
+        const uploaded = await db.storage.from("request-photos").upload(photoPath,jpeg,{
+          contentType:"image/jpeg",upsert:false,cacheControl:"3600"
+        });
+        ensureSession();
+        if (uploaded.error) {
+          const code = Number(uploaded.error.statusCode || uploaded.error.status);
+          if (code !== 409 && !/duplicate|already exists|já existe/i.test(errorText(uploaded.error)))
+            throw new Error("Falha no upload privado: "+errorText(uploaded.error));
+          const restored = await db.storage.from("request-photos").download(photoPath);
+          ensureSession();
+          if (restored.error || !restored.data || !(await F1.samePhotoBytes(jpeg,restored.data)))
+            throw new Error("Não foi possível verificar a foto privada. Reinicie o pedido.");
+          ensureSession();
+        }
+        state.uploadedPhotoKey = state.requestKey;
+        state.uploadedPhotoSignature = signature;
+      }
+      ensureSession();
+      const result = await db.rpc("f3_create_tow_request",{
+        p_request_key:state.requestKey,p_photo_path:photoPath,
+        p_brand:request.motorcycle.brand,p_model:request.motorcycle.model,
+        p_year:request.motorcycle.year,p_weight_kg:request.motorcycle.weightKg,
+        p_service_types:request.serviceTypes,p_description:problem,
+        p_pickup_lat:lat,p_pickup_lng:lng,p_pickup_city:request.pickup.city,
+        p_pickup_state:request.pickup.stateCode,
+        p_destination_city:request.destination.city,
+        p_destination_state:request.destination.stateCode,
+        p_destination_address:request.private.destinationAddress,
+        p_estimated_km:request.estimatedRouteKm,
+        p_mode:"automatic",p_selected_provider:null
+      });
+      ensureSession();
+      if (result.error) throw result.error;
+      state.requestKey=null;state.requestSignature=null;
+      state.uploadedPhotoKey=null;state.uploadedPhotoSignature=null;
+      await refreshIdentity();
+      ensureSession();
+      nav("orders");
+      state.message = "Pedido de reboque de TESTE registrado. Nenhum transporte real foi acionado.";
+    });
+    if (form.id === "f3-capacity-form") submitForm(form, async data => {
+      if (!f3Active() || !state.user || !state.ownProvider)
+        throw new Error("Cadastro F3 desativado.");
+      const uid=state.user.id,generation=identityGeneration;
+      const proposed=window.SMF3Tow.validateProviderCapacity({
+        equipment:data.get("equipment"),
+        maxMotoKg:Number(data.get("max_moto_kg")),
+        coverageKm:Number(data.get("coverage_km")),
+        tieDownPoints:Number(data.get("tie_down_points")),
+        hasRamp:Boolean(data.get("has_ramp")),hasWheelChock:Boolean(data.get("has_wheel_chock")),
+        verifiedByAdmin:false
+      });
+      const result=await db.rpc("f3_set_tow_capacity",{
+        p_equipment:proposed.equipment,p_max_moto_kg:proposed.maxMotoKg,
+        p_coverage_km:proposed.coverageKm,
+        p_tie_down_points:proposed.tieDownPoints,
+        p_has_ramp:proposed.hasRamp,p_has_wheel_chock:proposed.hasWheelChock
+      });
+      if (identityGeneration !== generation || state.user?.id !== uid) return;
+      if (result.error) throw result.error;
+      await refreshIdentity();
+      if (identityGeneration !== generation || state.user?.id !== uid) return;
+      state.message="Equipamento de reboque declarado. Aguarde homologação humana antes de novos convites.";
+    });
+    if (form.classList.contains("f3-quote-form")) submitForm(form, async data => {
+      if (!f3Active() || !state.user || !state.ownProvider)
+        throw new Error("Orçamento F3 indisponível.");
+      const offerId=form.dataset.offer,requestId=form.dataset.request;
+      const offer=state.f2Offers.find(o=>o.id===offerId && o.request_id===requestId &&
+        o.provider_id===state.ownProvider.id && o.status==="delivered");
+      const order=state.orders.find(o=>o.id===requestId);
+      if (!offer || !order || order.status!=="requested" ||
+          !order.service_types?.includes("reboque_moto"))
+        throw new Error("Convite de reboque inexistente ou encerrado.");
+      const amounts={};
+      for(const code of order.service_types)
+        amounts[code]=f2AmountCents(data.get("service_"+code));
+      const travel=f2AmountCents(data.get("travel"),true);
+      const partName=String(data.get("part_name")||"").trim();
+      const partRaw=String(data.get("part_price")||"").trim();
+      if (Boolean(partName)!==Boolean(partRaw))
+        throw new Error("Preencha material e respectivo valor, ou deixe ambos em branco.");
+      const parts=partName?[{name:partName,amountCents:f2AmountCents(partRaw)}]:[];
+      const priced=window.SMF3Tow.quoteTow({
+        serviceTypes:order.service_types,serviceCents:amounts,travelCents:travel,parts
+      });
+      const lines=priced.rows.map(row=>({
+        kind:row.kind,code:row.code,amountCents:row.amountCents
+      }));
+      const details=String(data.get("details")||"").trim();
+      if(/https?:\/\/|www\.|wa\.me|whats.?app|pix|@[-\w.]+/i.test(details))
+        throw new Error("Não compartilhe contatos, links ou chaves de pagamento.");
+      const uid=state.user.id,generation=identityGeneration;
+      const result=await db.rpc("f3_submit_tow_quote",{
+        p_offer_id:offerId,p_items:lines,p_details:details
+      });
+      if (identityGeneration !== generation || state.user?.id !== uid) return;
+      if (result.error) throw result.error;
+      await refreshIdentity();
+      if (identityGeneration !== generation || state.user?.id !== uid) return;
+      state.message="Orçamento de reboque enviado para teste. Nenhum pagamento ou despacho iniciado.";
     });
     if (form.id === "f2-capacity-form") submitForm(form, async data => {
       if (!f2Active() || !state.user || !state.ownProvider)

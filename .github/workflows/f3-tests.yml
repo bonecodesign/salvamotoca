@@ -1,0 +1,137 @@
+name: F3 - reboque seguro (sem atendimento real)
+on:
+  pull_request:
+    paths:
+      - 'f3-tow.js'
+      - 'docs/F3_PREVIEW.html'
+      - 'docs/F3_*.md'
+      - 'tests/f3-*.js'
+      - 'tests/f3-*.sql'
+      - 'tests/f3-rollback-guard.sh'
+      - 'supabase/drafts/f3_tow_backend_candidate.sql'
+      - 'supabase/rollback/f3_only_if_empty.sql'
+      - 'live-app-current.js'
+      - 'config.js'
+      - 'index.html'
+      - 'sw.js'
+      - '.github/workflows/f3-tests.yml'
+  push:
+    branches:
+      - 'feat/f3-reboque-motos-seguro'
+    paths:
+      - 'f3-tow.js'
+      - 'docs/F3_PREVIEW.html'
+      - 'tests/f3-*.js'
+      - 'tests/f3-*.sql'
+      - 'tests/f3-rollback-guard.sh'
+      - 'supabase/drafts/f3_tow_backend_candidate.sql'
+      - 'supabase/rollback/f3_only_if_empty.sql'
+      - 'live-app-current.js'
+      - 'config.js'
+      - 'index.html'
+      - 'sw.js'
+      - '.github/workflows/f3-tests.yml'
+permissions:
+  contents: read
+jobs:
+  regras-f3:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Testar regra de reboque e regressão F2
+        run: |
+          node --check f3-tow.js
+          node --check f2-flow.js
+          node --check live-app-current.js
+          node --test tests/f3-tow.test.js tests/f3-release-guard.test.js tests/f2-flow.test.js
+      - name: Travas de F1/F2 continuam fechadas
+        run: |
+          grep -q 'f1TestRequestsEnabled: false' config.js
+          grep -q 'f2TestOffersEnabled: false' config.js
+          grep -q 'f3TowEnabled: false' config.js
+          node --test tests/f1-release-guard.test.js tests/f2-release-guard.test.js
+      - name: F3 puro não acessa rede ou credenciais
+        run: |
+          if grep -E 'fetch\(|createClient\(|\.rpc\(|\.upload\(|service_role|sb_secret_' f3-tow.js; then
+            echo 'Motor F3 não pode usar rede, SQL nem credenciais'
+            exit 1
+          fi
+  postgres-f3:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: f3_local
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d f3_local"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      PGHOST: localhost
+      PGPORT: 5432
+      PGUSER: postgres
+      PGPASSWORD: postgres
+      PGDATABASE: f3_local
+    steps:
+      - uses: actions/checkout@v4
+      - name: Cliente PostgreSQL
+        run: command -v psql || (sudo apt-get update -qq && sudo apt-get install -y postgresql-client)
+      - name: Criar roles, tabelas e CHECK original F1 APENAS local
+        run: |
+          psql -X -v ON_ERROR_STOP=1 -f tests/f2-stage-setup.sql
+          psql -X -v ON_ERROR_STOP=1 -f tests/f3-pre-setup.sql
+      - name: Criar backend candidato F2 no banco efêmero
+        run: psql -X -v ON_ERROR_STOP=1 -f supabase/drafts/f2_backend_candidate.sql
+      - name: Testar as permissões F2 antes de carregar F3
+        run: psql -X -v ON_ERROR_STOP=1 -f tests/f2-stage-rls.sql
+      - name: Criar candidato F3 após F1 e F2
+        run: psql -X -v ON_ERROR_STOP=1 -f supabase/drafts/f3_tow_backend_candidate.sql
+      - name: Ensaio de segurança, orçamento e direitos com usuários sintéticos
+        run: psql -X -v ON_ERROR_STOP=1 -f tests/f3-stage-rls.sql
+      - name: Confirmar gates fechados após rollback dos testes
+        run: |
+          psql -X -v ON_ERROR_STOP=1 -Atqc "select not enabled from private.f3_release_gate where singleton" | grep -qx t
+          psql -X -v ON_ERROR_STOP=1 -Atqc "select not enabled from private.f2_release_gate where singleton" | grep -qx t
+          psql -X -v ON_ERROR_STOP=1 -Atqc "select count(*) from public.f3_tow_requests" | grep -qx 0
+      - name: Provar que rollback F3 não remove fase ativa nem dados
+        run: bash tests/f3-rollback-guard.sh
+      - name: Ensaiar rollback F3 sem dados e preservar F1/F2
+        run: |
+          psql -X -v ON_ERROR_STOP=1 -f supabase/rollback/f3_only_if_empty.sql
+          psql -X -v ON_ERROR_STOP=1 -Atqc "select to_regclass('public.f3_tow_requests') is null" | grep -qx t
+          psql -X -v ON_ERROR_STOP=1 -Atqc "select to_regclass('public.f2_request_offers') is not null" | grep -qx t
+          psql -X -v ON_ERROR_STOP=1 -Atqc "select to_regclass('public.service_requests') is not null" | grep -qx t
+
+  chrome-f3:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Encontrar navegador instalado
+        run: |
+          if command -v google-chrome >/dev/null; then
+            echo "CHROME_BIN=$(command -v google-chrome)" >> "$GITHUB_ENV"
+          elif command -v chromium >/dev/null; then
+            echo "CHROME_BIN=$(command -v chromium)" >> "$GITHUB_ENV"
+          else
+            echo "Chrome/Chromium indisponível" >&2
+            exit 1
+          fi
+      - name: Instalar Playwright Core pinado sem browser extra
+        run: npm install --no-save --no-package-lock --ignore-scripts --no-audit --no-fund playwright-core@1.56.1
+      - name: Executar prévia F3 sem HTTP em desktop/celular
+        run: node --test tests/f3-browser.test.js
