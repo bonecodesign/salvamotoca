@@ -13,6 +13,7 @@ test("F1: configuração pública bloqueia envio enquanto falta homologação re
   vm.runInNewContext(source("config.js"),sandbox,{timeout:1000});
   const config=sandbox.window.BJ_CONFIG;
   assert.equal(config.f1TestRequestsEnabled,false);
+  assert.equal(config.paymentFeatureEnabled,false);
   assert.match(config.supabaseUrl,/^https:\/\/[a-z0-9]+\.supabase\.co\/?$/);
   assert.match(config.supabasePublishableKey,/^sb_publishable_/);
   for(const [key,value] of Object.entries(config)){
