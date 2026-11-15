@@ -85,7 +85,7 @@ test("F5: somente prestador envia coordenada recente e precisa",()=>{
 });
 test("F5: aceita apenas GPS crescente; não armazena percurso de pontos",()=>{
  const s=apply(dispatch(paid(base())),location());
- assert.throws(()=>apply(s,location({id:"evt_gps_0002",at:1600,sampledAt:1350})),/fora de ordem/);
+ assert.throws(()=>apply(s,location({id:"evt_gps_0002",at:1450,sampledAt:1350})),/fora de ordem/);
  const next=apply(s,location({id:"evt_gps_0002",at:1600,sampledAt:1550,lat:-19.925}));
  assert.equal(next.lastLocation.lat,-19.925);
  assert.equal(next.version,s.version+1);
