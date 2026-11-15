@@ -99,3 +99,43 @@ test("F4: rollback da extensão só atua vazia, sem tocar esquema F2",()=>{
  assert.match(file(".github/workflows/f4-tests.yml"),/tests\/f4-double-entry\.sql/);
  assert.match(file(".github/workflows/f4-tests.yml"),/f4-double-entry-rollback-guard\.sh/);
 });
+
+
+test("F4: a fila privada de risco não possui políticas de acesso a clientes",()=>{
+ const ddl=file("supabase/drafts/f4_risk_settlement_mock_candidate.sql");
+ assert.match(ddl,/create table private\.f4_mock_risk_cases/);
+ assert.match(ddl,/create table private\.f4_mock_settlement_intents/);
+ assert.match(ddl,/alter table private\.f4_mock_risk_cases enable row level security/);
+ assert.match(ddl,/alter table private\.f4_mock_settlement_intents enable row level security/);
+ assert.match(ddl,/revoke all on private\.f4_mock_risk_cases,private\.f4_mock_settlement_intents/);
+ assert.match(ddl,/from public,anon,authenticated/);
+ assert.doesNotMatch(file("live-app-current.js"),/f4_queue_mock_settlement|f4_open_mock_risk_case/);
+});
+test("F4: reembolso parcial e disputa não causam repasse ou dinheiro real",()=>{
+ const ddl=file("supabase/drafts/f4_risk_settlement_mock_candidate.sql");
+ assert.match(ddl,/v_total\+p_requested_cents>v_attempt\.quote_total_cents/);
+ assert.match(ddl,/and v_attempt\.status='mock_verified'/);
+ assert.match(ddl,/create trigger f4_mock_risk_hold_settlement/);
+ assert.match(ddl,/'transferAuthorized',false/);
+ assert.match(ddl,/'pspFundsConfirmed',false/);
+ assert.doesNotMatch(ddl,/\bstripe\.[a-z]+\s*\(|\bcreate_transfer\s*\(/i);
+});
+test("F4: intenção de repasse é idempotente e a disputa impede reciclagem",()=>{
+ const ddl=file("supabase/drafts/f4_risk_settlement_mock_candidate.sql");
+ assert.match(ddl,/attempt_id uuid not null unique references private\.f4_mock_payment_attempts/);
+ assert.match(ddl,/intent_key text not null unique/);
+ assert.match(ddl,/case_key text not null unique/);
+ assert.match(ddl,/Revisão bloqueada por risco financeiro aberto/);
+ assert.match(ddl,/Intenção de revisão já está bloqueada/);
+});
+test("F4: testes adversariais e rollback da fila não incluem migração de produção",()=>{
+ const rollback=file("supabase/rollback/f4_risk_only_if_empty.sql");
+ assert.match(rollback,/gate ativo/);
+ assert.match(rollback,/existem casos ou intenções/);
+ assert.doesNotMatch(rollback,/drop table public\./);
+ const ci=file(".github/workflows/f4-tests.yml");
+ assert.match(ci,/tests\/f4-risk-settlement\.sql/);
+ assert.match(ci,/tests\/f4-risk-race\.sh/);
+ assert.equal(fs.readdirSync(path.join(__dirname,"../supabase/migrations"))
+   .some(x=>/f4|risk|settlement/i.test(x)),false);
+});
