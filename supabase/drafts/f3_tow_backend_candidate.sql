@@ -23,7 +23,7 @@ alter table public.service_requests
         'pneu_furado','troca_camara','troca_pneu',
         'calibragem_valvula','reboque_moto','outro'
       ]::text[]
-      and (select null::boolean) is null -- placeholder sempre verdadeiro; sem subquery em CHECK
+      and not (array_position(service_types,null) is not null)
     )
   );
 -- O check anterior da F1 exclui explicitamente reboque. O trigger abaixo,
@@ -151,9 +151,9 @@ begin
    or p_description is null or length(btrim(p_description)) not between 10 and 500
    or p_service_types is null or cardinality(p_service_types) not between 1 and 6
    or 'reboque_moto' <> all(p_service_types)
-   or p_service_types !<@ array['pneu_furado','troca_camara','troca_pneu',
-     'calibragem_valvula','reboque_moto','outro']::text[]
-   or cardinality(array(select distinct x from unnest(p_service_types) x))
+   or not (p_service_types <@ array['pneu_furado','troca_camara','troca_pneu',
+     'calibragem_valvula','reboque_moto','outro']::text[])
+   or (select count(distinct x) from unnest(p_service_types) x)
        <>cardinality(p_service_types)
  then raise exception 'Dados de motocicleta, descrição ou serviço inválidos.'; end if;
  if p_pickup_lat not between -90 and 90 or p_pickup_lng not between -180 and 180
