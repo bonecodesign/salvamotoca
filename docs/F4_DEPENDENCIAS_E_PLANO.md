@@ -28,11 +28,16 @@
 
 A responsabilidade legal/contábil por eventuais impostos e despesas não é resolvida por esses cálculos; não confundir valor previsto com saldo disponível ou efetivamente repassado.
 
-## Código da primeira entrega
+## Código e backend candidato em ambiente isolado
 
 - `f4-finance.js` — módulo puro sem dependências ou rede: valida linhas de orçamento em centavos, calcula comissão sem incluir deslocamento/materiais, aceita tarifa apenas quando fornecida como valor confirmado, simula decisões de reembolso e condições de análise de repasse. Não confirma pagamento vindo do navegador.
 - `tests/f4-finance.test.js` — testa cálculo, serviço misto, tentativa de adulteração, centavos, duplicatas, fraude por evento do navegador, cancelamentos, mediação e bloqueio de transferência.
 - `config.js` — `f4PaymentsEnabled: false`. Nenhum componente de checkout foi adicionado; pagamentos permanecem proibidos mesmo que a F1/F2/F3 sejam ativadas em outro momento.
+- `supabase/drafts/f4_financial_backend_candidate.sql` — rascunho de **banco financeiro estritamente local** (NÃO migration): gate F4 falso, tentativas fictícias privadas, recibos de eventos mock com ID único e lançamentos compensatórios imutáveis. Não existe coluna de saldo liquidado, tabela real de repasses, cobranças, reconciliação Stripe ou transição `paid` em `service_requests`.
+- `tests/f4-stage-rls.sql` — PostgreSQL 17 descartável: AUTH/RLS, prévia do orçamento apenas ao cliente, comissão calculada das linhas persistidas, tentativa fictícia idempotente, recusa de valor/moeda adulterados, evento repetido e estorno, proteção do ledger e garantia de que `awaiting_payment` não muda.
+- `f4-mock-webhook.js` + `tests/f4-mock-webhook.test.js` — verificador **HMAC fictício** `mock-v1`, exclusivamente offline, que demonstra janela temporal, alteração de conteúdo, replay, ordem dos eventos e proibição de marcar pagamento como real. **Não é compatível com Stripe nem substitui biblioteca oficial ou consulta ao PSP**. A inbox JavaScript é somente em memória; a versão SQL demonstra deduplicação persistente.
+- `supabase/rollback/f4_only_if_empty.sql` + `tests/f4-rollback-guard.sh` — reversão apenas quando gate desligado e **sem dados financeiros**; testes comprovam recusa com gate ativo ou registro e que F1/F2 não são removidas.
+- `.github/workflows/f4-tests.yml` — execução de testes de lógica, Chrome sem rede, PostgreSQL 17 isolado e regressões anteriores, sem acesso a PSP ou ao Supabase ativo.
 
 ## Provedor de pagamentos: pesquisa técnica, sem conexão comercial
 
@@ -74,4 +79,4 @@ flowchart TD
 7. Cenários adversariais de webhooks assinados, duplicados, atrasados, fora de ordem, chargeback, devolução, perda de rede, estorno parcial e disputa, exclusivamente em sandbox isolado e após autorização apropriada.
 8. Sem pagamento real, o chat e rastreamento da F5 continuam fechados.
 
-**Conclusão:** primeira entrega F4 é um **simulador de regras de preço, estorno e repasse**, não uma implementação financeira homologada nem um checkout utilizável. Toda integração real permanecerá bloqueada até revisão e autorização futura.
+**Conclusão:** F4 agora inclui regras financeiras, verificador fictício e backend SQL candidato **testados isoladamente**. Ainda **não é** integração financeira homologada ou checkout utilizável. O ledger de teste **não é contabilidade de partidas dobradas nem prova de fundos existentes**. A futura arquitetura de produção precisará de processamento assinado do PSP, trilha financeira contábil, conciliação, webhook real, suporte a reembolso parcial, chargebacks e limite de retenção contratual. Toda integração real segue bloqueada até revisão e autorização. Toda integração real permanecerá bloqueada até revisão e autorização futura.
