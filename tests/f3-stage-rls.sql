@@ -103,9 +103,10 @@ begin
  then raise exception 'Pedido F3 não está em requested'; end if;
 end $created$;
 select public.f3_offer_candidates(current_setting('test.f3_request_id')::uuid,3) as no_verified \gset
+select set_config('test.f3_no_verified',:'no_verified',false);
 do $noverified$
 begin
- if :'no_verified'::integer<>0 then
+ if current_setting('test.f3_no_verified')::integer<>0 then
    raise exception 'Capacidade não certificada entrou na fila'; end if;
 end $noverified$;
 
@@ -118,9 +119,10 @@ select public.f3_create_tow_request(
  -19.924,-43.938,'Belo Horizonte','MG',
  'Contagem','MG','Rua privada fictícia 123',20,'automatic',null
 ) as retry_id \gset
+select set_config('test.f3_retry_id',:'retry_id',false);
 do $idempotence$
 begin
- if current_setting('test.f3_request_id')::uuid<>:'retry_id'::uuid
+ if current_setting('test.f3_request_id')::uuid<>current_setting('test.f3_retry_id')::uuid
  then raise exception 'Retry idêntico criou duplicata'; end if;
  if (select count(*) from public.service_requests)<>1
  then raise exception 'Pedido duplicado'; end if;
@@ -165,9 +167,10 @@ update public.f3_tow_provider_capacity set verified_by_admin=true
 set role authenticated;
 select set_config('request.jwt.claim.sub','11111111-1111-4111-8111-111111111111',false);
 select public.f3_offer_candidates(current_setting('test.f3_request_id')::uuid,3) as offered \gset
+select set_config('test.f3_offered',:'offered',false);
 do $offers$
 begin
- if :'offered'::integer<>2 or
+ if current_setting('test.f3_offered')::integer<>2 or
   (select count(*) from public.f2_request_offers where
    request_id=current_setting('test.f3_request_id')::uuid)<>2
  then raise exception 'F3 não convidou exatamente A e B'; end if;
@@ -179,12 +182,13 @@ end $offers$;
 -- Prestador convidado pode consultar APENAS o resumo, sem endereço privado.
 select set_config('request.jwt.claim.sub','33333333-3333-4333-8333-333333333333',false);
 select public.f3_tow_summary(current_setting('test.f3_request_id')::uuid)::text as public_summary \gset
+select set_config('test.f3_public_summary',:'public_summary',false);
 do $summary$
 begin
  if (select count(*) from public.f3_tow_requests)<>0
  then raise exception 'Prestador lê endereço de destino privado'; end if;
- if position('destinationAddress' in :'public_summary')>0
-   or position('Rua privada' in :'public_summary')>0
+ if position('destinationAddress' in current_setting('test.f3_public_summary'))>0
+   or position('Rua privada' in current_setting('test.f3_public_summary'))>0
  then raise exception 'RPC resumo vazou endereço'; end if;
  if (select count(*) from public.service_requests)<1
  then raise exception 'Prestador convidado não vê o pedido mínimo F2'; end if;
