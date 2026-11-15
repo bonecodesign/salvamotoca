@@ -68,7 +68,7 @@ select private.f4_queue_mock_settlement_review(
 select set_config('test.f4_intent_duplicate',:'repeat_intent',true);
 do $idempotency$
 declare first_json jsonb:=current_setting('test.f4_intent_result')::jsonb;
-declare second_json jsonb:=current_setting('test.f4_intent_duplicate')::jsonb;
+        second_json jsonb:=current_setting('test.f4_intent_duplicate')::jsonb;
 begin
  if first_json->>'intentId' is distinct from second_json->>'intentId'
     or (first_json->>'transferAuthorized')::boolean is distinct from false
