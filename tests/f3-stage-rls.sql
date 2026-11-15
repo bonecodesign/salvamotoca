@@ -255,9 +255,13 @@ begin
  then raise exception 'Vencedor da F3 incorreto'; end if;
  if (select count(*) from public.service_quotes where status='accepted')<>1
  then raise exception 'Aceite duplicado'; end if;
- if (select count(*) from public.service_categories
-     where code='reboque_moto' and paid_in_app)<>0
- then raise exception 'Categoria reboque permitiu pagamento'; end if;
 end $winner$;
+reset role;
+do $category$
+begin
+ if (select count(*) from public.service_categories
+   where code='reboque_moto' and paid_in_app)<>0
+ then raise exception 'Categoria reboque permitiu pagamento'; end if;
+end $category$;
 select 'F3: CRIAÇÃO ATÔMICA, PRIVACIDADE, HOMOLOGAÇÃO, 2 ORÇAMENTOS E 1 ACEITE OK' as resultado;
 rollback;
