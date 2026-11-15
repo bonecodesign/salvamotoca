@@ -280,6 +280,7 @@
       label("Endereço do estabelecimento", "text", "address", "Rua e número", false) +
       '<label class="fieldrow"><input type="checkbox" name="offer_map" checked> Atendimento no estabelecimento</label>' +
       '<label class="fieldrow"><input type="checkbox" name="offer_delivery"> Atendimento delivery no local da moto</label>' +
+      (f3Active() ? '<label class="fieldrow"><input type="checkbox" name="offer_reboque"> Reboque de motocicletas (exige equipamento homologado)</label>' : '') +
       '<p class="small muted">Cidade piloto: Belo Horizonte, MG. Os serviços começam desativados até verificação administrativa.</p>' +
       '<button class="btn full" type="submit">Solicitar cadastro</button></form>';
   }
@@ -655,6 +656,32 @@
         state.f2QuoteItems = items.data || [];
       }
     }
+    state.f3Capacity=null;state.f3TowDetails=[];state.f3Summaries={};
+    if (f3Active()) {
+      const [capacity,towDetails] = await Promise.all([
+        state.ownProvider ? db.from("f3_tow_provider_capacity")
+          .select("provider_id,equipment,max_moto_kg,coverage_km,tie_down_points,has_ramp,has_wheel_chock,verified_by_admin")
+          .eq("provider_id",state.ownProvider.id).maybeSingle() :
+          Promise.resolve({data:null,error:null}),
+        db.from("f3_tow_requests")
+          .select("request_id,motorcycle_weight_kg,pickup_city,pickup_state_code,destination_city,destination_state_code,destination_address,estimated_route_km")
+          .limit(50)
+      ]);
+      if (identityGeneration !== activeGeneration || state.user?.id !== activeUserId) return;
+      if (capacity.error) throw capacity.error;
+      if (towDetails.error) throw towDetails.error;
+      state.f3Capacity=capacity.data;
+      state.f3TowDetails=towDetails.data||[];
+      const visibleTow=state.orders.filter(o=>
+        o.service_types?.includes("reboque_moto") &&
+        (owns(o)||Boolean(f2InviteFor(o)))).slice(0,20);
+      for (const order of visibleTow) {
+        const response=await db.rpc("f3_tow_summary",{p_request_id:order.id});
+        if (identityGeneration !== activeGeneration || state.user?.id !== activeUserId) return;
+        if (!response.error && response.data)
+          state.f3Summaries[order.id]=response.data;
+      }
+    }
   }
   async function allRefresh() {
     try { await refreshDirectory(); await refreshIdentity(); state.error = ""; }
@@ -901,6 +928,7 @@
       const selectedCodes = [];
       if (data.get("offer_map")) selectedCodes.push("map_borracharia");
       if (data.get("offer_delivery")) selectedCodes.push("borracharia_delivery");
+      if (f3Active() && data.get("offer_reboque")) selectedCodes.push("reboque_moto");
       if (!selectedCodes.length) throw new Error("Selecione ao menos um tipo de atendimento.");
       const provider = await db.from("providers").insert({
         owner_id: state.user.id, display_name: name, description, street_address: address || null,
