@@ -29,6 +29,30 @@ drop function private.f3_guard_tow_quote_accepted();
 drop function private.f3_tow_insert_guard();
 drop function private.f3_enabled();
 
+-- A política F2 de foto/pedido usa este helper. Restaurar a definição F2
+-- antes de remover as tabelas F3, preservando a autorização original.
+create or replace function private.f2_can_view_request(p_request_id uuid)
+returns boolean language sql stable security definer set search_path='' as $$
+  select auth.uid() is not null
+  and exists(select 1 from private.f2_release_gate g where g.enabled)
+  and exists (
+    select 1 from public.f2_request_offers o
+    join public.providers p on p.id=o.provider_id
+    join public.service_requests r on r.id=o.request_id
+    where r.id=p_request_id and r.status='requested'
+      and p.owner_id=auth.uid() and p.status='approved' and p.is_active
+      and (
+        (o.status='offered' and o.offered_at+interval '5 minutes'>now())
+        or (o.status='delivered' and o.delivered_at is not null
+            and o.delivered_at+interval '5 minutes'>now())
+        or (o.status='quoted' and exists (
+          select 1 from public.service_quotes q where q.id=o.quote_id
+            and q.status='proposed' and q.created_at+interval '5 minutes'>now()
+        ))
+      )
+  );
+$$;
+
 drop table public.f3_tow_requests;
 drop table public.f3_tow_provider_capacity;
 drop table private.f3_release_gate;
