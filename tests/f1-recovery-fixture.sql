@@ -51,6 +51,7 @@ alter table storage.objects enable row level security;
 create policy f1_owner_read on public.service_requests
  for select to authenticated using(customer_id=(select auth.uid()));
 grant usage on schema auth to authenticated;
+revoke all on function auth.uid() from public,anon,authenticated;
 grant execute on function auth.uid() to authenticated;
 grant select on public.service_requests to authenticated;
 -- Nenhum dado real do projeto Supabase esta nesta fixture.
