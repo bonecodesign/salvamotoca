@@ -23,7 +23,7 @@
   check(handoff===HANDOFF,"Exige fixture offline F5, nunca recibo real.");
   return {
    engine:"F6_LOCAL_ONLY",requestId:uuid(requestId,"Pedido"),
-   customerId:customer,providerId:provider,createdAt:stamp(createdAt),
+   customerId:customer,providerId:provider,createdAt:stamp(createdAt),lastEventAt:createdAt,
    status:"awaiting_summary",summary:null,summaryAt:null,deadline:null,
    customerConfirmed:false,providerConfirmed:false,
    rating:null,supportMessages:[],processed:[],version:0,
@@ -49,6 +49,7 @@
    check(found.serialized===serialized,"ID de evento reutilizado com conteudo diferente.");
    return {state:s,duplicate:true};
   }
+  check(at>=s.lastEventAt,"Evento anterior ao ultimo evento processado.");
   const who=role(s,entry.actorId);
   const next={...s,processed:[...s.processed],supportMessages:[...s.supportMessages],
     summary:s.summary?{...s.summary}:null,rating:s.rating?{...s.rating}:null};
@@ -83,7 +84,7 @@
    next.status="support_review";
   }else if(entry.kind==="request_support"){
    check(who!=="outsider"&&
-     (s.status==="awaiting_summary"||s.status==="awaiting_both"),
+     (s.status==="awaiting_summary"||s.status==="awaiting_both"||s.status==="completed"),
      "Divergencia indisponivel.");
    check(typeof entry.reason==="string"&&
      entry.reason.trim().length>=5&&entry.reason.length<=300,
@@ -110,7 +111,7 @@
    throw new Error("Evento de conclusao desconhecido.");
   }
   next.processed.push({id:entry.id,serialized});
-  next.version++;
+  next.version++;next.lastEventAt=at;
   return {state:next,duplicate:false};
  }
  function viewFor(s,viewerId){
