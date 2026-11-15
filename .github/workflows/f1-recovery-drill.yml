@@ -1,0 +1,107 @@
+name: F1 - ensaio de recuperacao somente com fixture ficticia
+
+on:
+  pull_request:
+    paths:
+      - 'tests/f1-recovery-fixture.sql'
+      - 'tests/f1-recovery-assert.sql'
+      - 'docs/F1_BACKUP_RECOVERY_PREP_2026-11-15.md'
+      - '.github/workflows/f1-recovery-drill.yml'
+  push:
+    branches:
+      - 'feat/f1-backup-restore-rehearsal-offline'
+    paths:
+      - 'tests/f1-recovery-fixture.sql'
+      - 'tests/f1-recovery-assert.sql'
+      - 'docs/F1_BACKUP_RECOVERY_PREP_2026-11-15.md'
+      - '.github/workflows/f1-recovery-drill.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  offline-dump-and-restore:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d postgres"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      PGHOST: localhost
+      PGPORT: 5432
+      PGUSER: postgres
+      PGPASSWORD: postgres
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Postgres client instalado no runner
+        run: |
+          command -v psql || (sudo apt-get update -qq && sudo apt-get install -y postgresql-client)
+          command -v createdb
+
+      - name: Preparar duas BASES locais efemeras e roles ficticios
+        run: |
+          psql -X -v ON_ERROR_STOP=1 -d postgres -c "create role anon nologin"
+          psql -X -v ON_ERROR_STOP=1 -d postgres -c "create role authenticated nologin"
+          createdb -T template0 f1_source_disposable
+          createdb -T template0 f1_restore_disposable
+
+      - name: Criar fixture de Auth, Storage metadata e RLS no banco local
+        run: psql -X -v ON_ERROR_STOP=1 -d f1_source_disposable -f tests/f1-recovery-fixture.sql
+
+      - name: Provar integridade de origem antes do dump
+        run: psql -X -v ON_ERROR_STOP=1 -d f1_source_disposable -f tests/f1-recovery-assert.sql
+
+      - name: Dump com cliente PG17 via container isolado, sem qualquer URL hospedada
+        run: |
+          mkdir -p "$RUNNER_TEMP/f1-dryrun"
+          docker run --rm --network host \
+            -e PGHOST=localhost -e PGPORT=5432 -e PGUSER=postgres -e PGPASSWORD=postgres \
+            -v "$RUNNER_TEMP/f1-dryrun:/backup" \
+            postgres:17 pg_dump --no-owner --format=custom --dbname=f1_source_disposable \
+            --file=/backup/fixture.pgcustom
+          test -s "$RUNNER_TEMP/f1-dryrun/fixture.pgcustom"
+          sha256sum "$RUNNER_TEMP/f1-dryrun/fixture.pgcustom" > "$RUNNER_TEMP/f1-dryrun/fixture.sha256"
+          (cd "$RUNNER_TEMP/f1-dryrun" && sha256sum -c fixture.sha256)
+
+      - name: Restaurar dump em OUTRA base local descartavel
+        run: |
+          docker run --rm --network host \
+            -e PGHOST=localhost -e PGPORT=5432 -e PGUSER=postgres -e PGPASSWORD=postgres \
+            -v "$RUNNER_TEMP/f1-dryrun:/backup" \
+            postgres:17 pg_restore --no-owner --exit-on-error \
+            --dbname=f1_restore_disposable /backup/fixture.pgcustom
+
+      - name: Provar esquema, policies, ACL e linhas recuperadas
+        run: psql -X -v ON_ERROR_STOP=1 -d f1_restore_disposable -f tests/f1-recovery-assert.sql
+
+      - name: Ensaiar bytes de Storage FICTICIO fora do pg_dump
+        run: |
+          printf 'F1-STORAGE-FIXTURE-ONLY-NOT-A-JPEG-NOT-USER-DATA' \
+            > "$RUNNER_TEMP/f1-dryrun/storage-bytes.mock"
+          sha256sum "$RUNNER_TEMP/f1-dryrun/storage-bytes.mock" \
+            > "$RUNNER_TEMP/f1-dryrun/storage-bytes.sha256"
+          mkdir -p "$RUNNER_TEMP/f1-dryrun/restore"
+          cp "$RUNNER_TEMP/f1-dryrun/storage-bytes.mock" "$RUNNER_TEMP/f1-dryrun/restore/storage-bytes.mock"
+          cmp "$RUNNER_TEMP/f1-dryrun/storage-bytes.mock" \
+            "$RUNNER_TEMP/f1-dryrun/restore/storage-bytes.mock"
+          (cd "$RUNNER_TEMP/f1-dryrun" && sha256sum -c storage-bytes.sha256)
+
+      - name: Resultado explicito — sem backup REAL do Supabase
+        run: |
+          echo "LOCAL_FIXTURE_RESTORE_PASS — somente PostgreSQL descartavel."
+          echo "HOSTED_SUPABASE_BACKUP=NOT_PERFORMED"
+          echo "HOSTED_SUPABASE_RESTORE=NOT_PERFORMED"
+          echo "HOSTED_STORAGE_BYTES_BACKUP=NOT_PERFORMED"
+          echo "F1_RELEASE=NO_GO"
