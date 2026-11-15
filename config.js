@@ -12,5 +12,7 @@ window.BJ_CONFIG = {
   f3TowEnabled: false,
   // F4: pagamentos, comissões e repasses indisponíveis até PSP, jurídico e E2E.
   f4PaymentsEnabled: false,
+  // F5 é exclusivamente um simulador offline: sem backend, chat, GPS nem despacho real.
+  f5OperationsEnabled: false,
   supabasePublishableKey: 'sb_publishable_SKToaitJDdgDAYUrwChkbg__ntPtZd3'
 };
