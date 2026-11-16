@@ -8,6 +8,8 @@ on:
       - 'docs/F1_BACKUP_RECOVERY_PREP_2026-11-15.md'
       - 'docs/F1_RPC_SECURITY_REVIEW_2026-11-15.md'
       - 'docs/F1_RPC_PRECHECK_READONLY.sql'
+      - 'scripts/f1-private-backup-manifest-check.mjs'
+      - 'tests/f1-private-backup-manifest-check.test.mjs'
       - '.github/workflows/f1-recovery-drill.yml'
   push:
     branches:
@@ -18,6 +20,8 @@ on:
       - 'docs/F1_BACKUP_RECOVERY_PREP_2026-11-15.md'
       - 'docs/F1_RPC_SECURITY_REVIEW_2026-11-15.md'
       - 'docs/F1_RPC_PRECHECK_READONLY.sql'
+      - 'scripts/f1-private-backup-manifest-check.mjs'
+      - 'tests/f1-private-backup-manifest-check.test.mjs'
       - '.github/workflows/f1-recovery-drill.yml'
 
 permissions:
@@ -102,6 +106,13 @@ jobs:
             "$RUNNER_TEMP/f1-dryrun/restore/storage-bytes.mock"
           (cd "$RUNNER_TEMP/f1-dryrun" && sha256sum -c storage-bytes.sha256)
 
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Validar sintaxe e manifestos privados inteiramente sinteticos
+        run: |
+          node --check scripts/f1-private-backup-manifest-check.mjs
+          node --test tests/f1-private-backup-manifest-check.test.mjs
       - name: Resultado explicito — sem backup REAL do Supabase
         run: |
           echo "LOCAL_FIXTURE_RESTORE_PASS — somente PostgreSQL descartavel."
