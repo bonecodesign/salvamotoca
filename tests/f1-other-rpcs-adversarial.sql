@@ -293,7 +293,7 @@ begin
 end $$;
 
 reset role;
-do $
+do $$
 begin
  if not exists(select 1 from private.f1_quote_pricing_mock c
    where c.quote_id=current_setting('sm.test_quote_id')::uuid
@@ -302,7 +302,7 @@ begin
    and c.customer_total_cents=29300 and c.provider_receivable_cents=24700
    and c.materials_included)
  then raise exception 'Split 10+10 ou material incluso incorretos'; end if;
-end $;
+end $$;
 
 set role authenticated;
 set request.jwt.claim.sub='55555555-5555-4555-8555-555555555555';
@@ -445,7 +445,7 @@ begin
 end $$;
 
 reset role;
-do $
+do $$
 begin
  if not exists(select 1 from private.f1_quote_pricing_mock p
    where p.quote_id=current_setting('sm.test_tow_quote_id')::uuid
@@ -453,7 +453,7 @@ begin
    and p.rider_fee_cents=1000 and p.provider_fee_cents=1000
    and p.customer_total_cents=13000 and p.provider_receivable_cents=11000)
  then raise exception 'Reboque 10+10 incorreto'; end if;
-end $;
+end $$;
 
 set role authenticated;
 set request.jwt.claim.sub='11111111-1111-4111-8111-111111111111';
