@@ -4,6 +4,14 @@
 
 **Cadeia:** F1 integrado (homologacao real pendente) → F2 #42 draft → F3 #44 draft → F4 #45 draft → F5 #48 e #49 drafts → **F6** (este ramo). A F4 paralela #47 e o plano Stripe #46 estao anotados com checklist de conciliacao. Nao mesclar como ativacao.
 
+## Atualização 16/11/2026 — repasse condicionado ao contrato 10% + 10%
+
+O modelo comercial vigente (SM-DEC-045/046) usa **serviço com materiais inclusos + deslocamento separado**. A comissão de 10% do motociclista é acrescida ao pagamento dele e a de 10% do prestador é descontada do repasse. Nenhuma comissão incide sobre deslocamento.
+
+A ponte `f456-financial-bridge-offline.js` preserva, em cenário **puramente fictício**, esses valores até o resumo, as duas confirmações e a revisão: serviço R$ 230 + deslocamento R$ 40 → cliente R$ 293 antes do PSP; repasse-base prestador R$ 247; plataforma R$ 46 brutos. Nenhum evento F6, nem dois usuários confirmando, autoriza transferência. Disputa, reembolso ou chargeback suspende até a candidatura **mock** a revisão humana.
+
+A F6 real deverá validar o recibo conciliado do PSP, a existência de saldo e as regras de estorno, além das confirmações autênticas; **não depender de recibos F5/F6 locais, flags ou browser**. Detalhes em `docs/F456_RECONCILIACAO_CONTRATO_10X10.md`.
+
 ## Entregas
 
 - `f6-offline-completion.js`: maquina de estados **pura**, sem rede, banco, PSP, chat real ou terceiros. Entrada exige `F5_LOCAL_HANDOFF_NOT_REAL`, nunca comprova pagamento. Flags reais sempre falsas.
