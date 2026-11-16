@@ -6,7 +6,7 @@ psql -X -v ON_ERROR_STOP=1 -f tests/f4-concurrency-setup.sql >/dev/null
 attempt="$(psql -X -v ON_ERROR_STOP=1 -Atqc "select id from private.f4_mock_payment_attempts limit 1")"
 if [[ -z "$attempt" ]]; then echo "Nenhuma tentativa mock criada" >&2; exit 1; fi
 
-sql="begin; select set_config('app.f4_test_only','local_fixture',true); select private.f4_ingest_mock_event('$attempt','evt_concurrent_mock_001','mock_payment_verified',28000); select pg_sleep(1); commit;"
+sql="begin; select set_config('app.f4_test_only','local_fixture',true); select private.f4_ingest_mock_event('$attempt','evt_concurrent_mock_001','mock_payment_verified',29300); select pg_sleep(1); commit;"
 psql -X -v ON_ERROR_STOP=1 -c "$sql" > /tmp/f4-mock-race-a.log 2>&1 &
 a=$!
 sleep 0.2
@@ -27,7 +27,7 @@ begin
  if (select count(*) from private.f4_mock_webhook_receipts)<>1
   or (select count(*) from private.f4_mock_ledger_entries)<>1
   or (select status from private.f4_mock_payment_attempts)<>'mock_verified'
-  or (select sum(amount_cents) from private.f4_mock_ledger_entries)<>28000
+  or (select sum(amount_cents) from private.f4_mock_ledger_entries)<>29300
  then raise exception 'Dois webhooks mock concorrentes geraram duplicação'; end if;
  if (select status from public.service_requests) <> 'awaiting_payment'
  then raise exception 'Mock de pagamento desbloqueou pedido real'; end if;

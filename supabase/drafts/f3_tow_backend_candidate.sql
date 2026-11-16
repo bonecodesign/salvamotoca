@@ -381,7 +381,7 @@ begin
 end;
 $$;
 
--- Cotação F3 partilha o mesmo formato F2 (service/travel/part), mas exige
+-- Cotação F3 usa F2 (service/travel, materiais inclusos), mas exige
 -- reboque presente, peso suportado e equipamento ainda homologado.
 create or replace function public.f3_submit_tow_quote(
   p_offer_id uuid,p_items jsonb,p_details text default ''
@@ -389,7 +389,7 @@ create or replace function public.f3_submit_tow_quote(
 declare v_user uuid:=auth.uid();v_offer record;v_req record;v_quote uuid;
         v_line jsonb;v_kind text;v_code text;v_amount integer;
         v_line_no integer:=0;v_total integer:=0;v_travel integer:=0;
-        v_seen text[]:=array[]::text[];v_parts integer:=0;
+        v_seen text[]:=array[]::text[];
 begin
  if v_user is null or not private.f3_enabled()
  then raise exception 'Cotação F3 desativada.'; end if;
@@ -443,11 +443,6 @@ begin
      if v_code<>'deslocamento' or v_travel>0
      then raise exception 'Deslocamento inválido.'; end if;
      v_travel:=v_travel+1;
-   elsif v_kind='part' then
-     v_parts:=v_parts+1;
-     if v_parts>10 or v_amount=0 or v_code ~*
-       '(https?://|www[.]|wa[.]me|whats[[:space:]]*app|chave[[:space:]]*pix|@[-_[:alnum:].]+|([0-9][[:space:]().-]*){9,})'
-     then raise exception 'Material inválido ou contém contato externo.'; end if;
    else raise exception 'Tipo de linha inválido.'; end if;
    v_total:=v_total+v_amount;
  end loop;

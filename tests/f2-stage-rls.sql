@@ -193,10 +193,9 @@ end $missing$;
 select public.f2_submit_quote(
   (select id from public.f2_request_offers
    where provider_id='aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa'),
-  '[{"kind":"service","code":"pneu_furado","amountCents":8000},
+  '[{"kind":"service","code":"pneu_furado","amountCents":12500},
     {"kind":"service","code":"troca_camara","amountCents":3500},
-    {"kind":"travel","code":"deslocamento","amountCents":1500},
-    {"kind":"part","code":"Camara nova","amountCents":4500}]'::jsonb,
+    {"kind":"travel","code":"deslocamento","amountCents":1500}]'::jsonb,
   'Orçamento Alfa fictício'
 ) as quote_a \gset
 select set_config('request.jwt.claim.sub','33333333-3333-4333-8333-333333333333',false);

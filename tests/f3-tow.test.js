@@ -115,20 +115,25 @@ test("F3: recusa recente e duas recusas excluem prestador",()=>{
 test("F3: orçamento exige serviço e deslocamento explícitos",()=>{
  const quote=F.quoteTow({serviceTypes:["reboque_moto"],
   serviceCents:{reboque_moto:23000},travelCents:4000,
-  parts:[{name:"Fita de segurança",amountCents:1000}]});
- assert.equal(quote.totalCents,28000);
+  parts:[]});
+ assert.equal(quote.totalCents,27000);
  assert.equal(quote.serviceTotalCents,23000);
- assert.equal(quote.commissionCents,3450);
+ assert.equal(quote.commissionCents,2300);
+ assert.equal(quote.riderFeeCents,2300);
+ assert.equal(quote.providerFeeCents,2300);
+ assert.equal(quote.platformGrossCommissionCents,4600);
+ assert.equal(quote.customerSubtotalBeforeProcessingCents,29300);
+ assert.equal(quote.providerReceivableCents,24700);
  assert.equal(quote.travelTotalCents,4000);
  assert.equal(quote.paymentAllowed,false);
  assert.equal(quote.chatAllowed,false);
  assert.equal(quote.dispatchAllowed,false);
 });
-test("F3: serviço misto tem comissão 15% apenas sobre serviços",()=>{
+test("F3: serviço misto tem 10% cada lado, só sobre serviços",()=>{
  const q=F.quoteTow({serviceTypes:["reboque_moto","troca_camara"],
   serviceCents:{reboque_moto:20000,troca_camara:3500},
   travelCents:3000,parts:[]});
- assert.equal(q.commissionCents,3525);
+ assert.equal(q.commissionCents,2350);
  assert.equal(q.totalCents,26500);
 });
 test("F3: não admite valores negativos, extras ou deslocamento ausente",()=>{
@@ -137,6 +142,7 @@ test("F3: não admite valores negativos, extras ou deslocamento ausente",()=>{
  assert.throws(()=>F.quoteTow({...src,travelCents:undefined}),/Deslocamento/);
  assert.throws(()=>F.quoteTow({...src,serviceCents:{...src.serviceCents,outro:1000}}),/sem extras/);
  assert.throws(()=>F.quoteTow({...src,serviceCents:{reboque_moto:-1}}),/Serviço/);
+ assert.throws(()=>F.quoteTow({...src,parts:[{name:"Peça avulsa",amountCents:500}]}),/Materiais devem estar inclusos/);
 });
 test("F3: rejeita orçamento acima de R$ 5 mil",()=>{
  assert.throws(()=>F.quoteTow({serviceTypes:["reboque_moto"],

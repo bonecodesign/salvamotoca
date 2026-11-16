@@ -14,7 +14,7 @@
   const BASIC=Object.freeze(["pneu_furado","troca_camara","troca_pneu","calibragem_valvula","outro"]);
   const ALL=Object.freeze([...BASIC,REBOQUE]);
   const MAX_QUOTE_CENTS=500000;
-  const COMMISSION_BPS=1500; // 15% do SERVIÇO apenas; não de deslocamento nem tarifa.
+  const COMMISSION_BPS=1000; // cada lado paga 10% do SERVIÇO; materiais inclusos.
   const PRESENCE_MS=90000;
   function ensure(ok,message){if(!ok)throw new Error(message)}
   function string(v){return typeof v==="string"?v.trim():""}
@@ -149,13 +149,11 @@
     ensure(Object.keys(serviceCents).length===types.length&&types.every(s=>
       Object.prototype.hasOwnProperty.call(serviceCents,s)),
       "Preço deve discriminar cada serviço selecionado, sem extras.");
-    ensure(Array.isArray(parts)&&parts.length<=10,"Materiais inválidos.");
+    ensure(Array.isArray(parts)&&parts.length===0,"Materiais devem estar inclusos no preço do serviço.");
     const rows=types.map(code=>({kind:"service",code,
       amountCents:integer(serviceCents[code],1,MAX_QUOTE_CENTS,"Serviço")}));
     rows.push({kind:"travel",code:"deslocamento",
       amountCents:integer(travelCents,0,MAX_QUOTE_CENTS,"Deslocamento")});
-    for(const p of parts)rows.push({kind:"part",code:text(p?.name,2,80,"Material"),
-      amountCents:integer(p?.amountCents,1,MAX_QUOTE_CENTS,"Material")});
     const totalCents=rows.reduce((s,r)=>s+r.amountCents,0);
     ensure(totalCents>=100&&totalCents<=MAX_QUOTE_CENTS,
       "Total de teste acima do limite seguro.");
@@ -163,6 +161,11 @@
       .reduce((s,r)=>s+r.amountCents,0);
     const commissionCents=Math.floor((serviceTotalCents*COMMISSION_BPS+5000)/10000);
     return {rows,totalCents,serviceTotalCents,commissionCents,
+      riderFeeCents:commissionCents,providerFeeCents:commissionCents,
+      platformGrossCommissionCents:commissionCents*2,
+      customerSubtotalBeforeProcessingCents:totalCents+commissionCents,
+      providerReceivableCents:totalCents-commissionCents,
+      materialsIncludedInService:true,
       travelTotalCents:travelCents,paymentAllowed:false,
       chatAllowed:false,dispatchAllowed:false};
   }
