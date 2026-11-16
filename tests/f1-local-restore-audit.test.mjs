@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {mkdtempSync,writeFileSync,rmSync,symlinkSync} from 'node:fs';
+import {mkdtempSync,writeFileSync,rmSync,symlinkSync,readFileSync} from 'node:fs';
 import {tmpdir} from 'node:os';
 import {join} from 'node:path';
 import {parseArgs,validateBaseline,validateCatalog,compareBaseline,
@@ -113,4 +113,17 @@ test('F1 arquivo privado não admite symlink',t=>{
  symlinkSync(f.file,link);
  assert.throws(()=>parseArgs(['--local-db','f1_restore_disposable',
   '--expected',link]),/symlink/);
+});
+
+test('F1 captura baseline com SQL so SELECT, sem mutacoes remotas',()=>{
+ const sql=readFileSync(new URL('../docs/F1_SOURCE_COUNTS_READONLY.sql',import.meta.url),'utf8');
+ const commands=sql.replace(/--[^\n]*/g,'');
+ assert.match(commands,/^\s*select jsonb_pretty/i);
+ for(const field of ['auth_users','service_requests','request_photo_metadata',
+  'storage_total','request_policy_count','storage_policy_count','f1_rpc_names',
+  'request_bucket_private','request_rls','storage_rls',
+  'anon_can_select_requests','authenticated_can_select_requests'])
+  assert.ok(commands.includes("'"+field+"'"),'missing '+field);
+ assert.doesNotMatch(commands,/\b(insert|update|delete|alter|drop|truncate|create|call|set|copy|grant|revoke)\b/i);
+ assert.match(commands,/yivkqyjdeouxnwtwfekc/);
 });
