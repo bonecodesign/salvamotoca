@@ -11,7 +11,7 @@ create table private.f4_mock_risk_cases (
   case_key text not null unique check(case_key ~ '^case_[a-z0-9_-]{8,80}$'),
   kind text not null check(kind in (
     'refund_partial','refund_full','dispute','chargeback')),
-  requested_cents integer not null check(requested_cents between 1 and 500000),
+  requested_cents integer not null check(requested_cents between 1 and 550000),
   status text not null default 'review_required'
     check(status in('review_required','closed_no_action')),
   created_at timestamptz not null default now(),
