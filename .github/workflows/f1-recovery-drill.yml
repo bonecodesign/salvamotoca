@@ -11,6 +11,10 @@ on:
       - 'scripts/f1-private-backup-manifest-check.mjs'
       - 'tests/f1-private-backup-manifest-check.test.mjs'
       - 'docs/F1_PRIVATE_BACKUP_MANIFEST.md'
+      - 'scripts/f1-local-restore-audit.mjs'
+      - 'tests/f1-local-restore-audit.test.mjs'
+      - 'docs/F1_LOCAL_RESTORE_AUDIT.md'
+      - 'docs/F1_SOURCE_COUNTS_READONLY.sql'
       - '.github/workflows/f1-recovery-drill.yml'
   push:
     branches:
@@ -24,6 +28,10 @@ on:
       - 'scripts/f1-private-backup-manifest-check.mjs'
       - 'tests/f1-private-backup-manifest-check.test.mjs'
       - 'docs/F1_PRIVATE_BACKUP_MANIFEST.md'
+      - 'scripts/f1-local-restore-audit.mjs'
+      - 'tests/f1-local-restore-audit.test.mjs'
+      - 'docs/F1_LOCAL_RESTORE_AUDIT.md'
+      - 'docs/F1_SOURCE_COUNTS_READONLY.sql'
       - '.github/workflows/f1-recovery-drill.yml'
 
 permissions:
@@ -115,6 +123,44 @@ jobs:
         run: |
           node --check scripts/f1-private-backup-manifest-check.mjs
           node --test tests/f1-private-backup-manifest-check.test.mjs
+      - name: Auditar modulo de verificacao independente sem acesso remoto
+        run: |
+          node --check scripts/f1-local-restore-audit.mjs
+          node --test tests/f1-local-restore-audit.test.mjs
+          node scripts/f1-local-restore-audit.mjs --plan > "$RUNNER_TEMP/f1-local-audit-plan.json"
+          node -e "const r=require(process.env.RUNNER_TEMP+'/f1-local-audit-plan.json');if(r.decision!=='REVIEW_REQUIRED_NO_GO'||r.backup_source_authenticated!==false)process.exit(1)"
+
+      - name: Garantir que banco ficticio RESTAURADO NAO seja aceito como backup real
+        run: |
+          node - <<'NODE'
+          const fs=require('node:fs');
+          const expected={
+            version:1,project_ref:'yivkqyjdeouxnwtwfekc',
+            captured_at:new Date().toISOString(),
+            snapshot:{
+              auth_users:1,service_requests:1,request_photo_metadata:1,
+              storage_total:1,request_policy_count:1,storage_policy_count:0,
+              f1_rpc_names:6,request_bucket_private:true,request_rls:true,
+              storage_rls:true,anon_can_select_requests:false,
+              authenticated_can_select_requests:true
+            }
+          };
+          fs.writeFileSync(process.env.RUNNER_TEMP+'/f1-synthetic-baseline.json',
+            JSON.stringify(expected),{mode:0o600});
+          NODE
+          if F1_LOCAL_PGPASSWORD=postgres node scripts/f1-local-restore-audit.mjs \
+            --local-db f1_restore_disposable \
+            --expected "$RUNNER_TEMP/f1-synthetic-baseline.json" \
+            --port 5432 > "$RUNNER_TEMP/f1-synthetic-audit-output.json" \
+            2> "$RUNNER_TEMP/f1-synthetic-audit-error.log"; then
+            echo "FAIL: fixture offline confundida com backup real" >&2
+            exit 1
+          fi
+          grep -q 'Fixture CI nao pode passar por restauracao real' \
+            "$RUNNER_TEMP/f1-synthetic-audit-error.log"
+          echo "F1_LOCAL_AUDIT=REJECTED_SYNTHETIC_FIXTURE_AS_EXPECTED"
+          echo "G1=BLOCKED; PRIVATE_RESTORE=NOT_VERIFIED"
+
       - name: Resultado explicito — sem backup REAL do Supabase
         run: |
           echo "LOCAL_FIXTURE_RESTORE_PASS — somente PostgreSQL descartavel."
