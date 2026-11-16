@@ -28,7 +28,7 @@ wait "$b" || { cat /tmp/f4-risk-same-b.log; exit 1; }
 psql -X -v ON_ERROR_STOP=1 -Atqc \
   "select count(*) from private.f4_mock_risk_cases" | grep -qx 1
 # Duas reservas parciais DIFERENTES de 11.000 centavos. Após a primeira
-# reserva 8.000 + 11.000 = 19.000; a segunda excederia 28.000.
+# reserva 8.000 + 11.000 = 19.000; a segunda excederia 29.300.
 set +e
 invoke "case_race_diff_0001" 11000 0.6 /tmp/f4-risk-diff-a.log & a=$!
 sleep 0.15
