@@ -12,9 +12,9 @@ O aplicativo e a consulta ao mapa de borracharias são gratuitos. O usuário pod
 
 ## Serviços intermediados
 
-A contratação dentro da plataforma cobre **borracharia no local do problema** e **reboque de motos**, ambos sujeitos à comissão de **15%** sobre o valor do serviço pago. Um mesmo fornecedor pode atender às duas modalidades.
+A contratação dentro da plataforma cobre **borracharia no local do problema** e **reboque de motos**, ambos com **taxa de intermediação de 15% sobre o valor dos serviços, paga exclusivamente pelo motociclista solicitante e acrescentada ao orçamento**. O prestador não tem essa taxa deduzida do preço que definiu. Um mesmo fornecedor pode atender às duas modalidades.
 
-O cliente pode escolher um profissional ou solicitar busca automática. O profissional informa orçamento discriminado entre serviço e deslocamento, quando aplicável; o cliente vê o total antes de aceitar. Qualquer extra posterior exige novo orçamento e novo aceite. A divisão financeira e os repasses dependem de integração homologada com um provedor de pagamentos. Quando ativada, a tarifa de processamento será um encargo do cliente, mostrada separadamente antes da confirmação; a comissão de 15% incidirá somente sobre o valor do serviço. Nesta fase, os pagamentos reais estão desativados.
+O cliente pode escolher um profissional ou solicitar busca automática. O profissional informa orçamento discriminado entre serviço e deslocamento, quando aplicável; o cliente vê o total antes de aceitar. Qualquer extra posterior exige novo orçamento e novo aceite. A divisão financeira e os repasses dependem de integração homologada com um provedor de pagamentos. Quando ativada, a tarifa de processamento será um encargo do cliente, mostrada separadamente antes da confirmação; a taxa de intermediação de 15% será adicionada ao pagamento do solicitante, calculada somente sobre o valor dos serviços, sem incidência sobre deslocamento, peças ou tarifa de processamento. O prestador receberá o valor integral de seu orçamento aceito (serviços + deslocamento + peças), antes de obrigações tributárias próprias, ajustes e estornos. Nesta fase, os pagamentos reais estão desativados.
 
 ## Comunicação
 
@@ -35,8 +35,8 @@ O prestador homologado escolhe **ficar online** ou **ficar offline**. Apenas que
 ## Serviços oficiais e regras comerciais
 
 1. **📍🛞 Mapa de borracharias físicas:** download, consulta e rotas gratuitos, sem comissão pela simples consulta.
-2. **🛞 Delivery de borracharia:** atendimento para reparo de pneu no local, com solicitação, comunicação, orçamento e pagamento dentro da plataforma; comissão de **15%** sobre o valor do serviço efetivamente pago. Deslocamento e tarifa de processamento não compõem essa comissão.
-3. **🚚 Reboque de motos:** remoção ou transporte com solicitação, comunicação, orçamento e pagamento dentro da plataforma; **a mesma comissão de 15%**.
+2. **🛞 Delivery de borracharia:** atendimento para reparo de pneu no local, com solicitação, comunicação, orçamento e pagamento dentro da plataforma; taxa de intermediação de **15% do valor dos serviços, adicionada ao total do solicitante**. O valor do orçamento do prestador não sofre desconto dessa taxa. Deslocamento, materiais e tarifa do processamento não compõem sua base.
+3. **🚚 Reboque de motos:** remoção ou transporte com solicitação, comunicação, orçamento e pagamento dentro da plataforma; **a mesma taxa de intermediação de 15%, paga pelo solicitante e não descontada do prestador**.
 
 O prestador pode oferecer uma ou ambas as modalidades pagas em um único cadastro, com oferta, preço, disponibilidade e cobertura independentes.
 
@@ -86,7 +86,7 @@ O pedido só é oferecido a prestadores que declararam atender os serviços sele
 
 ## Comissão de reboque
 
-- Sobre o valor do serviço de reboque incide comissão de **15%** para a plataforma.
+- Sobre o valor do serviço de reboque incide taxa de intermediação de **15%**, acrescentada ao total pago pelo solicitante, sem desconto do valor do serviço orçado pelo prestador.
 - Deslocamento, tarifa de processamento e extras não integram essa base de cálculo.
 - A regra só será ativada junto com pagamentos reais homologados.
 
@@ -96,6 +96,18 @@ O pedido só é oferecido a prestadores que declararam atender os serviços sele
 - Prestadores definem valores de serviço, deslocamento e peças de forma discriminada; o motociclista escolhe entre os orçamentos.
 - Valores potencialmente abusivos ou incoerentes podem ser suspensos para revisão humana.
 - A plataforma não altera preços automaticamente; haverá registro e possibilidade de contestação.
+
+## Regra econômica de cobrança — decisão atualizada em 16/11/2026
+
+**Pagador da taxa da plataforma: motociclista solicitante. O prestador NÃO paga a comissão de 15%.**
+
+- Base de cálculo: soma das linhas de **serviço** do orçamento aceito, sem deslocamento, peças ou materiais.
+- Taxa da plataforma: **15% × serviços**; é uma linha adicional, identificada como *taxa de intermediação Salva Motoca!*, no checkout do solicitante.
+- Valor do prestador: recebe o valor **integral de serviços + deslocamento + peças** que orçou, sem subtração da taxa da plataforma, respeitados eventuais estornos/ajustes e suas obrigações legais.
+- Valor do solicitante: **orçamento integral + taxa de intermediação (15% dos serviços) + tarifa de processamento, caso autorizada e divulgada**.
+- Exemplo didático: serviço R$ 230, deslocamento R$ 40 e materiais R$ 10 → prestador R$ 280; taxa da plataforma R$ 34,50; solicitante R$ 314,50 **antes** da eventual tarifa de processamento.
+- A expressão comercial “comissão de 15%” refere-se à receita de intermediação da plataforma **cobrada do solicitante**, e não a um desconto pago pelo prestador. A classificação fiscal/jurídica dessa tarifa, a tributação e a adequação ao Código de Defesa do Consumidor e ao PSP serão revisadas antes de cobrança real.
+- Toda tela de proposta/aceite/checkout deve informar a taxa de forma destacada antes do pagamento, sem preços-surpresa. A consulta ao mapa permanece gratuita.
 
 ## Orçamento itemizado
 
@@ -135,7 +147,7 @@ O pedido só é oferecido a prestadores que declararam atender os serviços sele
 
 - Depois do pagamento, o valor fica retido pelo intermediador de pagamentos.
 - Com a confirmação de conclusão pelas duas partes, o repasse ao prestador é liberado.
-- A comissão de 15% incide somente sobre o serviço.
+- A taxa de intermediação de 15% incide somente sobre os serviços e é cobrada do solicitante. Não é abatida do repasse do preço orçado pelo prestador.
 - Sem confirmação bilateral, não há liberação automática: o caso vai para suporte e mediação.
 - A regra só será ativada com intermediador compatível e validações jurídica, tributária e contratual.
 
