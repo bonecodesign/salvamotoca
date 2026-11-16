@@ -70,7 +70,8 @@
    stateOk(s);
    requireOk(s.stage==="awaiting_mock_payment"&&s.risk==="clear",
      "Estado financeiro fictício não permite reconfirmação.");
-   requireOk(event&&event.fixtureReceipt===MOCK_RECEIPT &&
+   requireOk(event&&event.kind==="mock_payment_confirmed"&&
+     event.fixtureReceipt===MOCK_RECEIPT &&
      event.actorId==="offline_fixture"&&EVENT.test(event.id||"") &&
      event.currency==="BRL"&&
      event.requestId===s.requestId&&event.quoteId===s.quoteId &&
