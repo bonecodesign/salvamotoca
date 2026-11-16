@@ -1,0 +1,56 @@
+name: 'F4-F6 - contrato 10x10 e handoff OFFLINE'
+on:
+  pull_request:
+    paths:
+      - 'f456-financial-bridge-offline.js'
+      - 'tests/f456-financial-bridge-offline.test.js'
+      - 'f4-finance.js'
+      - 'f5-offline-flow.js'
+      - 'f6-offline-completion.js'
+      - 'docs/F456_RECONCILIACAO_CONTRATO_10X10.md'
+      - '.github/workflows/f456-integration-tests.yml'
+  push:
+    branches:
+      - 'feat/f5-f6-financial-reconciliation-10x10-offline'
+    paths:
+      - 'f456-financial-bridge-offline.js'
+      - 'tests/f456-financial-bridge-offline.test.js'
+      - 'f4-finance.js'
+      - 'f5-offline-flow.js'
+      - 'f6-offline-completion.js'
+      - 'docs/F456_RECONCILIACAO_CONTRATO_10X10.md'
+      - '.github/workflows/f456-integration-tests.yml'
+permissions:
+  contents: read
+jobs:
+  bridge-10x10:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Validar sintaxe das tres fases e da ponte
+        run: |
+          node --check f4-finance.js
+          node --check f5-offline-flow.js
+          node --check f6-offline-completion.js
+          node --check f456-financial-bridge-offline.js
+      - name: Contrato financeiro e fluxo completo sem PSP
+        run: |
+          node --test tests/f4-finance.test.js tests/f456-financial-bridge-offline.test.js
+          node --test tests/f5-offline-flow.test.js tests/f6-offline-completion.test.js
+      - name: Regressao F1-F7 com todas flags desativadas
+        run: |
+          node scripts/f7-preflight-offline.mjs
+          node --test tests/f5-release-guard.test.js tests/f6-release-guard.test.js tests/f7-preflight.test.mjs
+      - name: Proibir caminho de aprovacao comercial
+        run: |
+          echo 'FINANCIAL_CONTRACT=10_RIDER_PLUS_10_PROVIDER'
+          echo 'SERVICE_MATERIALS_INCLUDED=true'
+          echo 'TRAVEL_FEE_RATE=0'
+          echo 'AUTHENTICATED_PSP_PAYMENT=NOT_TESTED'
+          echo 'HOSTED_SUPABASE_CHANGED=false'
+          echo 'F5_F6_REAL_SETTLEMENT=NOT_IMPLEMENTED'
+          echo 'RELEASE=NO_GO'
