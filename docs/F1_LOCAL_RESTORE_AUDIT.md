@@ -23,6 +23,12 @@ Consultar a documentação atual antes de executar: [Backups Supabase](https://s
 node scripts/f1-local-restore-audit.mjs --plan
 ```
 
+## Consulta de origem pronta, sem mutações
+
+O repositório inclui `docs/F1_SOURCE_COUNTS_READONLY.sql`, consulta **somente SELECT** que entrega exatamente o JSON esperado abaixo. Executar **apenas no momento em que o dump real for obtido**, no Supabase existente, conferir a saída e guardar o JSON num arquivo privado protegido. **Não anexar o resultado ao GitHub nem a mensagens**. O script de auditoria local compara apenas os valores agregados dessa fotografia com o banco descartável restaurado.
+
+As contagens obtidas em visitas anteriores não devem ser tratadas como fotografia do momento do backup. Esse procedimento não exporta dados nem altera o banco, e não prova que os bytes Storage ou as configurações Auth foram recuperados.
+
 ## Arquivo privado de contagens de origem
 
 Salvar somente fora do repositório (ex.: `/secure/f1-source-counts.json`) com versão `1`, `project_ref`, horário UTC `captured_at` e `snapshot`. Exemplo de **estrutura sem valores probatórios**:
