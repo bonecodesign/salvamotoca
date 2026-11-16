@@ -301,6 +301,30 @@
       (state.f2AlertsEnabled ? 'Desativar avisos F2 na tela' : 'Ativar avisos F2 na tela') +
       '</button><p class="small muted">Somente no app aberto. Não envia push externo e não confirma entrega automaticamente.</p>';
   }
+  // SM-DEC-045/046: mostrar o valor integral do CLIENTE antes de aceitar.
+  // O prestador orça serviços (materiais inclusos) e deslocamento. Propostas
+  // legadas com item 'part' OU linhas ainda não carregadas ficam bloqueadas.
+  function f2QuoteCustomerSummary(quote, items) {
+    const serviceItems=items.filter(item=>item.kind==="service");
+    const travelItems=items.filter(item=>item.kind==="travel");
+    const serviceCents=serviceItems.reduce((sum,item)=>sum+item.amount_cents,0);
+    const travelCents=travelItems.reduce((sum,item)=>sum+item.amount_cents,0);
+    const ok=items.length>=2&&serviceItems.length>=1&&travelItems.length===1 &&
+      items.length===serviceItems.length+travelItems.length &&
+      Number.isSafeInteger(serviceCents)&&serviceCents>0 &&
+      Number.isSafeInteger(travelCents)&&travelCents>=0 &&
+      Number.isSafeInteger(quote.amount_cents)&&
+      quote.amount_cents===serviceCents+travelCents;
+    if(!ok) return {valid:false,html:
+      '<p class="small muted">Proposta incompatível com a regra atual ou itens indisponíveis. Solicite novo orçamento, sem pagamento.</p>'};
+    const riderFeeCents=Math.floor((serviceCents*1000+5000)/10000);
+    return {valid:true,html:
+      '<p class="small">Serviços (materiais inclusos): '+amount(serviceCents)+'</p>'+
+      '<p class="small">Deslocamento: '+amount(travelCents)+'</p>'+
+      '<p class="small">Taxa do solicitante (10% dos serviços): '+amount(riderFeeCents)+'</p>'+
+      '<p><b>Total antes da eventual tarifa do processador: '+
+        amount(quote.amount_cents+riderFeeCents)+'</b></p>'};
+  }
   function renderF2Order(order, quotes) {
     if (f3Active() && order.service_types?.includes("reboque_moto"))
       return renderF3Order(order,quotes);
@@ -322,11 +346,12 @@
           esc(order.id) + '">Verificar vencimentos no servidor</button>';
       content += quotes.filter(q => offers.some(offer => offer.quote_id === q.id)).map(q => {
         const items = state.f2QuoteItems.filter(item => item.quote_id === q.id);
+        const pricing=f2QuoteCustomerSummary(q,items);
         return '<div class="card"><p><b>Proposta: ' +
           esc(state.directory.find(p => p.id === q.provider_id)?.display_name || "prestador") +
-          '</b> · ' + amount(q.amount_cents) + '</p>' +
-          items.map(item => '<p class="small">' + esc(item.code) + ': ' + amount(item.amount_cents) + '</p>').join("") +
-          (order.status === "requested" && q.status === "proposed" ?
+          '</b> · orçamento do prestador ' + amount(q.amount_cents) + '</p>' +
+          pricing.html +
+          (pricing.valid && order.status === "requested" && q.status === "proposed" ?
             '<div class="actions"><button class="btn sm" data-action="f2-decide" data-id="' + esc(q.id) +
             '" data-accept="true">Aceitar este orçamento</button>' +
             '<button class="btn outline sm" data-action="f2-decide" data-id="' + esc(q.id) +
@@ -401,11 +426,11 @@
         ' · '+esc(o.status)+'</p>').join("");
       out+=quotes.filter(q=>offers.some(o=>o.quote_id===q.id)).map(q=>{
         const items=state.f2QuoteItems.filter(item=>item.quote_id===q.id);
+        const pricing=f2QuoteCustomerSummary(q,items);
         return '<div class="card"><p><b>Orçamento de reboque:</b> '+
           amount(q.amount_cents)+' · '+esc(q.status)+'</p>' +
-          items.map(item=>'<p class="small">'+esc(item.code)+': '+
-            amount(item.amount_cents)+'</p>').join("") +
-          (order.status==="requested" && q.status==="proposed" ?
+          pricing.html +
+          (pricing.valid && order.status==="requested" && q.status==="proposed" ?
             '<div class="actions"><button class="btn sm" data-action="f3-decide" data-id="'+
               esc(q.id)+'" data-accept="true">Escolher orçamento F3</button>' +
             '<button class="btn outline sm" data-action="f3-decide" data-id="'+
