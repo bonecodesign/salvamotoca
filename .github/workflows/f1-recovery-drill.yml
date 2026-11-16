@@ -14,6 +14,7 @@ on:
       - 'scripts/f1-local-restore-audit.mjs'
       - 'tests/f1-local-restore-audit.test.mjs'
       - 'docs/F1_LOCAL_RESTORE_AUDIT.md'
+      - 'docs/F1_SOURCE_COUNTS_READONLY.sql'
       - '.github/workflows/f1-recovery-drill.yml'
   push:
     branches:
@@ -30,6 +31,7 @@ on:
       - 'scripts/f1-local-restore-audit.mjs'
       - 'tests/f1-local-restore-audit.test.mjs'
       - 'docs/F1_LOCAL_RESTORE_AUDIT.md'
+      - 'docs/F1_SOURCE_COUNTS_READONLY.sql'
       - '.github/workflows/f1-recovery-drill.yml'
 
 permissions:
