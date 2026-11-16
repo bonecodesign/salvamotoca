@@ -21,14 +21,14 @@ button:focus-visible,input:focus-visible,select:focus-visible{outline:3px solid 
 </head><body><main>
 <header><div class="logo">SALVA MOTOCA! · F4</div>
 <h1>Pagamentos protegidos — simulação</h1>
-<p class="lead">Entenda a composição de um orçamento, a comissão de 15% e as regras preliminares de estorno e repasse, sem qualquer cobrança.</p>
+<p class="lead">Entenda a composição de um orçamento, as comissões 10% + 10% e as regras preliminares de estorno e repasse, sem qualquer cobrança.</p>
 <div class="notice" role="status"><strong>Simulador 100% offline.</strong> Não coleta dados de cartão, não conecta Stripe nem Supabase, não cria Pix, não libera chat, rastreamento, serviço ou transferência.</div>
 </header>
 <div class="grid"><div>
 <section class="card"><h2>1. Orçamento escolhido (fictício)</h2>
 <label>Valor do serviço (R$)<input id="service" type="number" value="230.00" min="1" step=".01"></label>
 <label>Deslocamento (R$)<input id="travel" type="number" value="40.00" min="0" step=".01"></label>
-<label>Materiais e peças (R$)<input id="parts" type="number" value="10.00" min="0" step=".01"></label>
+<p class="hint">Materiais e peças já estão incluídos no valor do serviço acima.</p>
 <label>Tarifa do processador (R$) — apenas para simulação<input id="fee" type="number" value="3.50" min="0" step=".01"></label>
 <p class="hint">O valor da tarifa acima é fictício. Para uma cobrança real, o PSP e a análise jurídica devem confirmar o valor e sua aplicação ao cliente.</p>
 <button id="calculate" type="button">Simular cálculo</button>
@@ -77,18 +77,19 @@ button:focus-visible,input:focus-visible,select:focus-visible{outline:3px solid 
  by("calculate").addEventListener("click",()=>{
   by("breakdown").replaceChildren();
   try{
-   const service=asCents("service"),travel=asCents("travel"),parts=asCents("parts");
+   const service=asCents("service"),travel=asCents("travel");
    const items=[{kind:"service",code:"reboque_moto",amountCents:service},
     {kind:"travel",code:"deslocamento",amountCents:travel}];
-   if(parts)items.push({kind:"part",code:"material de apoio",amountCents:parts});
    const quote=F.quoteSnapshot({quoteId:qId,requestId:rId,items});
    const result=F.costBreakdown({quote,processingFeeCents:asCents("fee"),
     feeVerifiedByPSP:true /* valor FICTÍCIO afirmado somente no próprio simulador */});
    line("Serviço",result.serviceCents);
    line("Deslocamento",result.travelCents);
-   line("Materiais",result.partsCents);
-   line("Comissão (15% do serviço)",result.commissionCents);
-   line("Saldo econômico previsto ao prestador",result.providerReceivableCents);
+   line("Taxa do solicitante (10% do serviço)",result.riderFeeCents);
+   line("Comissão do prestador (10% do serviço)",result.providerFeeCents);
+   line("Receita bruta da plataforma (20%)",result.commissionCents);
+   line("Subtotal do solicitante, sem PSP",result.customerSubtotalBeforeProcessingCents);
+   line("Repasse-base previsto ao prestador",result.providerReceivableCents);
    line("Tarifa do PSP (hipotética)",result.processingFeeCents);
    line("Total hipotético do cliente",result.customerTotalCents,true);
   }catch(error){const p=document.createElement("p");p.textContent=error.message;by("breakdown").append(p)}
