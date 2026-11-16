@@ -10,6 +10,7 @@ on:
       - 'docs/F1_RPC_PRECHECK_READONLY.sql'
       - 'scripts/f1-private-backup-manifest-check.mjs'
       - 'tests/f1-private-backup-manifest-check.test.mjs'
+      - 'docs/F1_PRIVATE_BACKUP_MANIFEST.md'
       - '.github/workflows/f1-recovery-drill.yml'
   push:
     branches:
@@ -22,6 +23,7 @@ on:
       - 'docs/F1_RPC_PRECHECK_READONLY.sql'
       - 'scripts/f1-private-backup-manifest-check.mjs'
       - 'tests/f1-private-backup-manifest-check.test.mjs'
+      - 'docs/F1_PRIVATE_BACKUP_MANIFEST.md'
       - '.github/workflows/f1-recovery-drill.yml'
 
 permissions:
