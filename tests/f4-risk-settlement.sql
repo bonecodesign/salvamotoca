@@ -125,7 +125,7 @@ begin
  end;
  begin
    perform private.f4_open_mock_risk_case(a,
-    'case_mock_full_conflict','refund_full',28000);
+    'case_mock_full_conflict','refund_full',29300);
    raise exception using message='FALHA: estorno integral após parcial',errcode='ZX706';
  exception when others then
    if sqlstate='ZX706' then raise; end if;
@@ -183,7 +183,7 @@ select private.f4_prepare_mock_attempt('eeeeeeee-3333-4333-8333-eeeeeeeeeeee')
 select set_config('test.f4_risk_other',:'next_attempt',true);
 select private.f4_ingest_mock_event(
  current_setting('test.f4_risk_other')::uuid,
- 'evt_mock_other_verified','mock_payment_verified',10000);
+ 'evt_mock_other_verified','mock_payment_verified',10900);
 select private.f4_post_mock_double_entry(
  (select id from private.f4_mock_webhook_receipts
    where mock_event_id='evt_mock_other_verified'));
@@ -202,7 +202,7 @@ begin
 end $cross_attempt$;
 select private.f4_open_mock_risk_case(
   current_setting('test.f4_risk_other')::uuid,
-  'case_mock_full_00001','refund_full',10000);
+  'case_mock_full_00001','refund_full',10900);
 do $full$
 begin
  if (select count(*) from private.f4_mock_risk_cases
@@ -219,7 +219,7 @@ end $full$;
 -- Chargeback mock só abre caso humano, não lança nova movimentação PSP.
 select private.f4_open_mock_risk_case(
  current_setting('test.f4_risk_attempt')::uuid,
- 'case_mock_chargeback','chargeback',28000);
+ 'case_mock_chargeback','chargeback',29300);
 do $chargeback$
 begin
  if (select count(*) from private.f4_mock_risk_cases

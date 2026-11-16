@@ -1,3 +1,4 @@
+-- DECISÃO SM-DEC-045: simulação de reembolso considera subtotal pago pelo solicitante (com taxa 10%), sem PSP.
 -- F4: EXTENSÃO DE RISCO E INTENÇÕES DE REPASSE 100% MOCK / POSTGRESQL DESCARTÁVEL.
 -- Não instalar no Supabase hospedado. Não é migration. NÃO contata PSP, não reembolsa
 -- ou transfere dinheiro. Depende de f4_financial_backend_candidate.sql e
@@ -10,7 +11,7 @@ create table private.f4_mock_risk_cases (
   case_key text not null unique check(case_key ~ '^case_[a-z0-9_-]{8,80}$'),
   kind text not null check(kind in (
     'refund_partial','refund_full','dispute','chargeback')),
-  requested_cents integer not null check(requested_cents between 1 and 500000),
+  requested_cents integer not null check(requested_cents between 1 and 550000),
   status text not null default 'review_required'
     check(status in('review_required','closed_no_action')),
   created_at timestamptz not null default now(),
@@ -78,7 +79,7 @@ begin
    then raise exception 'Chave de caso reutilizada com dados diferentes.'; end if;
    return v_old.id;
  end if;
- if p_requested_cents>v_attempt.quote_total_cents
+ if p_requested_cents>v_attempt.customer_subtotal_cents
  then raise exception 'Caso superior ao orçamento mock.'; end if;
  if v_attempt.status not in('mock_verified','mock_disputed')
    or not exists(
@@ -94,13 +95,13 @@ begin
        where attempt_id=p_attempt_id and status='review_required'
          and kind in('dispute','chargeback'))
    then raise exception 'Pagamento disputado exige mediação antes de estorno.'; end if;
-   if p_kind='refund_full' and p_requested_cents<>v_attempt.quote_total_cents
+   if p_kind='refund_full' and p_requested_cents<>v_attempt.customer_subtotal_cents
    then raise exception 'Estorno integral precisa corresponder ao valor do orçamento.'; end if;
    select coalesce(sum(requested_cents),0) into v_total
      from private.f4_mock_risk_cases
      where attempt_id=p_attempt_id and status='review_required'
        and kind in('refund_partial','refund_full');
-   if v_total+p_requested_cents>v_attempt.quote_total_cents
+   if v_total+p_requested_cents>v_attempt.customer_subtotal_cents
    then raise exception 'Estornos mock solicitados excedem orçamento.'; end if;
  end if;
  insert into private.f4_mock_risk_cases(

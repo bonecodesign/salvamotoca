@@ -20,7 +20,10 @@ create table private.f4_mock_payment_attempts(
   currency text not null default 'BRL' check(currency='BRL'),
   service_cents integer not null check(service_cents>0),
   travel_cents integer not null check(travel_cents>=0),
-  parts_cents integer not null check(parts_cents>=0),
+  parts_cents integer not null check(parts_cents=0), -- legado mock: materiais inclusos no serviço
+  rider_fee_cents integer not null check(rider_fee_cents>=0),
+  provider_fee_cents integer not null check(provider_fee_cents>=0),
+  customer_subtotal_cents integer not null check(customer_subtotal_cents between 100 and 550000),
   quote_total_cents integer not null check(quote_total_cents between 100 and 500000),
   commission_cents integer not null check(commission_cents>=0),
   expected_provider_cents integer not null check(expected_provider_cents>=0),
@@ -30,9 +33,13 @@ create table private.f4_mock_payment_attempts(
     status in('mock_prepared','mock_verified','mock_refunded','mock_disputed')),
   created_at timestamptz not null default now(),
   constraint f4_components_match check(
-    quote_total_cents=service_cents+travel_cents+parts_cents
-    and expected_provider_cents=quote_total_cents-commission_cents
-    and commission_cents=(service_cents*1500+5000)/10000
+    quote_total_cents=service_cents+travel_cents
+    and parts_cents=0
+    and rider_fee_cents=(service_cents*1000+5000)/10000
+    and provider_fee_cents=(service_cents*1000+5000)/10000
+    and expected_provider_cents=quote_total_cents-provider_fee_cents
+    and commission_cents=rider_fee_cents+provider_fee_cents
+    and customer_subtotal_cents=quote_total_cents+rider_fee_cents
   ),
   constraint f4_fee_not_manufactured check(
     processing_fee_cents is null and customer_total_cents is null
@@ -43,7 +50,7 @@ create table private.f4_mock_webhook_receipts(
   attempt_id uuid not null references private.f4_mock_payment_attempts(id),
   mock_event_id text not null unique check(length(mock_event_id) between 8 and 100),
   kind text not null check(kind in ('mock_payment_verified','mock_refund_confirmed','mock_dispute_opened')),
-  amount_cents integer not null check(amount_cents between 1 and 500000),
+  amount_cents integer not null check(amount_cents between 1 and 550000),
   currency text not null default 'BRL' check(currency='BRL'),
   received_at timestamptz not null default now()
 );
@@ -77,13 +84,15 @@ create trigger f4_ledger_no_update_delete before update or delete
   execute function private.f4_deny_ledger_mutation();
 
 -- Prévia de leitura só para o cliente dono; nunca marca pagamento como aprovado.
--- Calcula comissão das linhas do ORÇAMENTO ACEITO dentro do banco.
+-- Calcula parcelas 10% solicitante + 10% prestador das linhas de SERVIÇO.
+-- Os materiais já estão inclusos; deslocamento não entra em nenhuma comissão.
+-- SOMENTE MOCK. Sem liquidação, PSP ou autorização de pagamento.
 create or replace function public.f4_quote_preview(p_quote_id uuid)
 returns jsonb language plpgsql stable security definer set search_path='' as $$
 declare
  v_user uuid:=auth.uid();v_quote record;
- v_svc bigint;v_travel bigint;v_parts bigint;v_travel_lines integer;
- v_total bigint;v_comm bigint;
+ v_svc bigint;v_travel bigint;v_part_lines bigint;v_travel_lines integer;
+ v_total bigint;v_rider bigint;v_provider bigint;v_comm bigint;
 begin
  if v_user is null or not exists(select 1 from private.f4_release_gate where enabled)
  then raise exception 'F4 indisponível para cliente.'; end if;
@@ -100,19 +109,24 @@ begin
  select count(*) filter(where kind='travel'),
    coalesce(sum(amount_cents) filter(where kind='service'),0),
    coalesce(sum(amount_cents) filter(where kind='travel'),0),
-   coalesce(sum(amount_cents) filter(where kind='part'),0)
- into v_travel_lines,v_svc,v_travel,v_parts
+   count(*) filter(where kind='part')
+ into v_travel_lines,v_svc,v_travel,v_part_lines
  from public.f2_quote_items where quote_id=p_quote_id;
- v_total:=v_svc+v_travel+v_parts;
- if v_svc<=0 or v_travel_lines<>1 or v_total<>v_quote.amount_cents
+ v_total:=v_svc+v_travel;
+ if v_svc<=0 or v_part_lines<>0 or v_travel_lines<>1 or v_total<>v_quote.amount_cents
    or v_total not between 100 and 500000
  then raise exception 'Itens de orçamento não correspondem ao valor aceito.'; end if;
- v_comm:=(v_svc*1500+5000)/10000;
+ v_rider:=(v_svc*1000+5000)/10000;
+ v_provider:=(v_svc*1000+5000)/10000;
+ v_comm:=v_rider+v_provider;
  return jsonb_build_object(
   'requestId',v_quote.request_id,'quoteId',v_quote.id,'currency','BRL',
-  'serviceCents',v_svc,'travelCents',v_travel,'partsCents',v_parts,
+  'serviceCents',v_svc,'travelCents',v_travel,'partsCents',0,
+  'materialsIncludedInService',true,
   'quoteTotalCents',v_total,'commissionCents',v_comm,
-  'expectedProviderCents',v_total-v_comm,
+  'riderFeeCents',v_rider,'providerFeeCents',v_provider,
+  'customerSubtotalBeforeProcessingCents',v_total+v_rider,
+  'expectedProviderCents',v_total-v_provider,
   'processingFeeCents',null,'customerTotalCents',null,
   'paymentAuthorized',false,'settlementAuthorized',false);
 end;
@@ -123,7 +137,8 @@ $$;
 create or replace function private.f4_prepare_mock_attempt(p_quote_id uuid)
 returns uuid language plpgsql security definer set search_path='' as $$
 declare v_quote record;v_req record;v_svc bigint;v_travel bigint;
- v_parts bigint;v_travel_lines integer;v_total bigint;v_comm bigint;v_id uuid;
+ v_part_lines bigint;v_travel_lines integer;v_total bigint;
+ v_rider bigint;v_provider bigint;v_comm bigint;v_id uuid;
 begin
  if not exists(select 1 from private.f4_release_gate where enabled)
    or current_setting('app.f4_test_only',true) is distinct from 'local_fixture'
@@ -138,20 +153,24 @@ begin
  select count(*) filter(where kind='travel'),
     coalesce(sum(amount_cents) filter(where kind='service'),0),
     coalesce(sum(amount_cents) filter(where kind='travel'),0),
-    coalesce(sum(amount_cents) filter(where kind='part'),0)
- into v_travel_lines,v_svc,v_travel,v_parts
+    count(*) filter(where kind='part')
+ into v_travel_lines,v_svc,v_travel,v_part_lines
  from public.f2_quote_items where quote_id=v_quote.id;
- v_total:=v_svc+v_travel+v_parts;
- if v_svc<=0 or v_travel_lines<>1 or v_total<>v_quote.amount_cents
+ v_total:=v_svc+v_travel;
+ if v_svc<=0 or v_part_lines<>0 or v_travel_lines<>1 or v_total<>v_quote.amount_cents
    or v_total not between 100 and 500000
  then raise exception 'Orçamento não confere com itens persistidos.'; end if;
- v_comm:=(v_svc*1500+5000)/10000;
+ v_rider:=(v_svc*1000+5000)/10000;
+ v_provider:=(v_svc*1000+5000)/10000;
+ v_comm:=v_rider+v_provider;
  insert into private.f4_mock_payment_attempts(
    request_id,quote_id,customer_id,provider_id,
    service_cents,travel_cents,parts_cents,quote_total_cents,
+   rider_fee_cents,provider_fee_cents,customer_subtotal_cents,
    commission_cents,expected_provider_cents)
  values(v_req.id,v_quote.id,v_req.customer_id,v_quote.provider_id,
-   v_svc,v_travel,v_parts,v_total,v_comm,v_total-v_comm)
+   v_svc,v_travel,0,v_total,v_rider,v_provider,v_total+v_rider,
+   v_comm,v_total-v_provider)
  on conflict(request_id) do nothing returning id into v_id;
  if v_id is null then
    select id into v_id from private.f4_mock_payment_attempts
@@ -182,8 +201,8 @@ begin
  select * into v_attempt from private.f4_mock_payment_attempts
    where id=p_attempt_id for update;
  if not found then raise exception 'Tentativa mock inexistente.'; end if;
- if p_amount_cents is distinct from v_attempt.quote_total_cents
- then raise exception 'Divergência de valor frente ao orçamento original.'; end if;
+ if p_amount_cents is distinct from v_attempt.customer_subtotal_cents
+ then raise exception 'Divergência de valor frente ao total cobrado do solicitante (sem PSP).'; end if;
  select * into v_old from private.f4_mock_webhook_receipts where mock_event_id=p_mock_event_id;
  if found then
    if v_old.attempt_id<>p_attempt_id or v_old.kind<>p_kind

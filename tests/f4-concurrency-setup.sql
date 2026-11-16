@@ -15,12 +15,11 @@ insert into public.service_quotes(id,request_id,provider_id,
  amount_cents,status)
  values('cccccccc-cccc-4ccc-8ccc-cccccccccccc',
  'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb',
- 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',28000,'accepted');
+ 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',27000,'accepted');
 insert into public.f2_quote_items(quote_id,line_no,kind,code,amount_cents)
 values
  ('cccccccc-cccc-4ccc-8ccc-cccccccccccc',1,'service','pneu_furado',23000),
- ('cccccccc-cccc-4ccc-8ccc-cccccccccccc',2,'travel','deslocamento',4000),
- ('cccccccc-cccc-4ccc-8ccc-cccccccccccc',3,'part','material',1000);
+ ('cccccccc-cccc-4ccc-8ccc-cccccccccccc',2,'travel','deslocamento',4000);
 update private.f4_release_gate set enabled=true;
 begin;
 select set_config('app.f4_test_only','local_fixture',true);

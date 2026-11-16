@@ -8,6 +8,8 @@ on:
       - 'docs/F5_*.md'
       - 'docs/F5_PREVIEW.html'
       - '.github/workflows/f5-tests.yml'
+      - 'f456-financial-bridge-offline.js'
+      - 'tests/f456-financial-bridge-offline.test.js'
   push:
     branches:
       - 'feat/f5-atendimento-chat-deslocamento-offline'
@@ -18,6 +20,8 @@ on:
       - 'docs/F5_*.md'
       - 'docs/F5_PREVIEW.html'
       - '.github/workflows/f5-tests.yml'
+      - 'f456-financial-bridge-offline.js'
+      - 'tests/f456-financial-bridge-offline.test.js'
 permissions:
   contents: read
 jobs:

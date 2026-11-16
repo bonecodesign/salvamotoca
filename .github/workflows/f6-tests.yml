@@ -7,6 +7,8 @@ on:
       - 'tests/f6-*.js'
       - 'docs/F6_*.md'
       - '.github/workflows/f6-tests.yml'
+      - 'f456-financial-bridge-offline.js'
+      - 'tests/f456-financial-bridge-offline.test.js'
   push:
     branches:
       - 'feat/f6-conclusao-mediacao-avaliacao-offline'
@@ -16,6 +18,8 @@ on:
       - 'tests/f6-*.js'
       - 'docs/F6_*.md'
       - '.github/workflows/f6-tests.yml'
+      - 'f456-financial-bridge-offline.js'
+      - 'tests/f456-financial-bridge-offline.test.js'
 permissions:
   contents: read
 jobs:

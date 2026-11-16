@@ -6,7 +6,7 @@
 
 1. PSP/contrato e meios de pagamento para Brasil/CNPJ devem ser confirmados **antes** da implementação real. O Stripe Connect não oferece serviço de *escrow* e podem existir prazos máximos de retenção, limitações por país e responsabilidades por chargebacks.
 2. Não existe prova de pagamento com redirecionamento, screenshot, retorno da UI, chave Pix apresentada ou resposta HTTP do navegador. A autorização operacional exige **evento autenticado pelo PSP, reconciliação independente, valor exato, moeda, cliente, quote imutável e prestador vencedor**.
-3. A comissão é **15% sobre serviços**. Deslocamento e peças não têm comissão. A taxa de processamento, de responsabilidade do cliente por decisão de produto, depende de revisão jurídica de transparência, custo real do PSP e cálculo prévio à confirmação. Não se presume um valor.
+3. **SM-DEC-045/046:** o cliente paga **10% acrescidos** sobre o serviço com materiais inclusos, e o prestador paga **10% descontados** desse mesmo serviço. Deslocamento separado e isento de comissão. A taxa PSP permanece adicional para o cliente apenas se permitida e divulgada; sua incidência exige revisão jurídica e PSP homologado.
 4. \`awaiting_payment\` não autoriza o prestador a se deslocar, acessar destino privado, conversar ou iniciar atendimento. A aprovação financeira no futuro é responsabilidade de fluxo server-side homologado.
 5. A operação exige tratamento humano de exceções e disputas. A existência de um lançamento contábil não garante dinheiro disponível no PSP.
 6. F4 não é independente: F5 chat/deslocamento depende de evento financeiro verdadeiro; F6 confirma conclusão bilateral e mediação; F7 valida piloto e jurídico.
@@ -15,7 +15,7 @@
 
 | Operação futura | Cliente/ator | Entrada | Autorização e resultado esperado |
 |---|---|---|---|
-| \`POST /payments/preview\` | Motociclista autenticado | ID do orçamento aceito | Servidor busca itens originais F2/F3, calcula base 15%, obtém tarifa PSP permitida e mostra discriminação |
+| \`POST /payments/preview\` | Motociclista autenticado | ID do orçamento aceito | Servidor busca itens originais F2/F3, calcula 10% do cliente + 10% do prestador sobre serviço, obtém tarifa PSP permitida e mostra discriminação |
 | \`POST /payments/attempts\` | Motociclista autenticado | ID do orçamento, chave idempotente, aceite do preço total | Verifica dono, estado \`awaiting_payment\`, quote escolhido e total; cria somente UMA tentativa atômica por versão do orçamento |
 | \`POST /psp/webhooks\` | PSP externo | Corpo bruto + headers oficiais | Verifica assinatura na biblioteca oficial, recusa alteração/replay, armazena evento e reconcilia com API PSP, sem confiar nos dados do cliente |
 | \`POST /refunds/request\` | Titular/suporte autorizado | Atendimento e motivo | Aplica política, congela repasse, cria solicitação idempotente; não marca \`refunded\` antes da confirmação do PSP |
@@ -40,16 +40,18 @@
 
 **Retries e corrida:** regras de unicidade sobre \`(provider,provider_event_id)\`, \`(order,quote_version)\` e \`settlement_intent_id\`; processar evento e transição sob lock transacional; gravação por evento, nunca atualizar totais a partir do frontend.
 
-## Modelo contábil conceitual
+## Modelo contábil conceitual — SM-DEC-045/046
 
-O candidato \`supabase/drafts/f4_double_entry_mock_candidate.sql\` usa só três contas FICTÍCIAS e eventos \`mock_*\`. Ele é um exemplo simples de **partidas dobradas**, não um ledger de produção nem um extrato Stripe. Para R$ 230,00 de serviço, R$ 40,00 de deslocamento e R$ 10,00 de materiais:
+O candidato `supabase/drafts/f4_double_entry_mock_candidate.sql` usa apenas contas FICTÍCIAS e eventos `mock_*`; não é um ledger de produção e não demonstra saldo de PSP. O serviço **inclui peças e materiais**, que não geram cobrança separada.
 
-| Evento de teste | Débito | Crédito |
+**Exemplo:** serviço R$ 230,00 (materiais inclusos) + deslocamento R$ 40,00 = orçamento R$ 270,00. Taxa do solicitante R$ 23,00; total pago (sem tarifa PSP) R$ 293,00. Comissão do prestador R$ 23,00; repasse-base R$ 247,00. Receita bruta teórica da plataforma R$ 46,00.
+
+| Evento somente de teste | Débito | Crédito |
 |---|---|---|
-| Confirmação mock | \`mock_psp_clearing\` R$ 280,00 | \`mock_provider_payable\` R$ 245,50; \`mock_platform_commission\` R$ 34,50 |
-| Estorno mock integral | \`mock_provider_payable\` R$ 245,50; \`mock_platform_commission\` R$ 34,50 | \`mock_psp_clearing\` R$ 280,00 |
+| Confirmação mock | `mock_psp_clearing` R$ 293,00 | `mock_provider_payable` R$ 247,00; `mock_platform_commission` R$ 46,00 |
+| Estorno mock integral | `mock_provider_payable` R$ 247,00; `mock_platform_commission` R$ 46,00 | `mock_psp_clearing` R$ 293,00 |
 
-**Valores teóricos.** Não incluem tarifa real PSP, impostos, chargeback, saldo indisponível, reserva ou taxa de câmbio. O sentido contábil definitivo depende do modelo jurídico (quem é o recebedor, quando surge a receita e o dever de repasse). O código não faz nenhuma transferência.
+Todos os valores são teóricos, sem tributos, tarifas reais, chargebacks ou saldo garantido. O sentido contábil definitivo depende do enquadramento jurídico, processador e revisão financeira. O código não realiza transferência.
 
 ### Exigências contábeis para a versão financeira real
 

@@ -5,6 +5,8 @@ on:
       - 'config.js'
       - 'scripts/f7-preflight-offline.mjs'
       - 'tests/f7-preflight.test.mjs'
+      - 'f456-financial-bridge-offline.js'
+      - 'tests/f456-financial-bridge-offline.test.js'
       - 'docs/F7_*.md'
       - '.github/workflows/f7-preflight.yml'
   push:
@@ -14,6 +16,8 @@ on:
       - 'config.js'
       - 'scripts/f7-preflight-offline.mjs'
       - 'tests/f7-preflight.test.mjs'
+      - 'f456-financial-bridge-offline.js'
+      - 'tests/f456-financial-bridge-offline.test.js'
       - 'docs/F7_*.md'
       - '.github/workflows/f7-preflight.yml'
 permissions:

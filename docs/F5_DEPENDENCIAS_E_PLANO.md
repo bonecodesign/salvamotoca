@@ -4,6 +4,14 @@
 
 **Cadeia de dependências:** F1 integrada à main (homologação real pendente) → F2 PR #42 (draft) → F3 PR #44 (draft) → F4 PR #45 (draft) → F5 (este ramo). O PR #47 contém alternativa F4 paralela sobre main: **não mesclar ou somar as implementações financeiras sem reconciliação de regras/arquivos e revisão humana**.
 
+## Atualização de integração 16/11/2026 — SM-DEC-045/046
+
+O novo contrato de F4 passa a calcular **10% do serviço (materiais inclusos) acrescidos ao pagamento do solicitante + 10% do serviço descontados do repasse do prestador**, com **deslocamento sem comissão**. O cliente precisa visualizar seu preço incluindo a taxa de 10% **antes de aceitar a proposta**; peças não entram como terceira linha. A taxa do PSP, quando aplicável, continua separada e depende de confirmação legal e do processador.
+
+O módulo `f456-financial-bridge-offline.js` conecta a cotação aceita às máquinas F5/F6 com **fixture marcada como não PSP** e bloqueia risco, cobrança antiga de 15%, orçamento com materiais separados e pagamento com ID/valor diferentes. Ele **não é backend e não cria autorização real**.
+
+O backend F5 futuro só poderá liberar chat/endereço exato/GPS após confirmação externa de pagamento assinado **pelo total cobrado do motociclista**, conciliação da proposta e do prestador vencedor, ausência de estorno/disputa, elegibilidade atual e gates reais. `f4_mock_payment_attempts` e eventos locais nunca substituem esses controles.
+
 ## O que a F5 deve permitir após homologação real
 
 1. Após orçamento F2/F3 aceito, a F4 deve comprovar pagamento em servidor com evento PSP autenticado, identificadores do pedido, da proposta e do prestador vencedor, moeda, valor, conciliação e inexistência de bloqueios.

@@ -6,6 +6,8 @@ on:
       - 'tests/f5-backend-rls-mock.sql'
       - 'docs/F5_BACKEND_CANDIDATE.md'
       - '.github/workflows/f5-backend-rls-mock.yml'
+      - 'f456-financial-bridge-offline.js'
+      - 'tests/f456-financial-bridge-offline.test.js'
   push:
     branches:
       - 'feat/f5-backend-rls-mock-candidate'
@@ -14,6 +16,8 @@ on:
       - 'tests/f5-backend-rls-mock.sql'
       - 'docs/F5_BACKEND_CANDIDATE.md'
       - '.github/workflows/f5-backend-rls-mock.yml'
+      - 'f456-financial-bridge-offline.js'
+      - 'tests/f456-financial-bridge-offline.test.js'
 permissions:
   contents: read
 jobs:
