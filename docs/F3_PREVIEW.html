@@ -48,12 +48,12 @@ button.secondary{background:#39414a;color:#fff}button:disabled{opacity:.5;cursor
 <section class="card"><h2>4. Orçamento discriminado</h2>
 <label>Serviço de reboque (R$)<input id="towPrice" type="number" min="0.01" step="0.01" value="230.00"></label>
 <label>Deslocamento (R$)<input id="travelPrice" type="number" min="0" step="0.01" value="40.00"></label>
-<label>Material auxiliar (R$)<input id="partPrice" type="number" min="0" step="0.01" value="10.00"></label>
+<p class="hint">Peças e materiais já estão incluídos no valor do serviço de reboque.</p>
 <div class="actions"><button id="calculate" type="button" disabled>Calcular orçamento</button><button id="choose" type="button" disabled>Escolher proposta</button></div>
 <div id="prices" aria-live="polite"></div>
 <p id="finalState" class="status" aria-live="polite">Sem orçamento.</p>
 </section>
-<section class="card"><h2>5. Regras de segurança</h2><small>Pagamento, chat, rastreamento, confirmação de chegada e despacho permanecem bloqueados neste protótipo. Comissão de 15% incide apenas sobre serviço, não deslocamento ou materiais. Extras exigem novo orçamento.</small></section>
+<section class="card"><h2>5. Regras de segurança</h2><small>Pagamento, chat, rastreamento, confirmação de chegada e despacho permanecem bloqueados neste protótipo. Duas comissões de 10% incidem sobre serviço (com materiais inclusos); nenhuma sobre deslocamento. Extras exigem novo orçamento.</small></section>
 </div></div></main>
 <script src="../f3-tow.js"></script>
 <script>
@@ -117,10 +117,8 @@ button.secondary{background:#39414a;color:#fff}button:disabled{opacity:.5;cursor
  el("calculate").addEventListener("click",()=>{
   if(!chosen||!request)return;
   try{
-   const part=cents("partPrice");
    quote=F.quoteTow({serviceTypes:request.serviceTypes,
-    serviceCents:{reboque_moto:cents("towPrice")},travelCents:cents("travelPrice"),
-    parts:part?[{name:"Material de apoio fictício",amountCents:part}]:[]});
+    serviceCents:{reboque_moto:cents("towPrice")},travelCents:cents("travelPrice"),parts:[]});
    el("prices").replaceChildren();
    for(const row of quote.rows){
     const line=document.createElement("div");line.className="row";
@@ -129,7 +127,7 @@ button.secondary{background:#39414a;color:#fff}button:disabled{opacity:.5;cursor
     line.append(label,val);el("prices").append(line);
    }
    const total=document.createElement("p");
-   total.textContent="Total: "+money(quote.totalCents)+". Comissão simulada (serviço): "+money(quote.commissionCents);
+   total.textContent="Total: "+money(quote.totalCents)+". Taxa cliente (10%): "+money(quote.riderFeeCents)+". Comissão prestador (10%): "+money(quote.providerFeeCents);
    el("prices").append(total);el("choose").disabled=false;
    txt("finalState","Orçamento de demonstração pronto; sem cobrança.");
   }catch(e){quote=null;el("choose").disabled=true;txt("finalState",e.message)}
