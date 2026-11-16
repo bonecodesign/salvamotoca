@@ -30,14 +30,16 @@ test("F4 Chrome: prévia financeira funciona sem HTTP externo",async()=>{
   assert.deepEqual(errors,[]);
  }finally{await browser.close()}
 });
-test("F4 Chrome: comissão somente do serviço e processamento informado separado",async()=>{
+test("F4 Chrome: comissões 10+10 apenas sobre serviço; materiais embutidos",async()=>{
  const {browser,page,external,errors}=await open();
  try{
   await page.locator("#calculate").click();
   const text=await page.locator("#breakdown").innerText();
-  assert.match(text,/R\$\s*34,50/);
-  assert.match(text,/R\$\s*245,50/);
-  assert.match(text,/R\$\s*283,50/);
+  assert.match(text,/R\$\s*23,00/);
+  assert.match(text,/R\$\s*46,00/);
+  assert.match(text,/R\$\s*247,00/);
+  assert.match(text,/R\$\s*296,50/);
+  assert.equal(await page.locator("#parts").count(),0);
   assert.deepEqual(external,[]);assert.deepEqual(errors,[]);
  }finally{await browser.close()}
 });
