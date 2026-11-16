@@ -9,10 +9,12 @@
   if(root&&typeof root==="object")root.SMF4Finance=api;
 })(typeof window!=="undefined"?window:null,function(){
   "use strict";
-  const COMMISSION_BPS=1500;
+  const COMMISSION_BPS=2000; // receita bruta dos dois lados = 10% + 10%.
+  const RIDER_FEE_BPS=1000;
+  const PROVIDER_FEE_BPS=1000;
   const MAX_QUOTE_CENTS=500000; // espelha limite do simulador F2/F3.
   const MAX_PROCESSING_FEE_CENTS=500000; // limite defensivo, não tarifa prevista.
-  const VALID_KINDS=Object.freeze(["service","travel","part"]);
+  const VALID_KINDS=Object.freeze(["service","travel"]);
   function requireCondition(ok,msg){if(!ok)throw new Error(msg);}
   function cents(value,name,min=0,max=MAX_QUOTE_CENTS){
     requireCondition(Number.isSafeInteger(value)&&value>=min&&value<=max,
@@ -30,7 +32,7 @@
     requireCondition(status==="accepted","Somente orçamento aceito compõe prévia financeira.");
     requireCondition(Array.isArray(items)&&items.length>=2&&items.length<=16,
       "Orçamento incompleto.");
-    let serviceCents=0,travelCents=0,partsCents=0,travelLines=0;
+    let serviceCents=0,travelCents=0,travelLines=0;
     const services=new Set(),normalized=[];
     for(const line of items){
       requireCondition(line&&VALID_KINDS.includes(line.kind),
@@ -48,39 +50,46 @@
         requireCondition(code==="deslocamento","Código de deslocamento inválido.");
         travelLines++;
         travelCents+=cost;
-      }else partsCents+=cost;
+      }
       normalized.push({kind:line.kind,code,amountCents:cost});
     }
     requireCondition(services.size>=1&&travelLines===1,
       "Orçamento precisa de serviço e deslocamento discriminado.");
-    const quoteTotalCents=serviceCents+travelCents+partsCents;
+    const quoteTotalCents=serviceCents+travelCents;
     requireCondition(quoteTotalCents>=100&&quoteTotalCents<=MAX_QUOTE_CENTS,
       "Total da proposta fora do limite de teste.");
     return {quoteId,requestId,status,items:normalized,
-      serviceCents,travelCents,partsCents,quoteTotalCents};
+      serviceCents,travelCents,partsCents:0,materialsIncludedInService:true,quoteTotalCents};
   }
   function costBreakdown({quote,processingFeeCents=null,feeVerifiedByPSP=false}){
     requireCondition(quote&&quote.status==="accepted"&&
       Number.isSafeInteger(quote.serviceCents)&&
-      Number.isSafeInteger(quote.travelCents)&&Number.isSafeInteger(quote.partsCents),
+      Number.isSafeInteger(quote.travelCents)&&quote.partsCents===0&&
+      quote.materialsIncludedInService===true,
       "Orçamento aceito do servidor obrigatório.");
-    const subtotal=quote.serviceCents+quote.travelCents+quote.partsCents;
+    const subtotal=quote.serviceCents+quote.travelCents;
     requireCondition(subtotal===quote.quoteTotalCents,
       "Não é permitido alterar preço aceito.");
     cents(subtotal,"Subtotal",100);
-    const commissionCents=Math.floor((quote.serviceCents*COMMISSION_BPS+5000)/10000);
-    const providerReceivableCents=subtotal-commissionCents;
+    const riderFeeCents=Math.floor((quote.serviceCents*RIDER_FEE_BPS+5000)/10000);
+    const providerFeeCents=Math.floor((quote.serviceCents*PROVIDER_FEE_BPS+5000)/10000);
+    const commissionCents=riderFeeCents+providerFeeCents;
+    const providerReceivableCents=subtotal-providerFeeCents;
     requireCondition(providerReceivableCents>=0,"Repasse líquido negativo.");
     let customerTotalCents=null;
     if(processingFeeCents!==null){
       cents(processingFeeCents,"Tarifa de processamento",0,MAX_PROCESSING_FEE_CENTS);
       requireCondition(feeVerifiedByPSP===true,
         "Tarifa precisa ser comprovada pelo processador, não estimada pelo app.");
-      customerTotalCents=subtotal+processingFeeCents;
+      customerTotalCents=subtotal+riderFeeCents+processingFeeCents;
     }
     return {
       currency:"BRL",commissionBasisCents:quote.serviceCents,
       commissionBps:COMMISSION_BPS,commissionCents,
+      riderFeeBps:RIDER_FEE_BPS,providerFeeBps:PROVIDER_FEE_BPS,
+      riderFeeCents,providerFeeCents,
+      customerSubtotalBeforeProcessingCents:subtotal+riderFeeCents,
+      materialsIncludedInService:true,
       serviceCents:quote.serviceCents,travelCents:quote.travelCents,
       partsCents:quote.partsCents,quoteSubtotalCents:subtotal,
       processingFeeCents,customerTotalCents,
@@ -133,6 +142,7 @@
         "Sem pagamento verificado ou sem conclusão bilateral, ou bloqueio financeiro aberto."
     };
   }
-  return Object.freeze({COMMISSION_BPS,MAX_QUOTE_CENTS,quoteSnapshot,
+  return Object.freeze({COMMISSION_BPS,RIDER_FEE_BPS,PROVIDER_FEE_BPS,
+    MAX_QUOTE_CENTS,quoteSnapshot,
     costBreakdown,paymentResultFromBrowser,refundDecision,settlementEligibility});
 });
