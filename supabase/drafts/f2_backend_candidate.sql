@@ -46,7 +46,7 @@ create index f2_offers_by_provider on public.f2_request_offers(provider_id,statu
 create table public.f2_quote_items (
   quote_id uuid not null references public.service_quotes(id) on delete cascade,
   line_no smallint not null check (line_no between 1 and 16),
-  kind text not null check (kind in ('service','travel','part')),
+  kind text not null check (kind in ('service','travel')),
   code text not null check (length(btrim(code)) between 2 and 80),
   amount_cents integer not null check (amount_cents between 0 and 500000),
   primary key(quote_id,line_no),
@@ -323,7 +323,7 @@ end;
 $$;
 
 -- Orçamento itemizado: cliente NÃO informa total persistido.
--- Atomicidade: grava serviço, deslocamento e peças no mesmo commit.
+-- Atomicidade: grava serviços (preço já inclui materiais) e deslocamento no mesmo commit.
 create or replace function public.f2_submit_quote(
   p_offer_id uuid,p_items jsonb,p_details text default ''
 ) returns uuid language plpgsql security definer set search_path='' as $$
@@ -331,7 +331,7 @@ declare
   v_user uuid:=auth.uid(); v_offer record; v_req record; v_quote uuid;
   v_line jsonb; v_kind text; v_code text; v_amount integer;
   v_index integer:=0; v_total integer:=0; v_travel integer:=0;
-  v_seen text[]:=array[]::text[]; v_parts integer:=0;
+  v_seen text[]:=array[]::text[];
 begin
   if v_user is null or not exists(select 1 from private.f2_release_gate where enabled)
     then raise exception 'F2 não autorizada.'; end if;
@@ -378,11 +378,6 @@ begin
       if v_code<>'deslocamento' or v_travel>0
         then raise exception 'Deslocamento obrigatório e único.'; end if;
       v_travel:=v_travel+1;
-    elsif v_kind='part' then
-      v_parts:=v_parts+1;
-      if v_parts>10 or v_amount=0 or v_code ~*
-        '(https?://|www[.]|wa[.]me|whats[[:space:]]*app|chave[[:space:]]*pix|@[-_[:alnum:].]+|([0-9][[:space:]().-]*){9,})'
-        then raise exception 'Peça inválida ou contém contato externo.'; end if;
     else raise exception 'Tipo de item não permitido.'; end if;
     v_total:=v_total+v_amount;
   end loop;
