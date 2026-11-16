@@ -1,0 +1,46 @@
+name: 'Salva Motoca - decisao financeira 10+10 (sem cobranca)'
+on:
+  pull_request:
+    paths:
+      - 'pricing-policy-10x10.js'
+      - 'tests/pricing-policy-10x10.test.js'
+      - 'docs/PRODUTO_OFICIAL.md'
+      - 'docs/fundacao/05_MODELO_ECONOMICO.md'
+      - 'docs/fundacao/02_PLANO_DE_NEGOCIO.md'
+      - 'docs/fundacao/08_REGISTRO_DE_DECISOES.md'
+      - '.github/workflows/pricing-policy-10x10.yml'
+  push:
+    branches:
+      - 'feat/modelo-economico-10x10-servico-deslocamento'
+    paths:
+      - 'pricing-policy-10x10.js'
+      - 'tests/pricing-policy-10x10.test.js'
+      - 'docs/PRODUTO_OFICIAL.md'
+      - 'docs/fundacao/05_MODELO_ECONOMICO.md'
+      - 'docs/fundacao/02_PLANO_DE_NEGOCIO.md'
+      - 'docs/fundacao/08_REGISTRO_DE_DECISOES.md'
+      - '.github/workflows/pricing-policy-10x10.yml'
+permissions:
+  contents: read
+jobs:
+  pricing-contract-offline:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Validar modulo de politica financeira offline
+        run: node --check pricing-policy-10x10.js
+      - name: Validar comissao 10+10 e materiais inclusos
+        run: node --test tests/pricing-policy-10x10.test.js
+      - name: Provar ausencia de ativacao F1
+        run: grep -Eq 'f1TestRequestsEnabled:[[:space:]]*false' config.js
+      - name: Delimitar escopo (nao integra PSP nem altera Supabase)
+        run: |
+          echo 'DECISAO_COMERCIAL=10_RIDER_PLUS_10_PROVIDER'
+          echo 'SERVICE_INCLUDES_MATERIALS=true'
+          echo 'TRAVEL_COMMISSION=false'
+          echo 'PAYMENTS_ACTIVATED=false'
+          echo 'F1_RELEASE=NO_GO'
