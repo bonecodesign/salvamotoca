@@ -17,12 +17,11 @@ insert into public.service_quotes(
  id,request_id,provider_id,amount_cents,status)
 values('cccccccc-cccc-4ccc-8ccc-cccccccccccc',
   'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb',
-  'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',28000,'accepted');
+  'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',27000,'accepted');
 insert into public.f2_quote_items(quote_id,line_no,kind,code,amount_cents)
 values
  ('cccccccc-cccc-4ccc-8ccc-cccccccccccc',1,'service','pneu_furado',23000),
- ('cccccccc-cccc-4ccc-8ccc-cccccccccccc',2,'travel','deslocamento',4000),
- ('cccccccc-cccc-4ccc-8ccc-cccccccccccc',3,'part','Material',1000);
+ ('cccccccc-cccc-4ccc-8ccc-cccccccccccc',2,'travel','deslocamento',4000);
 
 -- Nenhuma tabela financeira deve ser lida ou escrita diretamente por anon ou
 -- authenticated. Apenas preview de leitura do próprio orçamento é executável.
@@ -92,10 +91,13 @@ begin
  select public.f4_quote_preview('cccccccc-cccc-4ccc-8ccc-cccccccccccc') into j;
  if (j->>'serviceCents')::integer<>23000
   or (j->>'travelCents')::integer<>4000
-  or (j->>'partsCents')::integer<>1000
-  or (j->>'quoteTotalCents')::integer<>28000
-  or (j->>'commissionCents')::integer<>3450
-  or (j->>'expectedProviderCents')::integer<>24550
+  or (j->>'partsCents')::integer<>0
+  or (j->>'riderFeeCents')::integer<>2300
+  or (j->>'providerFeeCents')::integer<>2300
+  or (j->>'customerSubtotalBeforeProcessingCents')::integer<>29300
+  or (j->>'quoteTotalCents')::integer<>27000
+  or (j->>'commissionCents')::integer<>4600
+  or (j->>'expectedProviderCents')::integer<>24700
   or j->>'customerTotalCents' is not null
   or j->>'processingFeeCents' is not null
   or (j->>'paymentAuthorized')::boolean
@@ -134,8 +136,12 @@ select set_config('test.f4_attempt',:'repeated_attempt',false);
 do $idempotent_prepare$
 begin
  if (select count(*) from private.f4_mock_payment_attempts)<>1
-  or (select quote_total_cents from private.f4_mock_payment_attempts)<>28000
-  or (select commission_cents from private.f4_mock_payment_attempts)<>3450
+  or (select quote_total_cents from private.f4_mock_payment_attempts)<>27000
+  or (select customer_subtotal_cents from private.f4_mock_payment_attempts)<>29300
+  or (select rider_fee_cents from private.f4_mock_payment_attempts)<>2300
+  or (select provider_fee_cents from private.f4_mock_payment_attempts)<>2300
+  or (select commission_cents from private.f4_mock_payment_attempts)<>4600
+  or (select expected_provider_cents from private.f4_mock_payment_attempts)<>24700
  then raise exception 'Tentativa duplicada ou valor de comissão adulterado'; end if;
 end $idempotent_prepare$;
 
@@ -145,7 +151,7 @@ declare id uuid:=current_setting('test.f4_attempt')::uuid;
 begin
  begin
    perform private.f4_ingest_mock_event(id,'evt_refund_too_early',
-     'mock_refund_confirmed',28000);
+     'mock_refund_confirmed',29300);
    raise exception using message='FALHA: refund antes de pagamento',errcode='ZX405';
  exception when others then
    if sqlstate='ZX405' then raise; end if;
@@ -161,7 +167,7 @@ begin
  end;
  begin
    perform private.f4_ingest_mock_event(id,'evt_wrong_currency',
-     'mock_payment_verified',28000,'USD');
+     'mock_payment_verified',29300,'USD');
    raise exception using message='FALHA: moeda errada',errcode='ZX407';
  exception when others then if sqlstate='ZX407' then raise; end if;
  end;
@@ -169,10 +175,10 @@ end $bad_events$;
 
 select private.f4_ingest_mock_event(
  current_setting('test.f4_attempt')::uuid,
- 'evt_mock_payment_001','mock_payment_verified',28000);
+ 'evt_mock_payment_001','mock_payment_verified',29300);
 select private.f4_ingest_mock_event(
  current_setting('test.f4_attempt')::uuid,
- 'evt_mock_payment_001','mock_payment_verified',28000) as duplicate_event \gset
+ 'evt_mock_payment_001','mock_payment_verified',29300) as duplicate_event \gset
 select set_config('test.f4_dup',:'duplicate_event',false);
 
 do $payment$
@@ -192,7 +198,7 @@ declare id uuid:=current_setting('test.f4_attempt')::uuid;
 begin
  begin
    perform private.f4_ingest_mock_event(
-     id,'evt_mock_payment_001','mock_refund_confirmed',28000);
+     id,'evt_mock_payment_001','mock_refund_confirmed',29300);
    raise exception using message='FALHA: event ID colidiu com outro tipo',errcode='ZX408';
  exception when others then
    if sqlstate='ZX408' then raise; end if;
@@ -200,7 +206,7 @@ begin
  end;
  begin
    perform private.f4_ingest_mock_event(
-     id,'evt_mock_payment_002','mock_payment_verified',28000);
+     id,'evt_mock_payment_002','mock_payment_verified',29300);
    raise exception using message='FALHA: segundo pagamento aceito',errcode='ZX409';
  exception when others then if sqlstate='ZX409' then raise; end if;
  end;
@@ -223,10 +229,10 @@ end $immutable$;
 
 select private.f4_ingest_mock_event(
  current_setting('test.f4_attempt')::uuid,
- 'evt_mock_refund_001','mock_refund_confirmed',28000);
+ 'evt_mock_refund_001','mock_refund_confirmed',29300);
 select private.f4_ingest_mock_event(
  current_setting('test.f4_attempt')::uuid,
- 'evt_mock_refund_001','mock_refund_confirmed',28000) as refunded_duplicate \gset
+ 'evt_mock_refund_001','mock_refund_confirmed',29300) as refunded_duplicate \gset
 select set_config('test.f4_refund_dup',:'refunded_duplicate',false);
 do $refund$
 begin
