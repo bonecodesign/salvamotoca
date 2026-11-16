@@ -54,13 +54,13 @@ begin
    or (select count(*) from private.f4_mock_journals)<>1
    or (select count(*) from private.f4_mock_journal_lines)<>3
    or (select sum(amount_cents) from private.f4_mock_journal_lines
-      where side='debit')<>28000
+      where side='debit')<>29300
    or (select sum(amount_cents) from private.f4_mock_journal_lines
-      where side='credit')<>28000
+      where side='credit')<>29300
    or (select amount_cents from private.f4_mock_journal_lines
-      where account='mock_platform_commission')<>3450
+      where account='mock_platform_commission')<>4600
    or (select amount_cents from private.f4_mock_journal_lines
-      where account='mock_provider_payable')<>24550
+      where account='mock_provider_payable')<>24700
  then raise exception 'Partidas dobradas do pagamento mock inválidas'; end if;
 end $balanced$;
 
@@ -71,7 +71,7 @@ begin
  select private.f4_mock_settlement_review(v_attempt,true,true,false) into j;
  if (j->>'eligibleForHumanReview')::boolean is distinct from true
    or (j->>'transferAuthorized')::boolean is distinct from false
-   or (j->>'providerPayableMockCents')::integer<>24550
+   or (j->>'providerPayableMockCents')::integer<>24700
  then raise exception 'Confirmação bilateral mock não apenas revisou'; end if;
  select private.f4_mock_settlement_review(v_attempt,true,false,false) into j;
  if (j->>'eligibleForHumanReview')::boolean
@@ -84,7 +84,7 @@ end $review$;
 -- Estorno completo: um débito de passivo e comissão + crédito de clearing.
 select private.f4_ingest_mock_event(
  (select id from private.f4_mock_payment_attempts limit 1),
- 'evt_mock_refund_journal_001','mock_refund_confirmed',28000);
+ 'evt_mock_refund_journal_001','mock_refund_confirmed',29300);
 select private.f4_post_mock_double_entry(
  (select id from private.f4_mock_webhook_receipts
    where mock_event_id='evt_mock_refund_journal_001')) as refund_journal \gset
