@@ -1,0 +1,69 @@
+name: F1 - RPC de localizacao: regressao de seguranca OFFLINE
+on:
+  pull_request:
+    paths:
+      - 'tests/f1-location-rpc-fixture.sql'
+      - 'tests/f1-location-rpc-adversarial.sql'
+      - 'docs/F1_LOCATION_RPC_HARDENING.md'
+      - '.github/workflows/f1-location-rpc-offline.yml'
+  push:
+    branches:
+      - 'feat/f1-rpc-location-hardening-offline'
+    paths:
+      - 'tests/f1-location-rpc-fixture.sql'
+      - 'tests/f1-location-rpc-adversarial.sql'
+      - 'docs/F1_LOCATION_RPC_HARDENING.md'
+      - '.github/workflows/f1-location-rpc-offline.yml'
+permissions:
+  contents: read
+jobs:
+  location-rpc-disposable:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: f1_rpc_disposable
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d f1_rpc_disposable"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      PGHOST: localhost
+      PGPORT: 5432
+      PGUSER: postgres
+      PGPASSWORD: postgres
+      PGDATABASE: f1_rpc_disposable
+    steps:
+      - uses: actions/checkout@v4
+      - name: Cliente PostgreSQL
+        run: command -v psql || (sudo apt-get update -qq && sudo apt-get install -y postgresql-client)
+      - name: Criar fixture de roles e funcoes APENAS no PG17 descartavel
+        run: psql -X -v ON_ERROR_STOP=1 -f tests/f1-location-rpc-fixture.sql
+      - name: Provar isolamento e revogacao de acesso a localizacao
+        run: psql -X -v ON_ERROR_STOP=1 -f tests/f1-location-rpc-adversarial.sql
+      - name: Garantir estado inicial do banco ficticio apos rollback
+        run: |
+          psql -X -v ON_ERROR_STOP=1 -Atqc "select not enabled from private.f1_location_release_gate where singleton" | grep -qx t
+          psql -X -v ON_ERROR_STOP=1 -Atqc "select status from public.service_requests" | grep -qx awaiting_payment
+          psql -X -v ON_ERROR_STOP=1 -Atqc "select count(*) from public.payment_records" | grep -qx 1
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Regressao do bloqueio de Auth/Storage F1
+        run: node --test tests/f1-work-storage-e2e.test.mjs
+      - name: Flag de solicitacao F1 permanece desligada
+        run: grep -Eq 'f1TestRequestsEnabled:[[:space:]]*false' config.js
+      - name: Resultado explicito de nao ativacao
+        run: |
+          echo "OFFLINE_SQL_REVIEW_ONLY=PASS"
+          echo "HOSTED_RPC_CHANGED=false"
+          echo "AUTH_HTTP_TESTS=NOT_RUN"
+          echo "F1_BACKUP_RESTORE_REAL=BLOCKED"
+          echo "F1_RELEASE=NO_GO"
