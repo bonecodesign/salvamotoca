@@ -12,9 +12,9 @@ O aplicativo e a consulta ao mapa de borracharias são gratuitos. O usuário pod
 
 ## Serviços intermediados
 
-A contratação dentro da plataforma cobre **borracharia no local do problema** e **reboque de motos**, ambos sujeitos à comissão de **15%** sobre o valor do serviço pago. Um mesmo fornecedor pode atender às duas modalidades.
+A contratação dentro da plataforma cobre **borracharia no local do problema** e **reboque de motos**, ambos seguem o modelo de **10% de taxa para o solicitante + 10% de comissão para o prestador**, calculados exclusivamente sobre o preço de **serviço (materiais incluídos)**; não incidem sobre **deslocamento**. Um mesmo fornecedor pode atender às duas modalidades.
 
-O cliente pode escolher um profissional ou solicitar busca automática. O profissional informa orçamento discriminado entre serviço e deslocamento, quando aplicável; o cliente vê o total antes de aceitar. Qualquer extra posterior exige novo orçamento e novo aceite. A divisão financeira e os repasses dependem de integração homologada com um provedor de pagamentos. Quando ativada, a tarifa de processamento será um encargo do cliente, mostrada separadamente antes da confirmação; a comissão de 15% incidirá somente sobre o valor do serviço. Nesta fase, os pagamentos reais estão desativados.
+O cliente pode escolher um profissional ou solicitar busca automática. O profissional informa **duas categorias de preço: serviço (já incluindo peças e materiais) e deslocamento obrigatório**, sem uma terceira cobrança de materiais. O cliente vê o preço do orçamento, a taxa de 10% do solicitante e a eventual tarifa de processamento antes de aceitar. Qualquer extra posterior exige novo orçamento e novo aceite. A divisão financeira e os repasses dependem de integração homologada com um provedor de pagamentos. Quando ativada, a tarifa de processamento será um encargo do cliente, mostrada separadamente antes da confirmação; as duas parcelas de 10% incidirão somente sobre o valor do serviço; a parcela do prestador será descontada do seu repasse e a do solicitante será acrescentada ao seu pagamento. Nesta fase, os pagamentos reais estão desativados.
 
 ## Comunicação
 
@@ -35,8 +35,8 @@ O prestador homologado escolhe **ficar online** ou **ficar offline**. Apenas que
 ## Serviços oficiais e regras comerciais
 
 1. **📍🛞 Mapa de borracharias físicas:** download, consulta e rotas gratuitos, sem comissão pela simples consulta.
-2. **🛞 Delivery de borracharia:** atendimento para reparo de pneu no local, com solicitação, comunicação, orçamento e pagamento dentro da plataforma; comissão de **15%** sobre o valor do serviço efetivamente pago. Deslocamento e tarifa de processamento não compõem essa comissão.
-3. **🚚 Reboque de motos:** remoção ou transporte com solicitação, comunicação, orçamento e pagamento dentro da plataforma; **a mesma comissão de 15%**.
+2. **🛞 Delivery de borracharia:** atendimento para reparo de pneu no local, com solicitação, comunicação, orçamento e pagamento dentro da plataforma; **10% do serviço acrescidos ao pagamento do solicitante e 10% do serviço descontados do repasse do prestador**. Materiais estão incluídos no serviço; deslocamento e processamento não integram a base.
+3. **🚚 Reboque de motos:** remoção ou transporte com solicitação, comunicação, orçamento e pagamento dentro da plataforma; **o mesmo modelo de 10% para cada lado, somente sobre serviço (materiais inclusos), sem comissão sobre deslocamento**.
 
 O prestador pode oferecer uma ou ambas as modalidades pagas em um único cadastro, com oferta, preço, disponibilidade e cobertura independentes.
 
@@ -86,20 +86,36 @@ O pedido só é oferecido a prestadores que declararam atender os serviços sele
 
 ## Comissão de reboque
 
-- Sobre o valor do serviço de reboque incide comissão de **15%** para a plataforma.
+- Sobre o valor do serviço de reboque, com materiais necessários incluídos, incidem **10% acrescidos ao solicitante e 10% descontados do prestador**, totalizando 20% de receita bruta teórica da plataforma.
 - Deslocamento, tarifa de processamento e extras não integram essa base de cálculo.
 - A regra só será ativada junto com pagamentos reais homologados.
 
 ## Controle de preços no piloto
 
 - Não há tabela fixa de preços nesta fase.
-- Prestadores definem valores de serviço, deslocamento e peças de forma discriminada; o motociclista escolhe entre os orçamentos.
+- Prestadores definem **serviço (incluindo peças e materiais)** e **deslocamento** como as únicas duas categorias cobradas no orçamento; o motociclista escolhe entre os orçamentos.
 - Valores potencialmente abusivos ou incoerentes podem ser suspensos para revisão humana.
 - A plataforma não altera preços automaticamente; haverá registro e possibilidade de contestação.
 
+## Regra comercial vigente — 16/11/2026
+
+**SM-DEC-045 / SM-DEC-046:** 10% do preço do serviço são cobrados como taxa de intermediação do **solicitante** e outros 10% são descontados do valor do serviço a repassar ao **prestador**. Apenas o serviço integra a base da comissão; o deslocamento fica integralmente fora dela. Materiais e peças necessários **já estão incluídos no preço do serviço**, nunca cobrados novamente em linha separada.
+
+**Cálculo (centavos, arredondamento determinístico):**
+- Serviço com materiais = **S**; deslocamento = **D**.
+- Comissão do solicitante = arredondar(**S × 10%**).
+- Comissão do prestador = arredondar(**S × 10%**).
+- **Cliente paga = S + D + comissão do solicitante + eventual tarifa de processamento legalmente permitida e apresentada antes do aceite.**
+- **Prestador recebe como base de repasse = S + D − comissão do prestador**, sem considerar eventuais tributos próprios, ajustes e estornos.
+- **Plataforma recebe como receita bruta teórica = comissão do cliente + comissão do prestador**. Tarifas do PSP não devem ser confundidas com receita líquida.
+
+Exemplo: serviço **R$ 230,00** (materiais incluídos) + deslocamento **R$ 40,00** = orçamento **R$ 270,00**; taxa de cliente **R$ 23,00**; comissão do prestador **R$ 23,00**. O solicitante vê **R$ 293,00** antes da tarifa eventual do PSP; repasse-base do prestador é **R$ 247,00**; receita bruta teórica da plataforma **R$ 46,00**.
+
+Todos os itens e as tarifas devem ser informados antes da confirmação. Não existe autorização para realizar cobranças, repasses ou reservas reais: PSP, estrutura tributária, termos jurídicos e homologação permanecem pendentes.
+
 ## Orçamento itemizado
 
-- Todo orçamento informa separadamente cada serviço selecionado, o **deslocamento obrigatório** e cada peça ou material.
+- Todo orçamento apresenta **serviço (valor já inclui as peças e materiais necessários)** e **deslocamento obrigatório**, sem cobrança adicional de peças ou materiais. Os serviços selecionados podem aparecer na descrição, mas não criam uma terceira categoria de cobrança.
 - O total final é exibido antes do pagamento.
 - Nenhum item adicional pode ser cobrado sem novo orçamento discriminado e novo aceite.
 
@@ -135,7 +151,7 @@ O pedido só é oferecido a prestadores que declararam atender os serviços sele
 
 - Depois do pagamento, o valor fica retido pelo intermediador de pagamentos.
 - Com a confirmação de conclusão pelas duas partes, o repasse ao prestador é liberado.
-- A comissão de 15% incide somente sobre o serviço.
+- A taxa de **10% do solicitante** e a comissão de **10% do prestador** incidem sobre o **serviço**, inclusive materiais nele embutidos, e **não** sobre deslocamento.
 - Sem confirmação bilateral, não há liberação automática: o caso vai para suporte e mediação.
 - A regra só será ativada com intermediador compatível e validações jurídica, tributária e contratual.
 
