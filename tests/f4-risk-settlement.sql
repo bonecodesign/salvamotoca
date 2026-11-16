@@ -183,7 +183,7 @@ select private.f4_prepare_mock_attempt('eeeeeeee-3333-4333-8333-eeeeeeeeeeee')
 select set_config('test.f4_risk_other',:'next_attempt',true);
 select private.f4_ingest_mock_event(
  current_setting('test.f4_risk_other')::uuid,
- 'evt_mock_other_verified','mock_payment_verified',10000);
+ 'evt_mock_other_verified','mock_payment_verified',10900);
 select private.f4_post_mock_double_entry(
  (select id from private.f4_mock_webhook_receipts
    where mock_event_id='evt_mock_other_verified'));
@@ -202,7 +202,7 @@ begin
 end $cross_attempt$;
 select private.f4_open_mock_risk_case(
   current_setting('test.f4_risk_other')::uuid,
-  'case_mock_full_00001','refund_full',10000);
+  'case_mock_full_00001','refund_full',10900);
 do $full$
 begin
  if (select count(*) from private.f4_mock_risk_cases
