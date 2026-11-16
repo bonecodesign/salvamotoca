@@ -1,44 +1,47 @@
 # FND-05 — Modelo econômico-financeiro e hipóteses
 
-**Versão 0.2 — estudo interno, não previsão de faturamento**
+**Versão 0.3 — SM-DEC-045/046, 16/11/2026; estudo interno, não previsão de faturamento**
 
 ## Hipóteses aprovadas ou registradas
 
 - **Mapa e consulta:** gratuitos, sem cobrança pela ida direta à oficina.
-- **Borracharia delivery intermediada:** comissão de **15% aprovada internamente em 12/11/2026** sobre o valor do serviço efetivamente pago e liquidado pelo aplicativo (SM-DEC-014). A aplicação prática permanece condicionada a contratos, regras de estorno, tributação e integração financeira homologada.
-- **Reboque:** já está implementado no produto, mas não possui checkout nem cobrança real habilitados; sua ativação comercial depende de homologação. A comissão aprovada é de **15% sobre o valor do serviço de reboque**, sem incluir deslocamento, tarifa de processamento ou extras.
-- **Preço de serviço:** definido pelo prestador em orçamento discriminado; serviços, deslocamento obrigatório e peças/materiais aparecem separadamente. Cliente aceita ou recusa o total. No piloto não há tabela fixa: valores potencialmente abusivos ou incoerentes podem ser encaminhados para revisão humana, sem ajuste automático.
+- **Borracharia delivery intermediada:** **10% de taxa acrescida ao pagamento do solicitante e 10% de comissão descontada do prestador**, somente sobre o valor do serviço com materiais incluídos (SM-DEC-045, que substitui o percentual anterior de 15%). A aplicação prática permanece condicionada a contratos, regras de estorno, tributação e integração financeira homologada.
+- **Reboque:** já está implementado no produto, mas não possui checkout nem cobrança real habilitados; sua ativação comercial depende de homologação. A decisão vigente é **10% para o solicitante + 10% para o prestador**, calculados sobre o valor do serviço de reboque com materiais incluídos, sem incidir sobre deslocamento ou processamento.
+- **Preço de serviço:** definido pelo prestador em orçamento discriminado; somente **serviço (materiais/peças já incluídos)** e **deslocamento obrigatório** aparecem como categorias de cobrança, sem terceira linha de peças. Cliente aceita ou recusa o total. No piloto não há tabela fixa: valores potencialmente abusivos ou incoerentes podem ser encaminhados para revisão humana, sem ajuste automático.
 - **Pagamento:** Pix/cartões e split ainda não conectados nem homologados.
 - **Cancelamento pós-pagamento:** se o prestador cancelar, reembolso integral ao cliente, inclusive tarifa de processamento; se o cliente cancelar antes de o prestador marcar “em deslocamento”, reembolso integral; depois disso, valor retido até mediação, sem repasse automático.
 - **Retenção e repasse:** após o aceite, o valor pago fica retido pelo intermediador até a confirmação de conclusão pelas duas partes. Depois, o intermediador realiza o repasse ao prestador conforme regras homologadas; sem confirmação bilateral, não há liberação automática e o caso segue para suporte/mediação. Esta regra depende de PSP compatível e validação jurídica, tributária e contratual.
 - **Custo inicial de desenvolvimento:** priorizar ferramentas gratuitas quando possível, **não** considerar que a operação real terá custo zero.
 
-## Unidade econômica de uma transação
+## Unidade econômica de uma transação — decisão aprovada
 
-Definições (valores em reais):
-- P = preço total aceito e liquidado;
-- c = comissão nominal (referência 0,15);
-- F = custo total da transação de pagamento;
-- V = custo variável de infraestrutura, mensagens e suporte atribuível ao pedido;
-- T = tributos incidentes na operação da plataforma, conforme enquadramento;
-- D = perda média esperada com disputas/estornos/fraudes;
-- R = ajustes, reembolsos e repasses reversos.
+**SM-DEC-045/046 — 16/11/2026:** a taxa de intermediação é repartida em **10% cobrados do motociclista solicitante + 10% descontados do prestador**, ambas calculadas **somente sobre o valor de serviço com materiais incluídos**. Deslocamento não sofre comissão.
 
-**Comissão bruta definida para cálculo = P × 0,15**, incidindo sobre o valor do serviço aceito, sem incluir deslocamento, tarifa de processamento ou extras não aprovados.
+Definições (reais):
+- **S:** serviço orçado, com os custos de materiais e peças necessários **já incluídos**.
+- **D:** deslocamento, cobrado separadamente.
+- **O = S + D:** total do orçamento do prestador.
+- **Cₛ = arredondar(S × 0,10):** taxa cobrada do solicitante.
+- **Cₚ = arredondar(S × 0,10):** comissão descontada do prestador.
+- **F:** eventual tarifa do processador cobrada do solicitante, se juridicamente permitida e claramente informada.
+- **Cliente paga = O + Cₛ + F**.
+- **Base a repassar ao prestador = O − Cₚ**.
+- **Receita bruta teórica da plataforma = Cₛ + Cₚ**.
+- **Margem estimada da plataforma = (Cₛ + Cₚ) − custos variáveis − tributos − estornos e ajustes da plataforma**.
 
-**Resultado de contribuição estimado da plataforma = (P × c) − V − T − D − R.** A tarifa de processamento é cobrada separadamente do cliente e não compõe a comissão do serviço; sua cobrança, liquidação e eventuais reembolsos dependem do PSP homologado.
+A tarifa PSP não entra na base das comissões nem é automaticamente receita da plataforma. A divisão deverá ser reconciliada no provedor financeiro e revisada juridicamente antes de qualquer cobrança real.
 
-O valor financeiro líquido do prestador parte do valor do serviço menos a comissão aplicável, tributos dele, restituições e regras de split. A tarifa de processamento é encargo do cliente e deve aparecer destacada antes da confirmação. Não assumir que o simples percentual de comissão representa margem ou caixa disponível.
+### Exemplo didático — NÃO representa preço de mercado
 
-### Exemplo meramente ilustrativo — NÃO é preço de mercado
+| Serviço, materiais inclusos | Deslocamento | Taxa solicitante (10%) | Comissão prestador (10%) | Cliente paga, sem PSP | Prestador recebe (base) | Receita bruta plataforma |
+| ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| R$ 80,00 | R$ 0,00 | R$ 8,00 | R$ 8,00 | R$ 88,00 | R$ 72,00 | R$ 16,00 |
+| R$ 100,00 | R$ 20,00 | R$ 10,00 | R$ 10,00 | R$ 130,00 | R$ 110,00 | R$ 20,00 |
+| R$ 230,00 | R$ 40,00 | R$ 23,00 | R$ 23,00 | R$ 293,00 | R$ 247,00 | R$ 46,00 |
 
-| Valor aceito hipotético | Comissão de 15% | Parcela antes de outras taxas e tributos |
-| ---: | ---: | ---: |
-| R$ 80,00 | R$ 12,00 | R$ 68,00 |
-| R$ 100,00 | R$ 15,00 | R$ 85,00 |
-| R$ 150,00 | R$ 22,50 | R$ 127,50 |
+No terceiro exemplo, uma tarifa PSP **hipotética** de R$ 3,50 elevaria a cobrança ao cliente para **R$ 296,50**, sem alterar a base do orçamento ou as comissões. Não há PSP homologado para cobranças reais.
 
-**Atenção:** números acima ignoram custos de pagamento, suporte, impostos e eventuais devoluções; não são promessa de repasse líquido.
+**Obs.:** o serviço de R$ 230 já inclui materiais. Não cobrar peças novamente. Se houver necessidade de material ou serviço adicional, o prestador precisa enviar novo orçamento de duas categorias, com novo aceite antes da cobrança.
 
 ## Variáveis para a planilha de viabilidade
 
@@ -50,7 +53,7 @@ O valor financeiro líquido do prestador parte do valor do serviço menos a comi
 | Pedidos que recebem orçamento | % | Teste real pendente |
 | Taxa de aceite | % | Teste real pendente |
 | Ticket médio efetivamente pago | R$ | Pesquisa e piloto pendentes |
-| Comissão nominal | % | **15% aprovada internamente**; implementação pendente |
+| Comissão nominal | % | **10% cliente + 10% prestador**, sobre serviço com materiais inclusos; implementação pendente |
 | Taxa de processamento | R$/pedido e % | Negociar com provedor |
 | Custo variável de atendimento | R$/pedido | Medir |
 | Impostos e obrigações | % e R$ | Contador/jurídico definir |
@@ -62,7 +65,7 @@ O valor financeiro líquido do prestador parte do valor do serviço menos a comi
 
 **Pedidos liquidados mensais = pedidos iniciados × % com orçamento × % de aceite × % liquidados.**
 
-**Comissão bruta mensal = pedidos liquidados × ticket médio pago dos serviços × 15%.**
+**Receita bruta teórica de intermediação mensal = pedidos liquidados × valor médio dos serviços (materiais incluídos) × (10% + 10%)**, com arredondamento por pedido no sistema real.
 
 **Margem de contribuição mensal = comissão bruta − custos variáveis da plataforma − devoluções e ajustes associados.**
 
@@ -92,7 +95,7 @@ O valor financeiro líquido do prestador parte do valor do serviço menos a comi
 
 ## Decisões comerciais pendentes
 
-**A comissão de 15%, a tarifa de processamento como encargo do cliente e a composição transparente do orçamento já estão aprovadas.** Ainda é necessário decidir: preço mínimo de serviço; política de deslocamento por área; eventuais condições promocionais; split automático; calendário de repasses; reserva financeira para contingências; estornos parciais e tratamento de fraudes.
+**As duas comissões de 10%, a composição em serviço com materiais incluídos + deslocamento e a tarifa de processamento cobrada do cliente (sujeita a validação jurídica) estão aprovadas internamente.** Ainda é necessário decidir: preço mínimo de serviço; política de deslocamento por área; eventuais condições promocionais; split automático; calendário de repasses; reserva financeira para contingências; estornos parciais e tratamento de fraudes.
 
 ## Cenários propostos para análise futura
 
