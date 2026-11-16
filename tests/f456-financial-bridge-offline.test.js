@@ -56,7 +56,8 @@ test("F4→F5: não aceita recibo de 15%, alteração de preço ou identidade",(
  for(const bad of [
   {amountCents:30450},{amountCents:27000},
   {providerReceivableCents:24550},{currency:"USD"},
-  {quoteId:X},{requestId:X},{actorId:C},{fixtureReceipt:"PSP_PAID"}
+  {quoteId:X},{requestId:X},{actorId:C},{fixtureReceipt:"PSP_PAID"},
+  {kind:"mock_refund_confirmed"}
  ])assert.throws(()=>B.mockPayment(make(),receipt(bad)),/Pagamento de fixture inválido/);
  const s=pay();
  assert.equal(s.mockPaymentRecorded,true);
