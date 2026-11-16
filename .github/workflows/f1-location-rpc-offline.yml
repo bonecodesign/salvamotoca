@@ -4,6 +4,9 @@ on:
     paths:
       - 'tests/f1-location-rpc-fixture.sql'
       - 'tests/f1-location-rpc-adversarial.sql'
+      - 'tests/f1-location-f4-f5-gates-fixture.sql'
+      - 'tests/f1-location-f4-f5-adversarial.sql'
+      - 'docs/F1_F4_F5_LOCATION_GATES_OFFLINE.md'
       - 'docs/F1_LOCATION_RPC_HARDENING.md'
       - '.github/workflows/f1-location-rpc-offline.yml'
   push:
@@ -12,6 +15,9 @@ on:
     paths:
       - 'tests/f1-location-rpc-fixture.sql'
       - 'tests/f1-location-rpc-adversarial.sql'
+      - 'tests/f1-location-f4-f5-gates-fixture.sql'
+      - 'tests/f1-location-f4-f5-adversarial.sql'
+      - 'docs/F1_F4_F5_LOCATION_GATES_OFFLINE.md'
       - 'docs/F1_LOCATION_RPC_HARDENING.md'
       - '.github/workflows/f1-location-rpc-offline.yml'
 permissions:
@@ -48,11 +54,18 @@ jobs:
         run: psql -X -v ON_ERROR_STOP=1 -f tests/f1-location-rpc-fixture.sql
       - name: Provar isolamento e revogacao de acesso a localizacao
         run: psql -X -v ON_ERROR_STOP=1 -f tests/f1-location-rpc-adversarial.sql
+      - name: Criar contrato financeiro F4 e ciclo F5 sinteticos, com gates OFF
+        run: psql -X -v ON_ERROR_STOP=1 -f tests/f1-location-f4-f5-gates-fixture.sql
+      - name: Provar autorizacao por proposta, 10+10, despacho e revogacao por risco
+        run: psql -X -v ON_ERROR_STOP=1 -f tests/f1-location-f4-f5-adversarial.sql
       - name: Garantir estado inicial do banco ficticio apos rollback
         run: |
           psql -X -v ON_ERROR_STOP=1 -Atqc "select not enabled from private.f1_location_release_gate where singleton" | grep -qx t
           psql -X -v ON_ERROR_STOP=1 -Atqc "select status from public.service_requests" | grep -qx awaiting_payment
           psql -X -v ON_ERROR_STOP=1 -Atqc "select count(*) from public.payment_records" | grep -qx 1
+          psql -X -v ON_ERROR_STOP=1 -Atqc "select not enabled from private.f1_mock_f4_release_gate where singleton" | grep -qx t
+          psql -X -v ON_ERROR_STOP=1 -Atqc "select stage from private.f1_mock_f5_sessions" | grep -qx awaiting_payment
+          psql -X -v ON_ERROR_STOP=1 -Atqc "select rider_total_cents::text || ':' || provider_payable_cents::text || ':' || platform_gross_cents::text from private.f1_mock_f4_decisions" | grep -qx 29300:24700:4600
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
@@ -63,6 +76,7 @@ jobs:
       - name: Resultado explicito de nao ativacao
         run: |
           echo "OFFLINE_SQL_REVIEW_ONLY=PASS"
+          echo "F4_F5_LOCATION_GATES=REVOKE_ON_RISK_OR_ARRIVAL"
           echo "HOSTED_RPC_CHANGED=false"
           echo "AUTH_HTTP_TESTS=NOT_RUN"
           echo "F1_BACKUP_RESTORE_REAL=BLOCKED"
