@@ -145,9 +145,9 @@ select private.f4_prepare_mock_attempt('eeeeeeee-1111-4111-8111-eeeeeeeeeeee')
  as second_attempt \gset
 select set_config('test.f4_second',:'second_attempt',false);
 select private.f4_ingest_mock_event(current_setting('test.f4_second')::uuid,
- 'evt_mock_payment_second','mock_payment_verified',10000);
+ 'evt_mock_payment_second','mock_payment_verified',10900);
 select private.f4_ingest_mock_event(current_setting('test.f4_second')::uuid,
- 'evt_mock_dispute_second','mock_dispute_opened',10000);
+ 'evt_mock_dispute_second','mock_dispute_opened',10900);
 do $dispute_no_journal$
 declare v_id bigint;
 begin
