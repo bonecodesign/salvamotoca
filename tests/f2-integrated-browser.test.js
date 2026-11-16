@@ -7,7 +7,7 @@ const executablePath=process.env.CHROME_BIN||[
   "/usr/bin/google-chrome","/usr/bin/chromium","/usr/bin/chromium-browser"
 ].find(p=>fs.existsSync(p));
 
-async function app(role="customer",f2=true){
+async function app(role="customer",f2=true,seedQuote=""){
   assert.ok(executablePath,"Chrome ausente");
   const browser=await chromium.launch({executablePath,headless:true,
     args:["--no-sandbox","--disable-dev-shm-usage"]});
@@ -20,7 +20,7 @@ async function app(role="customer",f2=true){
     '<div id="role-label"></div><div class="demo-banner"></div><main id="app"></main>'+
     '<div class="bottom-nav"><button data-page="orders">Pedidos</button>'+
     '<button data-page="profile">Perfil</button></div></body></html>');
-  await page.evaluate(({role,f2})=>{
+  await page.evaluate(({role,f2,seedQuote})=>{
     const uid=role==="provider"?"33333333-3333-4333-8333-333333333333":
       "11111111-1111-4111-8111-111111111111";
     const pid="bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb";
@@ -45,8 +45,19 @@ async function app(role="customer",f2=true){
         id:"offer-test",request_id:rid,provider_id:pid,round_number:1,
         status:"delivered",delivered_at:new Date().toISOString(),
         offered_at:new Date().toISOString(),quote_id:null
-      }]:[],
-      quotes:[],quoteItems:[],calls:[],queries:[],
+      }]:seedQuote?[{id:"offer-test",request_id:rid,provider_id:pid,round_number:1,
+         status:"quoted",delivered_at:new Date().toISOString(),
+         offered_at:new Date().toISOString(),quote_id:"quote-seeded"}]:[],
+      quotes:seedQuote?[{id:"quote-seeded",request_id:rid,provider_id:pid,
+         status:"proposed",amount_cents:seedQuote==="legacy_part"?28000:27000,
+         created_at:new Date().toISOString()}]:[],
+      quoteItems:seedQuote?[
+         {quote_id:"quote-seeded",line_no:1,kind:"service",code:"pneu_furado",amount_cents:23000},
+         {quote_id:"quote-seeded",line_no:2,kind:"travel",code:"deslocamento",amount_cents:4000},
+         ...(seedQuote==="legacy_part"?[
+           {quote_id:"quote-seeded",line_no:3,kind:"part",code:"peça",amount_cents:1000}
+         ]:[])
+      ]:[],calls:[],queries:[],
     };
     window.__mock=model;
     window.BJ_CONFIG={f1TestRequestsEnabled:f2,f2TestOffersEnabled:f2};
@@ -107,7 +118,7 @@ async function app(role="customer",f2=true){
       },
       storage:{from:()=>({createSignedUrl:async()=>({data:null,error:{message:"sem imagem"}})})}
     })};
-  },{role,f2});
+  },{role,f2,seedQuote});
   for(const js of ["request-f1.js","f2-flow.js","live-app-current.js"])
     await page.addScriptTag({path:path.join(__dirname,"..",js)});
   await page.waitForFunction(()=>document.querySelector("#app")?.innerHTML.length>20);
@@ -141,12 +152,12 @@ test("App real: orçamento de prestador preserva centavos e não aciona serviço
     await page.locator('[name="service_pneu_furado"]').fill("80.50");
     await page.locator('[name="service_troca_camara"]').fill("35.00");
     await page.locator('[name="travel"]').fill("15.00");
-    await page.locator('[name="part_name"]').fill("Câmara 17");
-    await page.locator('[name="part_price"]').fill("45.25");
     await page.locator('.f2-quote-form button[type="submit"]').click();
     await page.waitForFunction(()=>window.__mock.calls.some(x=>x.name==="f2_submit_quote"));
     const data=await page.evaluate(()=>window.__mock.calls.find(x=>x.name==="f2_submit_quote"));
-    assert.deepEqual(data.args.p_items.map(x=>x.amountCents),[8050,3500,1500,4525]);
+    assert.deepEqual(data.args.p_items.map(x=>x.amountCents),[8050,3500,1500]);
+    assert.deepEqual(data.args.p_items.map(x=>x.kind),["service","service","travel"]);
+    assert.equal(await page.locator('[name="part_price"]').count(),0);
     assert.deepEqual(external,[]);
   }finally{await browser.close()}
 });
@@ -163,6 +174,28 @@ test("App real: prestador recusa convite sem ausência e sem acionar rede",async
     assert.equal(latest.call.args.p_offer_id,"offer-test");
     assert.equal(latest.invite.status,"declined");
     assert.equal(await page.locator('[data-action="f2-decline"]').count(),0);
+    assert.deepEqual(external,[]);
+  }finally{await browser.close()}
+});
+
+test("App real: cliente vê serviço/material incluso, deslocamento e taxa 10% antes do aceite",async()=>{
+  const {browser,page,external}=await app("customer",true,"new");
+  try{
+    const body=await page.locator("#app").innerText();
+    assert.match(body,/Serviços \(materiais inclusos\)/);
+    assert.match(body,/R\$\s*230,00/);
+    assert.match(body,/Taxa do solicitante \(10% dos serviços\)/);
+    assert.match(body,/R\$\s*23,00/);
+    assert.match(body,/R\$\s*293,00/);
+    assert.equal(await page.locator('[data-action="f2-decide"][data-accept="true"]').count(),1);
+    assert.deepEqual(external,[]);
+  }finally{await browser.close()}
+});
+test("App real: proposta legada cobrando peça separada não pode ser aceita",async()=>{
+  const {browser,page,external}=await app("customer",true,"legacy_part");
+  try{
+    assert.match(await page.locator("#app").innerText(),/Proposta incompatível/);
+    assert.equal(await page.locator('[data-action="f2-decide"][data-accept="true"]').count(),0);
     assert.deepEqual(external,[]);
   }finally{await browser.close()}
 });
