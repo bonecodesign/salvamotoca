@@ -1,12 +1,12 @@
 # FND-02 — Plano de negócio e modelo de operação
 
-**Versão 0.2 • Planejamento interno • Piloto proposto: Belo Horizonte, MG**
+**Versão 0.3 • Atualização de quem paga a taxa em 16/11/2026 • Planejamento interno • Piloto proposto: Belo Horizonte, MG**
 
 ## 1. Resumo executivo
 
 O Salva Motoca! é um marketplace em construção para o segmento de reparos de pneus de motocicletas. O produto combina um mapa gratuito de borracharias verificadas com um fluxo de solicitação delivery no local do problema. O prestador recebe chamado quando está homologado, habilitado e online; define seu próprio orçamento; o cliente aceita ou recusa. A plataforma mantém o histórico de ofertas e tenta o próximo elegível quando há recusa.
 
-**Modelo econômico aprovado internamente:** comissão de **15% sobre o valor dos serviços delivery de borracharia e reboque efetivamente pagos pelo aplicativo**. Decisão comercial aprovada pelo responsável pelo projeto em 12/11/2026 (SM-DEC-014). Sua execução depende de validação jurídica, tributária, contratual e de meios de pagamento. Consulta ao mapa e visita direta ao estabelecimento não geram comissão. O reboque já integra o produto, mas seu pagamento real e sua política comercial permanecem desativados até homologação.
+**Modelo econômico aprovado internamente:** taxa de intermediação de **15% sobre o valor dos serviços delivery de borracharia e reboque, cobrada do solicitante como acréscimo ao orçamento — não descontada do prestador**. Decisão comercial aprovada pelo responsável pelo projeto em 12/11/2026 (SM-DEC-014). Sua execução depende de validação jurídica, tributária, contratual e de meios de pagamento. Consulta ao mapa e visita direta ao estabelecimento não geram comissão. O reboque já integra o produto, mas seu pagamento real e sua política comercial permanecem desativados até homologação.
 
 ## 2. Problema e oportunidade
 
@@ -37,7 +37,7 @@ O Salva Motoca! é um marketplace em construção para o segmento de reparos de 
 2. Consulta mapa sem pagar; pode optar por pedir reparo delivery.
 3. Cadastro/login e consentimentos adequados; fornece descrição do problema e informações estritamente necessárias.
 4. Prestador previamente homologado (identificação, telefone, base de atendimento, termos e serviços declarados) e online recebe chamado e responde dentro de janela a definir.
-5. Prestador apresenta orçamento discriminado: valor do serviço e deslocamento, quando aplicável; o cliente vê o total antes do aceite.
+5. Prestador apresenta orçamento discriminado: serviço, deslocamento e materiais. O cliente vê o orçamento integral **e a taxa de intermediação de 15% sobre serviços cobrada dele**, além da eventual tarifa do PSP, antes do aceite.
 6. Cliente aceita ou recusa; qualquer extra posterior exige novo orçamento discriminado e novo aceite. Após recusa ou ausência, a busca começa pelos prestadores homologados, online e dentro de sua área de atendimento, priorizando os mais próximos e amplia a área progressivamente quando necessário.
 7. Ao aceitar, há etapa de pagamento protegida **ainda não implementada**; confirmar e executar serviço só depois do processamento financeiro seguro.
 8. Após o serviço, o sistema permite confirmação, eventual disputa e avaliação.
@@ -60,7 +60,7 @@ O Salva Motoca! é um marketplace em construção para o segmento de reparos de 
 
 ## 8. Fontes de receita e custos
 
-**Receita comercial aprovada internamente:** comissão de **15% sobre o valor do serviço delivery efetivamente pago e liquidado pelo aplicativo**, sujeita a reversões em estornos e cancelamentos. **A tarifa de processamento de Pix/cartão será suportada pelo cliente, exibida separadamente e antes da confirmação.** A comissão de 15% incide somente sobre o valor do serviço, não sobre essa tarifa. Antes da operação real, formalizar base de cálculo, condições de devolução, transparência comercial, tributos, liquidação e split com apoio jurídico e contábil.
+**Receita comercial aprovada internamente:** comissão de **15% sobre o valor do serviço delivery efetivamente pago e liquidado pelo aplicativo**, sujeita a reversões em estornos e cancelamentos. **A tarifa de processamento de Pix/cartão será suportada pelo cliente, exibida separadamente e antes da confirmação.** A taxa de 15% incide somente sobre o valor dos serviços do orçamento, **é adicionada ao total pago pelo motociclista solicitante e não é deduzida do repasse do prestador**. O solicitante paga orçamento integral + taxa de intermediação + tarifa PSP eventualmente autorizada. Antes da operação real, formalizar base de cálculo, condições de devolução, transparência comercial, tributos, liquidação e split com apoio jurídico e contábil.
 
 **Custos a apurar:** processamento de pagamentos, infraestrutura, mapas e mensagens, suporte, chargebacks/fraudes, marketing, formalização jurídica, tributos, contabilidade, seguro e eventuais responsabilidades de atendimento.
 
