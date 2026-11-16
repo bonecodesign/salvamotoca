@@ -1,0 +1,76 @@
+name: 'F1 - cinco RPCs: seguranca e precificacao 10+10 OFFLINE'
+on:
+  pull_request:
+    paths:
+      - 'tests/f1-other-rpcs-security-fixture.sql'
+      - 'tests/f1-other-rpcs-adversarial.sql'
+      - 'tests/f1-other-rpcs-static.test.mjs'
+      - 'docs/F1_OTHER_RPC_GUARDS_OFFLINE.md'
+      - '.github/workflows/f1-other-rpcs-security.yml'
+  push:
+    branches:
+      - 'feat/f1-rpcs-provider-quote-cancel-guards-offline'
+    paths:
+      - 'tests/f1-other-rpcs-security-fixture.sql'
+      - 'tests/f1-other-rpcs-adversarial.sql'
+      - 'tests/f1-other-rpcs-static.test.mjs'
+      - 'docs/F1_OTHER_RPC_GUARDS_OFFLINE.md'
+      - '.github/workflows/f1-other-rpcs-security.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  f1-rpc-disposable:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: f1_rpc_guard_disposable
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d f1_rpc_guard_disposable"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      PGHOST: localhost
+      PGPORT: 5432
+      PGUSER: postgres
+      PGPASSWORD: postgres
+      PGDATABASE: f1_rpc_guard_disposable
+    steps:
+      - uses: actions/checkout@v4
+      - name: Validar cliente PostgreSQL
+        run: command -v psql || (sudo apt-get update -qq && sudo apt-get install -y postgresql-client)
+      - name: Construir somente fixture ficticia e guards F1 no PG isolado
+        run: psql -X -v ON_ERROR_STOP=1 -f tests/f1-other-rpcs-security-fixture.sql
+      - name: Casos adversariais de orcamento, presenca, aceite e cancelamento
+        run: psql -X -v ON_ERROR_STOP=1 -f tests/f1-other-rpcs-adversarial.sql
+      - name: Verificar rollback total e gates server-side desligados
+        run: |
+          psql -X -v ON_ERROR_STOP=1 -Atqc "select not quote_enabled and not presence_enabled and not cancel_enabled from private.f1_rpc_mock_gates where singleton" | grep -qx t
+          psql -X -v ON_ERROR_STOP=1 -Atqc "select count(*) from private.f1_quote_pricing_mock" | grep -qx 0
+          psql -X -v ON_ERROR_STOP=1 -Atqc "select count(*) from public.service_quotes" | grep -qx 0
+          psql -X -v ON_ERROR_STOP=1 -Atqc "select count(*) from public.payment_records" | grep -qx 0
+          psql -X -v ON_ERROR_STOP=1 -Atqc "select count(*) from public.bj_provider_presence where online_requested" | grep -qx 1
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Provar contrato 10x10 e flags, nao promover SQL para migration
+        run: |
+          node --test tests/f1-other-rpcs-static.test.mjs
+          grep -Eq 'f1TestRequestsEnabled:[[:space:]]*false' config.js
+      - name: Resultado seguro, nao liberacao
+        run: |
+          echo 'F1_RPC_OTHER_FIVE=OFFLINE_PASS'
+          echo 'AUTH_HTTP_A_B_C=NOT_RUN'
+          echo 'SUPABASE_HOSTED_CHANGES=NONE'
+          echo 'PSP_REAL=NOT_CONNECTED'
+          echo 'F1_BACKUP_AND_RESTORE_REAL=BLOCKED'
+          echo 'F1_RELEASE=NO_GO'
