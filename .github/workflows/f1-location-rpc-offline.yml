@@ -1,4 +1,4 @@
-name: F1 - RPC de localizacao: regressao de seguranca OFFLINE
+name: 'F1 - RPC de localizacao: regressao de seguranca OFFLINE'
 on:
   pull_request:
     paths:
