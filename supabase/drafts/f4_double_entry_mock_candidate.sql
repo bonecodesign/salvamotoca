@@ -1,3 +1,5 @@
+-- DECISÃO SM-DEC-045: mock clearing = orçamento + taxa do cliente (10% serviço).
+-- Receita da plataforma = taxa cliente + comissão prestador; passivo prestador = orçamento - 10% serviço.
 -- F4: extensão CONTÁBIL MOCK, apenas PostgreSQL 17 descartável.
 -- Depende de supabase/drafts/f4_financial_backend_candidate.sql.
 -- NÃO é migration. NÃO aplicar ao Supabase existente. NÃO é saldo PSP nem escrow.
@@ -55,14 +57,14 @@ begin
    count(*) filter(where
       (v_j.kind='mock_payment' and (
         (account='mock_psp_clearing' and side='debit'
-          and amount_cents=v_attempt.quote_total_cents)
+          and amount_cents=v_attempt.customer_subtotal_cents)
         or (account='mock_provider_payable' and side='credit'
           and amount_cents=v_attempt.expected_provider_cents)
         or (account='mock_platform_commission' and side='credit'
           and amount_cents=v_attempt.commission_cents)))
       or (v_j.kind='mock_refund' and (
         (account='mock_psp_clearing' and side='credit'
-          and amount_cents=v_attempt.quote_total_cents)
+          and amount_cents=v_attempt.customer_subtotal_cents)
         or (account='mock_provider_payable' and side='debit'
           and amount_cents=v_attempt.expected_provider_cents)
         or (account='mock_platform_commission' and side='debit'
@@ -75,7 +77,7 @@ begin
  if v_count<>v_expected_lines
    or v_count<>v_matched
    or v_debits<>v_credits
-   or v_debits<>v_attempt.quote_total_cents
+   or v_debits<>v_attempt.customer_subtotal_cents
  then raise exception 'Journal F4 mock incompleto, adulterado ou desbalanceado.'; end if;
  return null;
 end;
@@ -123,14 +125,14 @@ begin
  else
    raise exception 'Disputa não lança automaticamente saída ou transferência.';
  end if;
- if v_receipt.amount_cents<>v_attempt.quote_total_cents
+ if v_receipt.amount_cents<>v_attempt.customer_subtotal_cents
   or v_receipt.currency<>'BRL'
  then raise exception 'Recibo não confere com orçamento persistido.'; end if;
  insert into private.f4_mock_journals(attempt_id,receipt_id,kind)
  values(v_attempt.id,p_receipt_id,v_kind) returning id into v_id;
  if v_kind='mock_payment' then
    insert into private.f4_mock_journal_lines(journal_id,line_no,account,side,amount_cents)
-   values(v_id,1,'mock_psp_clearing','debit',v_attempt.quote_total_cents),
+   values(v_id,1,'mock_psp_clearing','debit',v_attempt.customer_subtotal_cents),
      (v_id,2,'mock_provider_payable','credit',v_attempt.expected_provider_cents);
    if v_attempt.commission_cents>0 then
      insert into private.f4_mock_journal_lines(journal_id,line_no,account,side,amount_cents)
@@ -138,7 +140,7 @@ begin
    end if;
  else
    insert into private.f4_mock_journal_lines(journal_id,line_no,account,side,amount_cents)
-   values(v_id,1,'mock_psp_clearing','credit',v_attempt.quote_total_cents),
+   values(v_id,1,'mock_psp_clearing','credit',v_attempt.customer_subtotal_cents),
      (v_id,2,'mock_provider_payable','debit',v_attempt.expected_provider_cents);
    if v_attempt.commission_cents>0 then
      insert into private.f4_mock_journal_lines(journal_id,line_no,account,side,amount_cents)
