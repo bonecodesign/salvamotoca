@@ -19,8 +19,8 @@ function distribute(ps,r=REQ,radii=[1,3,10],seed="test"){
 }
 const quote = createdAt => ({status:"proposed",createdAt});
 const qInput = () => ({serviceTypes:["pneu_furado","troca_camara"],
-  services:[{code:"pneu_furado",amountCents:8000},{code:"troca_camara",amountCents:3500}],
-  travelCents:1500, parts:[{name:"Câmara 17",amountCents:4500}]});
+  services:[{code:"pneu_furado",amountCents:12500},{code:"troca_camara",amountCents:3500}],
+  travelCents:1500, parts:[]});
 
 test("F2: tipos múltiplos válidos e reboque bloqueado até F3",()=>{
   assert.deepEqual(F2.serviceTypes(["pneu_furado","outro"]),["pneu_furado","outro"]);
@@ -141,10 +141,11 @@ test("F2: notificações sem confirmação de entrega e eventos antigos não con
   ];
   assert.equal(F2.absenceReview(events,NOW).count,1);
 });
-test("F2: orçamento itemizado inclui todos serviços, deslocamento e peças",()=>{
+test("F2: serviços incluem materiais; deslocamento separado e sem terceira linha",()=>{
   const b=F2.quoteBreakdown(qInput());
   assert.equal(b.totalCents,17500);
-  assert.deepEqual(b.rows.map(x=>x.type),["service","service","travel","part"]);
+  assert.deepEqual(b.rows.map(x=>x.type),["service","service","travel"]);
+  assert.equal(b.materialsIncludedInService,true);
   assert.equal(b.paymentAllowed,false);
 });
 test("F2: deslocamento é obrigatório mesmo quando gratuito",()=>{
@@ -164,9 +165,9 @@ test("F2: rejeita serviços a mais, ausentes ou duplicados no orçamento",()=>{
 test("F2: bloqueia centavos negativos, texto de contato e valores incoerentes",()=>{
   const a=qInput();a.services[0].amountCents=0;
   assert.throws(()=>F2.quoteBreakdown(a),/centavos/);
-  const b=qInput();b.parts[0].name="WhatsApp 99999";
-  assert.throws(()=>F2.quoteBreakdown(b),/contato externo/);
-  const c=qInput();c.parts[0].amountCents=500000;
+  const b=qInput();b.parts=[{name:"Câmara",amountCents:4500}];
+  assert.throws(()=>F2.quoteBreakdown(b),/Materiais já estão incluídos/);
+  const c=qInput();c.services[0].amountCents=500000;
   assert.throws(()=>F2.quoteBreakdown(c),/Total/);
 });
 test("F2: cliente só aceita orçamento válido ainda dentro de 5 minutos",()=>{
