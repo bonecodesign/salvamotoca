@@ -5,17 +5,20 @@ const QUOTE="11111111-1111-4111-8111-111111111111";
 const REQUEST="22222222-2222-4222-8222-222222222222";
 function quote(lines=[
  {kind:"service",code:"reboque_moto",amountCents:23000},
- {kind:"travel",code:"deslocamento",amountCents:4000},
- {kind:"part",code:"material de apoio",amountCents:1000}
+ {kind:"travel",code:"deslocamento",amountCents:4000}
 ]){return F.quoteSnapshot({quoteId:QUOTE,requestId:REQUEST,items:lines})}
-test("F4: base da comissão inclui somente serviço (15%)",()=>{
+test("F4: comissão 10% cada lado incide só sobre serviço com materiais inclusos",()=>{
  const x=F.costBreakdown({quote:quote()});
  assert.equal(x.serviceCents,23000);
  assert.equal(x.travelCents,4000);
- assert.equal(x.partsCents,1000);
- assert.equal(x.quoteSubtotalCents,28000);
- assert.equal(x.commissionCents,3450);
- assert.equal(x.providerReceivableCents,24550);
+ assert.equal(x.partsCents,0);
+ assert.equal(x.materialsIncludedInService,true);
+ assert.equal(x.riderFeeCents,2300);
+ assert.equal(x.providerFeeCents,2300);
+ assert.equal(x.customerSubtotalBeforeProcessingCents,29300);
+ assert.equal(x.quoteSubtotalCents,27000);
+ assert.equal(x.commissionCents,4600);
+ assert.equal(x.providerReceivableCents,24700);
  assert.equal(x.customerTotalCents,null);
  assert.equal(x.paymentAllowed,false);
 });
@@ -23,14 +26,14 @@ test("F4: tarifa do cliente exige comprovação do PSP; não fixar tarifa fictí
  const q=quote();
  assert.throws(()=>F.costBreakdown({quote:q,processingFeeCents:350}),/processador/);
  const x=F.costBreakdown({quote:q,processingFeeCents:350,feeVerifiedByPSP:true});
- assert.equal(x.customerTotalCents,28350);
+ assert.equal(x.customerTotalCents,29650);
  assert.equal(x.processingFeeCents,350);
- assert.equal(x.commissionCents,3450);
- assert.equal(x.providerReceivableCents,24550);
+ assert.equal(x.commissionCents,4600);
+ assert.equal(x.providerReceivableCents,24700);
 });
 test("F4: tarifa zero autorizada pelo PSP permanece discriminada",()=>{
  const x=F.costBreakdown({quote:quote(),processingFeeCents:0,feeVerifiedByPSP:true});
- assert.equal(x.customerTotalCents,28000);
+ assert.equal(x.customerTotalCents,29300);
  assert.equal(x.processingFeeChargedToCustomer,true);
 });
 test("F4: não recebe dinheiro, não cria checkout e não libera chat/despacho",()=>{
@@ -56,14 +59,16 @@ test("F4: valores negativos, decimais, repetidos e deslocamento ausente falham",
  {kind:"service",code:"reboque_moto",amountCents:300},
  {kind:"travel",code:"deslocamento",amountCents:100}]),/repetido/);
  assert.throws(()=>quote([{kind:"service",code:"reboque_moto",amountCents:100},
- {kind:"part",code:"material",amountCents:100}]),/deslocamento/);
+ {kind:"part",code:"material",amountCents:100}]),/Tipo de item/);
 });
 test("F4: comissão de centavos arredondada deterministicamente",()=>{
  const q=quote([{kind:"service",code:"pneu_furado",amountCents:101},
  {kind:"travel",code:"deslocamento",amountCents:0}]);
  const x=F.costBreakdown({quote:q});
- assert.equal(x.commissionCents,15);
- assert.equal(x.providerReceivableCents,86);
+ assert.equal(x.commissionCents,20);
+ assert.equal(x.riderFeeCents,10);
+ assert.equal(x.providerFeeCents,10);
+ assert.equal(x.providerReceivableCents,91);
 });
 test("F4: recusa taxa negativa, excessiva ou não inteira",()=>{
  const q=quote();
@@ -139,10 +144,18 @@ test("F4: orçamento de borracharia e reboque seguem a mesma comissão",()=>{
   {kind:"service",code:"pneu_furado",amountCents:15000},
   {kind:"travel",code:"deslocamento",amountCents:3000}
  ])});
- assert.equal(b.commissionCents,2250);
+ assert.equal(b.commissionCents,3000);
  const r=F.costBreakdown({quote:quote([
   {kind:"service",code:"reboque_moto",amountCents:15000},
   {kind:"travel",code:"deslocamento",amountCents:3000}
  ])});
  assert.equal(r.commissionCents,b.commissionCents);
+});
+
+test("F4: materiais separados nunca compõem orçamento aceito",()=>{
+ assert.throws(()=>quote([
+  {kind:"service",code:"pneu_furado",amountCents:23000},
+  {kind:"travel",code:"deslocamento",amountCents:4000},
+  {kind:"part",code:"câmara",amountCents:1000}
+ ]),/Tipo de item/);
 });
