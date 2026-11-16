@@ -84,7 +84,7 @@ language sql stable security definer set search_path='' as $$
                where a2.request_id=r.id and a2.quote_id=s.quote_id
                  and a2.provider_id=r.provider_id
                  and a2.status='mock_confirmed' and a2.risk_status='clear'
-                 and a2.revoked_at is null))
+                 and a2.revoked_at is null)))
        and exists(select 1 from public.payment_records pay
          where pay.request_id=r.id and pay.status='paid'
            and pay.paid_at is not null and pay.paid_at<=pg_catalog.now())
