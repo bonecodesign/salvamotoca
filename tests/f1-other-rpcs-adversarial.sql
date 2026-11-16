@@ -279,12 +279,6 @@ declare q uuid;
 begin
  q:=private.f1_guarded_submit_quote('cccccccc-cccc-4ccc-8ccc-cccccccccccc',23000,4000,'Reparo incluso material');
  perform set_config('sm.test_quote_id',q::text,false);
- if not exists(select 1 from private.f1_quote_pricing_mock c
-  where c.quote_id=q and c.service_cents=23000 and c.travel_cents=4000
-    and c.rider_fee_cents=2300 and c.provider_fee_cents=2300
-    and c.customer_total_cents=29300 and c.provider_receivable_cents=24700
-    and c.materials_included)
- then raise exception 'Split 10+10 ou material incluso incorretos'; end if;
 end $$;
 
 -- DENY duplicate quote denied
@@ -299,6 +293,16 @@ begin
 end $$;
 
 reset role;
+do $
+begin
+ if not exists(select 1 from private.f1_quote_pricing_mock c
+   where c.quote_id=current_setting('sm.test_quote_id')::uuid
+   and c.service_cents=23000 and c.travel_cents=4000
+   and c.rider_fee_cents=2300 and c.provider_fee_cents=2300
+   and c.customer_total_cents=29300 and c.provider_receivable_cents=24700
+   and c.materials_included)
+ then raise exception 'Split 10+10 ou material incluso incorretos'; end if;
+end $;
 
 set role authenticated;
 set request.jwt.claim.sub='55555555-5555-4555-8555-555555555555';
@@ -319,7 +323,7 @@ reset role;
 set role authenticated;
 set request.jwt.claim.sub='11111111-1111-4111-8111-111111111111';
 
-select 1;
+-- Nenhuma leitura direta das tabelas privadas pelo cliente.
 
 reset role;
 
@@ -437,14 +441,19 @@ do $$
 declare q uuid;
 begin
  q:=private.f1_guarded_submit_quote('eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee',10000,2000,'Reboque com material incluso');
- if not exists(select 1 from private.f1_quote_pricing_mock p where p.quote_id=q
+ perform set_config('sm.test_tow_quote_id',q::text,false);
+end $$;
+
+reset role;
+do $
+begin
+ if not exists(select 1 from private.f1_quote_pricing_mock p
+   where p.quote_id=current_setting('sm.test_tow_quote_id')::uuid
    and p.service_cents=10000 and p.travel_cents=2000
    and p.rider_fee_cents=1000 and p.provider_fee_cents=1000
    and p.customer_total_cents=13000 and p.provider_receivable_cents=11000)
  then raise exception 'Reboque 10+10 incorreto'; end if;
-end $$;
-
-reset role;
+end $;
 
 set role authenticated;
 set request.jwt.claim.sub='11111111-1111-4111-8111-111111111111';
