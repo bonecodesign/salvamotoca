@@ -4,6 +4,10 @@ on:
     paths:
       - 'f456-financial-bridge-offline.js'
       - 'tests/f456-financial-bridge-offline.test.js'
+      - 'tests/f456-contract-regression.test.mjs'
+      - 'docs/PRODUTO_OFICIAL.md'
+      - 'docs/fundacao/05_MODELO_ECONOMICO.md'
+      - 'docs/fundacao/08_REGISTRO_DE_DECISOES.md'
       - 'f4-finance.js'
       - 'f5-offline-flow.js'
       - 'f6-offline-completion.js'
@@ -15,6 +19,10 @@ on:
     paths:
       - 'f456-financial-bridge-offline.js'
       - 'tests/f456-financial-bridge-offline.test.js'
+      - 'tests/f456-contract-regression.test.mjs'
+      - 'docs/PRODUTO_OFICIAL.md'
+      - 'docs/fundacao/05_MODELO_ECONOMICO.md'
+      - 'docs/fundacao/08_REGISTRO_DE_DECISOES.md'
       - 'f4-finance.js'
       - 'f5-offline-flow.js'
       - 'f6-offline-completion.js'
@@ -41,6 +49,8 @@ jobs:
         run: |
           node --test tests/f4-finance.test.js tests/f456-financial-bridge-offline.test.js
           node --test tests/f5-offline-flow.test.js tests/f6-offline-completion.test.js
+      - name: Integridade da decisao comercial e dos candidatos SQL
+        run: node --test tests/f456-contract-regression.test.mjs
       - name: Regressao F1-F7 com todas flags desativadas
         run: |
           node scripts/f7-preflight-offline.mjs
