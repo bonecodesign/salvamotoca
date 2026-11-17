@@ -102,13 +102,10 @@ begin
  then return pg_catalog.jsonb_build_object('status','waiting',
    'ring',v_progress.ring_index,'mockOnly',true,'externalSent',false);
  end if;
- if v_progress.ring_index>=3 then
-   return pg_catalog.jsonb_build_object('status','exhausted','ring',3,
-     'mockOnly',true,'externalSent',false); end if;
-
- -- At most one NEW provider per ring (illustrative conservative policy).
- -- Empty rings are skipped, but active invites never permit expansion.
- for v_ring in (v_progress.ring_index+1)..3 loop
+ -- Retry the current ring with the NEXT nearest eligible provider before
+ -- expanding to a more distant ring. Never duplicate invitations.
+ -- Each call invites at most ONE provider; active invites block progression.
+ for v_ring in greatest(1,v_progress.ring_index)..3 loop
    v_radius:=case v_ring when 1 then 1 when 2 then 3 else 10 end;
    select p.id into v_provider from public.providers p
    join public.provider_services ps on ps.provider_id=p.id
