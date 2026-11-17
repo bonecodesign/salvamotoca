@@ -1,0 +1,89 @@
+name: "F2 - anéis de proximidade e convites MOCK, PostgreSQL 17 descartável"
+on:
+  pull_request:
+    paths:
+      - "tests/f2-ring-invites-fixture.sql"
+      - "tests/f2-ring-seed.sql"
+      - "tests/f2-ring-adversarial.sql"
+      - "tests/f2-ring-race.sh"
+      - "tests/f2-ring-contract.test.mjs"
+      - "docs/F2_RING_INVITATIONS_OFFLINE.md"
+      - ".github/workflows/f2-ring-invitations.yml"
+  push:
+    branches:
+      - "feat/f2-proximity-ring-invite-outbox-offline"
+    paths:
+      - "tests/f2-ring-invites-fixture.sql"
+      - "tests/f2-ring-seed.sql"
+      - "tests/f2-ring-adversarial.sql"
+      - "tests/f2-ring-race.sh"
+      - "tests/f2-ring-contract.test.mjs"
+      - "docs/F2_RING_INVITATIONS_OFFLINE.md"
+      - ".github/workflows/f2-ring-invitations.yml"
+permissions:
+  contents: read
+jobs:
+  f2-ring-only:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: f2_rings_disposable
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d f2_rings_disposable"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      PGHOST: localhost
+      PGPORT: 5432
+      PGUSER: postgres
+      PGPASSWORD: postgres
+      PGDATABASE: f2_rings_disposable
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: Instalar apenas cliente SQL do runner
+        run: command -v psql || (sudo apt-get update -qq && sudo apt-get install -y postgresql-client)
+      - name: Contrato F2, regras anteriores e release NO-GO
+        run: |
+          node --test tests/f2-ring-contract.test.mjs tests/f2-flow.test.js tests/f2-release-guard.test.js
+          node scripts/release-readiness-offline.mjs > "$RUNNER_TEMP/no-go.json"
+          node -e "const r=require(process.env.RUNNER_TEMP+'/no-go.json');if(r.decision!=='NO_GO'||r.g1!=='BLOCKED')process.exit(1)"
+      - name: Criar schema existente F2 e convites apenas no PG17 efêmero
+        run: |
+          psql -X -v ON_ERROR_STOP=1 -f tests/f2-stage-setup.sql
+          psql -X -v ON_ERROR_STOP=1 -f supabase/drafts/f2_backend_candidate.sql
+          psql -X -v ON_ERROR_STOP=1 -f tests/f2-ring-invites-fixture.sql
+          psql -X -v ON_ERROR_STOP=1 -f tests/f2-ring-seed.sql
+      - name: Ensaiar anéis, exclusões, prazo e rollback
+        run: psql -X -v ON_ERROR_STOP=1 -f tests/f2-ring-adversarial.sql
+      - name: Conferir rollback e flags desligadas antes de concorrência
+        run: |
+          psql -X -Atqc "select not enabled from private.f2_mock_ring_gate where singleton" | grep -qx t
+          psql -X -Atqc "select count(*)=0 from private.f2_mock_invites" | grep -qx t
+          psql -X -Atqc "select count(*)=0 from public.f2_request_offers" | grep -qx t
+      - name: Duas sessões PostgreSQL competindo pelo mesmo convite
+        run: bash tests/f2-ring-race.sh
+      - name: Confirmar que não houve oferta/notificação em ambiente externo
+        run: |
+          psql -X -Atqc "select not enabled from private.f2_mock_ring_gate where singleton" | grep -qx t
+          psql -X -Atqc "select count(*)=1 from private.f2_mock_invites" | grep -qx t
+          psql -X -Atqc "select not has_function_privilege('authenticated','private.f2_mock_advance_ring(uuid,bigint)','EXECUTE')" | grep -qx t
+          echo 'F2_INVITES_EXTERNAL_SENT=ZERO'
+          echo 'F2_DELIVERY_REAL_VERIFIED=FALSE'
+          echo 'F2_ABSENCES_AUTOMATICALLY_COUNTED=ZERO'
+          echo 'F2_RING_KM=ILLUSTRATIVE'
+          echo 'F5_PUSH_PROVIDER_REAL=NOT_IMPLEMENTED'
+          echo 'USER_DEVICE_FILES=NOT_TOUCHED'
+          echo 'SUPABASE_HOSTED_CHANGED=FALSE'
+          echo 'G1=BLOCKED'
+          echo 'RELEASE=NO_GO'
