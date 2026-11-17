@@ -1,0 +1,74 @@
+name: 'Salva Motoca - Integracao, G0-G8 e regras 10+10 OFFLINE'
+on:
+  pull_request:
+    paths:
+      - 'docs/release-gates-manifest.json'
+      - 'docs/PR_CONSOLIDATION_PLAN.md'
+      - 'docs/G1_PRIVATE_EXECUTION_PACKET.md'
+      - 'docs/F1_F7_UNIFIED_ACCEPTANCE_MATRIX.md'
+      - 'scripts/release-readiness-offline.mjs'
+      - 'tests/release-readiness-offline.test.mjs'
+      - 'pricing-policy-10x10.js'
+      - 'tests/pricing-policy-10x10.test.js'
+      - 'tests/pricing-f4-parity.test.js'
+      - 'tests/f456-race-replay-guards.test.js'
+      - 'f456-financial-bridge-offline.js'
+      - 'tests/f456-financial-bridge-offline.test.js'
+      - '.github/workflows/release-readiness-offline.yml'
+  push:
+    branches:
+      - 'chore/release-integration-readiness-gates-20261116'
+    paths:
+      - 'docs/release-gates-manifest.json'
+      - 'docs/PR_CONSOLIDATION_PLAN.md'
+      - 'docs/G1_PRIVATE_EXECUTION_PACKET.md'
+      - 'docs/F1_F7_UNIFIED_ACCEPTANCE_MATRIX.md'
+      - 'scripts/release-readiness-offline.mjs'
+      - 'tests/release-readiness-offline.test.mjs'
+      - 'pricing-policy-10x10.js'
+      - 'tests/pricing-policy-10x10.test.js'
+      - 'tests/pricing-f4-parity.test.js'
+      - 'tests/f456-race-replay-guards.test.js'
+      - 'f456-financial-bridge-offline.js'
+      - 'tests/f456-financial-bridge-offline.test.js'
+      - '.github/workflows/release-readiness-offline.yml'
+permissions:
+  contents: read
+jobs:
+  release-preparation:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Check scripts (no deployment)
+        run: |
+          node --check pricing-policy-10x10.js
+          node --check f456-financial-bridge-offline.js
+          node --check scripts/release-readiness-offline.mjs
+      - name: PR graph, all gates and immutable NO_GO
+        run: |
+          node --test tests/release-readiness-offline.test.mjs
+          node scripts/release-readiness-offline.mjs | tee "$RUNNER_TEMP/release-plan.json"
+          node -e "const x=require(process.env.RUNNER_TEMP+'/release-plan.json');if(x.decision!=='NO_GO'||x.g1!=='BLOCKED'||x.realProven!==0||x.automaticMerge!==false)process.exit(1)"
+      - name: Financial contract parity across SM-DEC-045/046 and F4
+        run: |
+          node --test tests/pricing-policy-10x10.test.js tests/pricing-f4-parity.test.js tests/f4-finance.test.js
+      - name: F4-F6 idempotency, risk, ownership, operations and 5 minute window
+        run: |
+          node --test tests/f456-financial-bridge-offline.test.js tests/f456-race-replay-guards.test.js
+          node --test tests/f5-offline-flow.test.js tests/f6-offline-completion.test.js
+      - name: Existing F7 and commercial documentation release guards
+        run: |
+          node --test tests/f456-contract-regression.test.mjs tests/f7-preflight.test.mjs
+          node scripts/f7-preflight-offline.mjs
+      - name: Explicit production freeze
+        run: |
+          echo 'PR_MERGE=NOT_PERFORMED'
+          echo 'SUPABASE_HOSTED_WRITES=NOT_PERFORMED'
+          echo 'HOSTED_BACKUP_AND_RESTORE=NOT_VERIFIED'
+          echo 'PSP_CONNECTED=false'
+          echo 'CUSTOMER_FEE_BPS=1000; PROVIDER_FEE_BPS=1000'
+          echo 'RELEASE=NO_GO'
