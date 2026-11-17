@@ -1,0 +1,90 @@
+name: "F2-F5 - quote acceptance to fake payment and dispatch (PG17 offline)"
+on:
+  pull_request:
+    paths:
+      - "tests/f234-handoff-fixture.sql"
+      - "tests/f234-handoff-adversarial.sql"
+      - "tests/f234-handoff-race.sh"
+      - "tests/f234-handoff-contract.test.mjs"
+      - "docs/F234_HANDOFF_RISK_GATES_OFFLINE.md"
+      - ".github/workflows/f234-handoff-offline.yml"
+  push:
+    branches:
+      - "feat/f234-quote-payment-handoff-offline"
+    paths:
+      - "tests/f234-handoff-fixture.sql"
+      - "tests/f234-handoff-adversarial.sql"
+      - "tests/f234-handoff-race.sh"
+      - "tests/f234-handoff-contract.test.mjs"
+      - "docs/F234_HANDOFF_RISK_GATES_OFFLINE.md"
+      - ".github/workflows/f234-handoff-offline.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  offline-handoff:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: f234_handoff_disposable
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d f234_handoff_disposable"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      PGHOST: localhost
+      PGPORT: 5432
+      PGUSER: postgres
+      PGPASSWORD: postgres
+      PGDATABASE: f234_handoff_disposable
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: Ensure psql only on GitHub runner
+        run: command -v psql || (sudo apt-get update -qq && sudo apt-get install -y postgresql-client)
+      - name: Validate mock contract and No-Go, without network credentials
+        run: |
+          node --test tests/f234-handoff-contract.test.mjs tests/f23-routing-bridge.test.js
+          node scripts/release-readiness-offline.mjs > "$RUNNER_TEMP/release.json"
+          node -e "const r=require(process.env.RUNNER_TEMP+'/release.json'); if(r.decision!=='NO_GO'||r.g1!=='BLOCKED'||r.realProven!==0) process.exit(1)"
+      - name: Create only disposable F4/F5 mock tables and acceptance bridge
+        run: |
+          psql -X -v ON_ERROR_STOP=1 -f tests/f456-transactional-fixture.sql
+          psql -X -v ON_ERROR_STOP=1 -f tests/f5-outbox-fixture.sql
+          psql -X -v ON_ERROR_STOP=1 -f tests/f234-handoff-fixture.sql
+      - name: F2 F3 quote acceptance and F4 F5 adversarial test with rollback
+        run: psql -X -v ON_ERROR_STOP=1 -f tests/f234-handoff-adversarial.sql
+      - name: Confirm no proof or paid job leaked from adversarial rollback
+        run: |
+          psql -X -Atqc "select not enabled from private.f234_mock_gate where singleton" | grep -qx t
+          psql -X -Atqc "select not enabled from private.f456_mock_gate where singleton" | grep -qx t
+          psql -X -Atqc "select count(*)=0 from private.f456_mock_sessions" | grep -qx t
+          psql -X -Atqc "select count(*)=0 from private.f5_mock_outbox" | grep -qx t
+      - name: Two concurrent PostgreSQL sessions attempt quote acceptance, mock pay and dispatch
+        run: bash tests/f234-handoff-race.sh
+      - name: Fail-closed final state
+        run: |
+          psql -X -Atqc "select not enabled from private.f234_mock_gate where singleton" | grep -qx t
+          psql -X -Atqc "select not enabled from private.f456_mock_gate where singleton" | grep -qx t
+          psql -X -Atqc "select count(*)=1 from private.f456_mock_journal" | grep -qx t
+          psql -X -Atqc "select count(*)=1 from private.f5_mock_outbox where status='cancelled'" | grep -qx t
+          psql -X -Atqc "select not has_function_privilege('authenticated','private.f234_mock_accept_quote(uuid,uuid,uuid,text,bigint)','EXECUTE')" | grep -qx t
+          echo 'F234_REAL_AUTH=NOT_RUN'
+          echo 'F234_REAL_PSP=NOT_CONNECTED'
+          echo 'F234_REAL_DISPATCH=NOT_PERMITTED'
+          echo 'F234_REAL_SMS_PUSH=NOT_SENT'
+          echo 'HOSTED_SUPABASE_CHANGES=NONE'
+          echo 'LOCAL_DEVICE_TESTS=NOT_RUN'
+          echo 'G1_BACKUP_RESTORE=BLOCKED'
+          echo 'RELEASE=NO_GO'
