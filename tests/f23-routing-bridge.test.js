@@ -130,7 +130,7 @@ test("Janela de resposta conta da abertura fictícia, não da criação",()=>{
  assert.equal(next.providerId,"next");assert.equal(next.absenceCounted,false);
 });
 test("Proposta em avaliação bloqueia novos convites",()=>{
- const h=history("tire-a","quoted",{openedAt:NOW-400000});
+ const h=history("tire-a","quoted",{offeredAt:NOW-500000,openedAt:NOW-400000});
  assert.equal(run(tire(),[nearTire(),nearTire("next")],[h]).status,"waiting");
 });
 test("Proposta aceita ou selecionada não reabre F2 nem F3",()=>{
@@ -153,7 +153,8 @@ test("Recusa voluntária tenta próximo elegível sem contar falta",()=>{
  assert.equal(out.providerId,"tow-b");assert.equal(out.absenceCounted,false);
 });
 test("Mesmo prestador nunca recebe segundo convite pela mesma execução",()=>{
- const h=history("tow-a","expired_after_mock_open",{openedAt:NOW-400000});
+ const h=history("tow-a","expired_after_mock_open",
+  {offeredAt:NOW-500000,openedAt:NOW-400000});
  assert.equal(run(tow(),[nearTow("tow-a")],[h]).status,"no_provider");
 });
 test("Prestador suspenso, offline ou presença vencida nunca entra",()=>{
