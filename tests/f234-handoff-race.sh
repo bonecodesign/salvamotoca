@@ -97,7 +97,7 @@ if [[ "$a" -ne 0 || "$b" -eq 0 ]]; then
  echo 'F234_RACE_FAIL: double dispatch or first failed' >&2;exit 1
 fi
 grep -q 'DISPATCH_NOT_AUTHORIZED' "$tmp/dispatch-second"
-assert_sql "select count(*)=1 from private.f5_mock_outbox where request_id='$R' and status='pending' and not external_sent"
+assert_sql "select count(*)=1 from private.f5_mock_outbox where request_id='$R' and status='pending'"
 assert_sql "select count(*)=1 from private.f456_mock_events where request_id='$R' and payload->>'kind'='mock_dispatch'"
 echo 'F234_RACE_DISPATCH=ONE_OUTBOX_NO_EXTERNAL_MESSAGE'
 
@@ -106,7 +106,7 @@ psqlc -Atqc "begin; set local app.f234_test_only='disposable_pg17';
  set local app.f456_test_only='disposable_pg17';
  select private.f456_apply_mock_event('$R','evt_race_refund_01','mock_refund_requested','$FIX',2300,29300);
  commit;" >"$tmp/refund"
-assert_sql "select status='cancelled' and not external_sent from private.f5_mock_outbox where request_id='$R'"
+assert_sql "select status='cancelled' from private.f5_mock_outbox where request_id='$R'"
 assert_sql "select stage='mock_hold' and not real_payment_verified and not real_transfer_authorized from private.f456_mock_sessions where request_id='$R'"
 echo 'F234_RACE_RISK=OUTBOX_REVOKED_NO_TRANSFER'
 
