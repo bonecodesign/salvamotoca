@@ -21,6 +21,7 @@
    "chat_message","dispatch","provider_location","provider_arrived",
    "service_started","handoff_f6","request_support","support_message"
  ]);
+ // The identity binding here is a LOCAL contract guard, not JWT/PSP validation.
  const REAL_DENIAL=Object.freeze({
    realPaymentVerified:false,realChatAuthorized:false,
    realTrackingAuthorized:false,realDispatchAuthorized:false,
@@ -75,6 +76,7 @@
      event.actorId==="offline_fixture"&&EVENT.test(event.id||"") &&
      event.currency==="BRL"&&
      event.requestId===s.requestId&&event.quoteId===s.quoteId &&
+     event.customerId===s.customerId&&event.providerId===s.providerId &&
      event.amountCents===s.amounts.customerSubtotalBeforeProcessingCents &&
      event.providerReceivableCents===s.amounts.providerReceivableCents,
      "Pagamento de fixture inválido, preço alterado ou vínculo divergente.");
@@ -117,6 +119,8 @@
      "Risco só é simulado após fixture de pagamento e uma única vez.");
    requireOk(event&&event.fixtureReceipt===MOCK_RECEIPT &&
       event.actorId==="offline_fixture"&&EVENT.test(event.id||"")&&
+      event.requestId===s.requestId&&event.quoteId===s.quoteId &&
+      event.customerId===s.customerId&&event.providerId===s.providerId &&
       ["mock_dispute","mock_refund_requested","mock_chargeback"].includes(event.kind)&&
       Number.isSafeInteger(event.amountCents)&&event.amountCents>=1&&
       event.amountCents<=s.amounts.customerSubtotalBeforeProcessingCents,

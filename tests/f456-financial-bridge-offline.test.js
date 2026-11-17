@@ -16,7 +16,7 @@ const make=()=>B.make({quote:accepted(),customerId:C,providerId:P,createdAt:1000
 const receipt=(more={})=>({
  id:"evt_mock_paid_001",kind:"mock_payment_confirmed",
  actorId:"offline_fixture",fixtureReceipt:B.MOCK_RECEIPT,
- requestId:R,quoteId:Q,currency:"BRL",amountCents:29300,
+ requestId:R,quoteId:Q,customerId:C,providerId:P,currency:"BRL",amountCents:29300,
  providerReceivableCents:24700,at:2000,...more
 });
 const pay=()=>B.mockPayment(make(),receipt());
@@ -56,7 +56,8 @@ test("F4→F5: não aceita recibo de 15%, alteração de preço ou identidade",(
  for(const bad of [
   {amountCents:30450},{amountCents:27000},
   {providerReceivableCents:24550},{currency:"USD"},
-  {quoteId:X},{requestId:X},{actorId:C},{fixtureReceipt:"PSP_PAID"},
+  {quoteId:X},{requestId:X},{customerId:X},{providerId:X},
+  {actorId:C},{fixtureReceipt:"PSP_PAID"},
   {kind:"mock_refund_confirmed"}
  ])assert.throws(()=>B.mockPayment(make(),receipt(bad)),/Pagamento de fixture inválido/);
  const s=pay();
@@ -136,7 +137,7 @@ test("F4+F5: disputa revoga acesso mock, localização e revisão",()=>{
  });
  assert.notEqual(B.viewFor(s,C).f5MockLocation,null);
  s=B.risk(s,{id:"evt_dispute_001",kind:"mock_dispute",actorId:"offline_fixture",
-  fixtureReceipt:B.MOCK_RECEIPT,amountCents:29300});
+  fixtureReceipt:B.MOCK_RECEIPT,requestId:R,quoteId:Q,customerId:C,providerId:P,amountCents:29300});
  const view=B.viewFor(s,C);
  assert.equal(view.status,"mock_hold");
  assert.equal(view.f5MockLocation,null);
@@ -151,7 +152,7 @@ test("F4+F6: chargeback após duas confirmações impede até revisão mock",()=
  let s=complete();
  assert.equal(B.settlementReview(s).mockHumanReviewCandidate,true);
  s=B.risk(s,{id:"evt_chargeback_001",kind:"mock_chargeback",
-  actorId:"offline_fixture",fixtureReceipt:B.MOCK_RECEIPT,amountCents:29300});
+  actorId:"offline_fixture",fixtureReceipt:B.MOCK_RECEIPT,requestId:R,quoteId:Q,customerId:C,providerId:P,amountCents:29300});
  assert.equal(B.settlementReview(s).mockHumanReviewCandidate,false);
  assert.equal(B.settlementReview(s).transferAuthorized,false);
  assert.throws(()=>B.completion(s,{kind:"rate_provider",id:"evt_rate_001",
@@ -178,7 +179,7 @@ test("F4: material avulso e status de orçamento sem aceite são rejeitados",()=
 });
 test("F456: risco não pode ser declarado antes de fixture ou acima do valor cobrado",()=>{
  assert.throws(()=>B.risk(make(),{id:"evt_risk_pre",kind:"mock_dispute",
-  actorId:"offline_fixture",fixtureReceipt:B.MOCK_RECEIPT,amountCents:200}),/após fixture/);
+  actorId:"offline_fixture",fixtureReceipt:B.MOCK_RECEIPT,requestId:R,quoteId:Q,customerId:C,providerId:P,amountCents:200}),/após fixture/);
  assert.throws(()=>B.risk(pay(),{id:"evt_risk_bad",kind:"mock_refund_requested",
-  actorId:"offline_fixture",fixtureReceipt:B.MOCK_RECEIPT,amountCents:30450}),/inválido/);
+  actorId:"offline_fixture",fixtureReceipt:B.MOCK_RECEIPT,requestId:R,quoteId:Q,customerId:C,providerId:P,amountCents:30450}),/inválido/);
 });
