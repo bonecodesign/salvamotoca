@@ -201,7 +201,7 @@ begin
  -- Chargeback fictício cancels pending outbox; no release or transfer.
  perform private.f456_apply_mock_event(r,'evt_mock_dispute_01',
   'mock_chargeback',fixture,2300,29300);
- if (select status from private.f456_mock_sessions where request_id=r)<>'mock_hold'
+ if (select stage from private.f456_mock_sessions where request_id=r)<>'mock_hold'
   or (select status from private.f5_mock_outbox where request_id=r)<>'cancelled'
   or exists(select 1 from private.f456_mock_sessions where request_id=r
    and (real_payment_verified or real_dispatch_authorized or real_transfer_authorized))
