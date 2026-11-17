@@ -94,7 +94,13 @@ function planNextInvitation({
    },
    radiiKm,now,rotationSeed
   });
-  choice=result.status==="candidates"?result.candidates[0]:null;
+  // F2 motor penaliza uma recusa ANTES da distancia. Neste contrato
+  // aprovado a proximidade deve prevalecer; recusa desempata.
+  choice=result.status==="candidates"
+    ?[...result.candidates].sort((a,b)=>a.distanceKm-b.distanceKm
+      || a.rejectionCount-b.rejectionCount
+      || String(a.id).localeCompare(String(b.id)))[0]
+    :null;
   if(!choice)return {...shell,status:"no_provider",reason:"none_eligible",historyClosed:info.closed.length};
   return {...shell,status:"invite_mock",providerId:choice.id,
    radiusKm:result.radiusKm,stage:result.stage,historyClosed:info.closed.length};
