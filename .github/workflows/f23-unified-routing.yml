@@ -1,0 +1,96 @@
+name: "F2-F3 — roteamento seguro e precificação integrada OFFLINE"
+on:
+  pull_request:
+    paths:
+      - "f23-routing-bridge-offline.js"
+      - "tests/f23-routing-bridge.test.js"
+      - "docs/F23_UNIFIED_ROUTING_OFFLINE.md"
+      - ".github/workflows/f23-unified-routing.yml"
+  push:
+    branches:
+      - "feat/f23-unified-service-routing-offline"
+    paths:
+      - "f23-routing-bridge-offline.js"
+      - "tests/f23-routing-bridge.test.js"
+      - "docs/F23_UNIFIED_ROUTING_OFFLINE.md"
+      - ".github/workflows/f23-unified-routing.yml"
+permissions:
+  contents: read
+jobs:
+  f23-domain:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: Verificar sintaxe e não acessar serviços externos
+        run: |
+          node --check f23-routing-bridge-offline.js
+          node --check f2-flow.js
+          node --check f3-tow.js
+          if grep -nE 'fetch\(|createClient\(|\.rpc\(|\.upload\(|service_role|sb_secret_|https?://' f23-routing-bridge-offline.js; then
+            echo 'Bridge F2-F3 não pode acessar rede ou usar credenciais'
+            exit 1
+          fi
+      - name: Roteamento F2-F3, no leakage, cinco minutos e 10+10
+        run: |
+          node --test tests/f23-routing-bridge.test.js tests/f2-flow.test.js tests/f3-tow.test.js tests/f4-finance.test.js
+      - name: Regras de deploy e liberação permanecem NO-GO
+        run: |
+          node --test tests/f2-ring-contract.test.mjs tests/f3-release-guard.test.js
+          node scripts/release-readiness-offline.mjs > "$RUNNER_TEMP/release-no-go.json"
+          node -e "const p=require(process.env.RUNNER_TEMP+'/release-no-go.json');if(p.decision!=='NO_GO'||p.g1!=='BLOCKED')process.exit(1)"
+          echo 'F2_F3_REAL_ROUTING=NOT_IMPLEMENTED'
+          echo 'SUPABASE_HOSTED_WRITES=NONE'
+          echo 'DEVICE_LOCAL_TESTS=NOT_RUN'
+          echo 'RELEASE=NO_GO'
+  f23-postgres-regression:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: f23_disposable
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d f23_disposable"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      PGHOST: localhost
+      PGPORT: 5432
+      PGUSER: postgres
+      PGPASSWORD: postgres
+      PGDATABASE: f23_disposable
+    steps:
+      - uses: actions/checkout@v4
+      - name: Cliente PostgreSQL de fixture
+        run: command -v psql || (sudo apt-get update -qq && sudo apt-get install -y postgresql-client)
+      - name: Criar exclusivamente schema F1/F2/F3 em PG17 descartável
+        run: |
+          psql -X -v ON_ERROR_STOP=1 -f tests/f2-stage-setup.sql
+          psql -X -v ON_ERROR_STOP=1 -f tests/f3-pre-setup.sql
+          psql -X -v ON_ERROR_STOP=1 -f supabase/drafts/f2_backend_candidate.sql
+      - name: Provar RLS F2 antes da F3, com rollback
+        run: psql -X -v ON_ERROR_STOP=1 -f tests/f2-stage-rls.sql
+      - name: Acrescentar candidate F3 e provar permissões
+        run: |
+          psql -X -v ON_ERROR_STOP=1 -f supabase/drafts/f3_tow_backend_candidate.sql
+          psql -X -v ON_ERROR_STOP=1 -f tests/f3-stage-rls.sql
+      - name: Confirmar rollback, dados zero, dois gates desligados
+        run: |
+          psql -X -Atqc "select not enabled from private.f2_release_gate where singleton" | grep -qx t
+          psql -X -Atqc "select not enabled from private.f3_release_gate where singleton" | grep -qx t
+          psql -X -Atqc "select count(*)=0 from public.f2_request_offers" | grep -qx t
+          psql -X -Atqc "select count(*)=0 from public.f3_tow_requests" | grep -qx t
+          echo 'F2_F3_PG17_REGRESSION=OFFLINE_PASS'
+          echo 'REMOTE_MIGRATIONS=NONE'
+          echo 'G1=BLOCKED'
+          echo 'RELEASE=NO_GO'
