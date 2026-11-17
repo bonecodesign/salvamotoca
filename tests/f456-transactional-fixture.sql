@@ -11,7 +11,7 @@ create table private.f456_mock_gate(
  singleton boolean primary key default true check(singleton),
  enabled boolean not null default false
 );
-insert into private.f456_mock_gate(singleton,enabled) values(true);
+insert into private.f456_mock_gate(singleton,enabled) values(true,false);
 create table private.f456_mock_sessions(
  request_id uuid primary key,
  quote_id uuid not null unique,
