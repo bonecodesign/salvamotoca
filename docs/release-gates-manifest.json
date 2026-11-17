@@ -1,0 +1,248 @@
+{
+  "schema_version": 1,
+  "snapshot_date": "2026-11-16",
+  "repository": "bonecodesign/salvamotoca",
+  "project_supabase_ref": "yivkqyjdeouxnwtwfekc",
+  "decision": "NO_GO",
+  "irreversible_actions_allowed": false,
+  "commercial_policy": {
+    "rider_fee_bps": 1000,
+    "provider_fee_bps": 1000,
+    "basis": "service_including_materials",
+    "travel_commission_bps": 0,
+    "psp_fee_requires_external_validation": true
+  },
+  "review": {
+    "chain": [
+      {
+        "pr": 55,
+        "role": "commercial-policy",
+        "base": "main",
+        "status": "draft",
+        "required_prior": []
+      },
+      {
+        "pr": 42,
+        "role": "F2",
+        "base": "main",
+        "status": "draft",
+        "required_prior": []
+      },
+      {
+        "pr": 44,
+        "role": "F3",
+        "base": "feat/f2-prestadores-distribuicao-orcamentos-segura",
+        "status": "draft",
+        "required_prior": [
+          42
+        ]
+      },
+      {
+        "pr": 45,
+        "role": "F4",
+        "base": "feat/f3-reboque-motos-seguro",
+        "status": "draft",
+        "required_prior": [
+          44
+        ]
+      },
+      {
+        "pr": 48,
+        "role": "F5-offline",
+        "base": "feat/f4-pagamentos-protegidos-simulador-seguro",
+        "status": "draft",
+        "required_prior": [
+          45
+        ]
+      },
+      {
+        "pr": 49,
+        "role": "F5-PG-mock",
+        "base": "feat/f5-atendimento-chat-deslocamento-offline",
+        "status": "draft",
+        "required_prior": [
+          48
+        ]
+      },
+      {
+        "pr": 50,
+        "role": "F6-offline",
+        "base": "feat/f5-backend-rls-mock-candidate",
+        "status": "draft",
+        "required_prior": [
+          49
+        ]
+      },
+      {
+        "pr": 51,
+        "role": "F6-PG-mock",
+        "base": "feat/f6-conclusao-mediacao-avaliacao-offline",
+        "status": "draft",
+        "required_prior": [
+          50
+        ]
+      },
+      {
+        "pr": 52,
+        "role": "F7-no-go",
+        "base": "feat/f6-backend-rls-mock-candidate",
+        "status": "draft",
+        "required_prior": [
+          51
+        ]
+      },
+      {
+        "pr": 57,
+        "role": "reconciled-F2-F7-10x10",
+        "base": "feat/f7-preflight-no-go-offline",
+        "status": "draft",
+        "required_prior": [
+          52,
+          55
+        ]
+      }
+    ],
+    "f1_recovery": [
+      {
+        "pr": 53,
+        "required_prior": []
+      },
+      {
+        "pr": 58,
+        "required_prior": [
+          53
+        ]
+      }
+    ],
+    "f1_security": [
+      {
+        "pr": 54,
+        "required_prior": []
+      },
+      {
+        "pr": 59,
+        "required_prior": [
+          54
+        ]
+      },
+      {
+        "pr": 60,
+        "required_prior": [
+          59
+        ]
+      }
+    ],
+    "redundant_do_not_merge_independently": [
+      56
+    ],
+    "incompatible_do_not_merge": [
+      47
+    ],
+    "conflicts_to_review": [
+      "PR 47 implements legacy 15 percent and a distinct payment state model",
+      "PR 56 patch content is already incorporated in PR 57; do not merge twice",
+      "PR 55 documentation overlaps PR 57; compare resolved commercial policy before merge",
+      "F1 security draft schemas are not migrations; do not install on hosted Supabase",
+      "The stacked PRs depend on previous branches; rebase/compare each after base merge and rerun CI"
+    ],
+    "no_automatic_merge": true
+  },
+  "gates": [
+    {
+      "id": "G0",
+      "name": "Static code safety",
+      "status": "OFFLINE_TESTED",
+      "proof_required": "CI all flags off, policy parity, tests",
+      "real_verified": false,
+      "blocks": [
+        "G1"
+      ]
+    },
+    {
+      "id": "G1",
+      "name": "Real backup and independent restoration",
+      "status": "BLOCKED",
+      "proof_required": "Privately captured full DB/roles/data backup, restore, Auth recoverability, Storage object bytes/hash and rollback evidence",
+      "real_verified": false,
+      "blocks": [
+        "G2",
+        "G3",
+        "G4",
+        "G5",
+        "G6",
+        "G7",
+        "G8"
+      ]
+    },
+    {
+      "id": "G2",
+      "name": "F1 authenticated Auth/Storage and six RPCs",
+      "status": "BLOCKED",
+      "proof_required": "HTTP authenticated A/B/C, private image, RLS/IDOR, six RPCs, denial, cleanup; no external dispatch",
+      "real_verified": false,
+      "blocks": [
+        "G3",
+        "G5"
+      ]
+    },
+    {
+      "id": "G3",
+      "name": "F2/F3 live backend integration",
+      "status": "BLOCKED",
+      "proof_required": "Reviewed versioned migrations, ownership, concurrency, equipment, provider selection, radius expansion in controlled environment",
+      "real_verified": false,
+      "blocks": [
+        "G5"
+      ]
+    },
+    {
+      "id": "G4",
+      "name": "F4 PSP sandbox and settlement",
+      "status": "BLOCKED",
+      "proof_required": "Legitimate signed webhook, amount+currency+owner+quote, 10+10 split, replay, dispute, chargeback, ledger, refunds, tax/legal review",
+      "real_verified": false,
+      "blocks": [
+        "G5",
+        "G6"
+      ]
+    },
+    {
+      "id": "G5",
+      "name": "F5 dispatch chat and geolocation",
+      "status": "BLOCKED",
+      "proof_required": "Only confirmed PSP payment; authorized tracking en_route, revocation at arrival, no outsiders, Android and notification tests",
+      "real_verified": false,
+      "blocks": [
+        "G6"
+      ]
+    },
+    {
+      "id": "G6",
+      "name": "F6 bilateral completion and support",
+      "status": "BLOCKED",
+      "proof_required": "Both confirmations, five-minute customer window, support disputes, review process and blocked payout without PSP",
+      "real_verified": false,
+      "blocks": [
+        "G8"
+      ]
+    },
+    {
+      "id": "G7",
+      "name": "Legal privacy and operating governance",
+      "status": "BLOCKED",
+      "proof_required": "LGPD/consumer/labor/PSP contracts, tax/accounting review, support/incident plan, accessibility, monitoring, human owners",
+      "real_verified": false,
+      "blocks": [
+        "G8"
+      ]
+    },
+    {
+      "id": "G8",
+      "name": "Assisted pilot",
+      "status": "BLOCKED",
+      "proof_required": "Approved pilot group/area, rollback, human support, Android physical device, final explicit launch permission",
+      "real_verified": false,
+      "blocks": []
+    }
+  ]
+}
