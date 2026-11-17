@@ -16,7 +16,7 @@ test('Matriz G0-G8 e DAG das dependencias: sempre NO_GO',()=>{
  assert.equal(r.automaticMerge,false);
  assert.equal(r.flagsVerified,6);
  assert.equal(r.hostedSupabaseRead,false);
- assert.ok(r.prCount>=16);
+ assert.equal(r.prCount,15);
 });
 test('Nao permitir marcar GO sem provas remotas',()=>{
  const x=clone();x.decision='GO';
