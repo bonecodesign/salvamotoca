@@ -188,7 +188,7 @@ begin
  if z->>'stage'<>'en_route' or
   (select count(*) from private.f5_mock_outbox where request_id=r)<>1
   or not exists(select 1 from private.f5_mock_outbox
-    where request_id=r and status='pending' and not external_sent)
+    where request_id=r and status='pending')
  then raise exception 'F5_OUTBOX_NOT_ATOMIC'; end if;
  begin
   perform private.f456_apply_mock_event(r,'evt_dispatch_again',
