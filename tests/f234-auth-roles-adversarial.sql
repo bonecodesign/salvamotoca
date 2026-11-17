@@ -134,9 +134,13 @@ set local request.jwt.claim.sub='bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb';
 do $$
 declare j jsonb;
 begin
- if (select count(*) from public.f234_mock_quote_cards)<>1
+ if (select count(*) from public.f234_mock_quote_cards)<>2
   or not exists(select 1 from public.f234_mock_quote_cards where quote_id=
    '44444444-4444-4444-8444-444444444444')
+  or not exists(select 1 from public.f234_mock_quote_cards where quote_id=
+   'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb')
+  or exists(select 1 from public.f234_mock_quote_cards where quote_id=
+   '55555555-5555-4555-8555-555555555555')
  then raise exception 'PROVIDER_RLS_WRONG_VISIBLE_QUOTES'; end if;
  j:=public.f234_mock_read_quote(
   '44444444-4444-4444-8444-444444444444');
