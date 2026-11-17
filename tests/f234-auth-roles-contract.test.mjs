@@ -10,7 +10,7 @@ const config=get('config.js');
 test('Auth fake apenas PG17 descartável, nunca valida JWT',()=>{
  assert.match(fixture,/PostgreSQL 17 disposable CI ONLY/);
  assert.match(fixture,/NOT real Supabase Auth/);
- assert.match(fixture,/GUC.*test selector ONLY/);
+ assert.match(fixture,/request\.jwt\.claim\.sub.*test selector ONLY/);
  assert.match(fixture,/create schema auth/);
  assert.match(fixture,/create function auth\.uid\(\)/);
  assert.match(fixture,/request\.jwt\.claim\.sub/);
