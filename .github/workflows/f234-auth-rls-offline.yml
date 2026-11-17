@@ -1,0 +1,93 @@
+name: "F2-F5 simulated authenticated A/B/C roles + RLS (PG17 offline)"
+on:
+  pull_request:
+    paths:
+      - "tests/f234-auth-roles-fixture.sql"
+      - "tests/f234-auth-roles-adversarial.sql"
+      - "tests/f234-auth-roles-race.sh"
+      - "tests/f234-auth-roles-contract.test.mjs"
+      - "docs/F234_AUTH_RLS_OFFLINE.md"
+      - ".github/workflows/f234-auth-rls-offline.yml"
+  push:
+    branches:
+      - "feat/f234-auth-roles-rls-ownership-offline"
+    paths:
+      - "tests/f234-auth-roles-fixture.sql"
+      - "tests/f234-auth-roles-adversarial.sql"
+      - "tests/f234-auth-roles-race.sh"
+      - "tests/f234-auth-roles-contract.test.mjs"
+      - "docs/F234_AUTH_RLS_OFFLINE.md"
+      - ".github/workflows/f234-auth-rls-offline.yml"
+permissions:
+  contents: read
+jobs:
+  f234-mock-auth-rls:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: f234_auth_disposable
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d f234_auth_disposable"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      PGHOST: localhost
+      PGPORT: 5432
+      PGUSER: postgres
+      PGPASSWORD: postgres
+      PGDATABASE: f234_auth_disposable
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: Ensure offline psql client is available
+        run: command -v psql || (sudo apt-get update -qq && sudo apt-get install -y postgresql-client)
+      - name: Static contract, role/column/RLS checks, release NO-GO
+        run: |
+          node --test tests/f234-auth-roles-contract.test.mjs tests/f234-handoff-contract.test.mjs
+          node scripts/release-readiness-offline.mjs > "$RUNNER_TEMP/release.json"
+          node -e "const r=require(process.env.RUNNER_TEMP+'/release.json');if(r.decision!=='NO_GO'||r.g1!=='BLOCKED'||r.realProven!==0)process.exit(1)"
+      - name: Install ONLY disposable mock F4/F5 and mock role-bound F2/F3 quote adapters
+        run: |
+          psql -X -v ON_ERROR_STOP=1 -f tests/f456-transactional-fixture.sql
+          psql -X -v ON_ERROR_STOP=1 -f tests/f5-outbox-fixture.sql
+          psql -X -v ON_ERROR_STOP=1 -f tests/f234-handoff-fixture.sql
+          psql -X -v ON_ERROR_STOP=1 -f tests/f234-auth-roles-fixture.sql
+      - name: Re-check earlier quote/financial adversarial flow (rollback)
+        run: psql -X -v ON_ERROR_STOP=1 -f tests/f234-handoff-adversarial.sql
+      - name: Simulate anon + authenticated A/B/C, RLS and unauthorized attempts
+        run: psql -X -v ON_ERROR_STOP=1 -f tests/f234-auth-roles-adversarial.sql
+      - name: Assert no finance or accepted quote survived rollback
+        run: |
+          psql -X -Atqc "select not enabled from private.f234_mock_gate where singleton" | grep -qx t
+          psql -X -Atqc "select count(*)=0 from private.f456_mock_sessions" | grep -qx t
+          psql -X -Atqc "select count(*)=0 from private.f456_mock_journal" | grep -qx t
+          psql -X -Atqc "select count(*)=0 from private.f5_mock_outbox" | grep -qx t
+          psql -X -Atqc "select count(*)=5 from public.f234_mock_quote_cards where quote_status='proposed'" | grep -qx t
+      - name: Competing mock authenticated sessions prove single winning quote
+        run: bash tests/f234-auth-roles-race.sh
+      - name: Final role and release guards
+        run: |
+          psql -X -Atqc "select not enabled from private.f234_mock_gate where singleton" | grep -qx t
+          psql -X -Atqc "select not has_function_privilege('anon','public.f234_mock_accept_as_customer(uuid,uuid,text,bigint)','EXECUTE')" | grep -qx t
+          psql -X -Atqc "select not has_function_privilege('authenticated','private.f456_apply_mock_event(uuid,text,text,uuid,bigint,integer,boolean)','EXECUTE')" | grep -qx t
+          psql -X -Atqc "select not has_column_privilege('authenticated','public.f234_mock_quote_cards','private_note','SELECT')" | grep -qx t
+          psql -X -Atqc "select count(*)=1 from private.f234_mock_quotes where status='accepted'" | grep -qx t
+          psql -X -Atqc "select count(*)=0 from private.f5_mock_outbox" | grep -qx t
+          echo "AUTH_REAL_JWT=NOT_TESTED"
+          echo "AUTH_REAL_HTTP=NOT_TESTED"
+          echo "PSP_REAL=NOT_CONNECTED"
+          echo "F5_REAL_NOTIFICATION=NOT_SENT"
+          echo "SUPABASE_HOSTED_CHANGES=NONE"
+          echo "DEVICE_TEST=NOT_RUN_USER_FOLDER_NOT_NEEDED"
+          echo "G1=BLOCKED"
+          echo "RELEASE=NO_GO"
