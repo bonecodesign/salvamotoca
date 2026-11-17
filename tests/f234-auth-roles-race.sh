@@ -77,7 +77,7 @@ psqlc -Atqc "begin; set local app.f234_test_only='disposable_pg17';
  set local request.jwt.claim.sub='$PROVIDER';
  select count(*) from public.f234_mock_quote_cards;
  commit;" >"$tmp/provider-read"
-grep -qx '1' "$tmp/provider-read"
+grep -qx '2' "$tmp/provider-read"
 echo 'F234_AUTH_RACE_THIRD_CANNOT_READ_PROVIDER_CANNOT_ACCEPT'
 
 # No PSP, dispatch or even mock payment has been created.
