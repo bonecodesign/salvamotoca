@@ -24,6 +24,32 @@ foreach ($output in @((($planDefault | Out-String)), (($planExplicit | Out-Strin
 }
 Write-Host 'G1_PG17_POWERSHELL51_PLAN=PASS'
 
+# -Verify never downloads, extracts or initializes anything. On a fresh Windows
+# runner the D: target is absent; exit code 3 is the expected fail-closed state.
+$verifyResult = & $psExe -NoLogo -NoProfile -ExecutionPolicy Bypass -File $script -Verify 2>&1
+$verifyExit = $LASTEXITCODE
+$verifyText = $verifyResult | Out-String
+if ($verifyExit -eq 3) {
+    if ($verifyText -notmatch 'POSTGRESQL_17_12_PORTABLE=NOT_PREPARED') {
+        throw 'G1_PG17_MISSING_DIRECTORY_NOT_EXPLAINED'
+    }
+} elseif ($verifyExit -eq 0) {
+    # A pre-existing, valid local installation may legitimately pass read-only checks.
+    if ($verifyText -notmatch 'POSTGRESQL_17_12_PORTABLE=VERIFIED_READ_ONLY') {
+        throw 'G1_PG17_VERIFY_DID_NOT_VERIFY_BINARIES'
+    }
+} else {
+    throw ('G1_PG17_VERIFY_UNEXPECTED_EXIT_' + $verifyExit + ': ' + $verifyText)
+}
+if ($verifyText -notmatch 'G1_BACKUP_RESTORE=BLOCKED' -or $verifyText -notmatch 'RELEASE=NO_GO') {
+    throw 'G1_PG17_VERIFY_INCORRECTLY_ALLOWED_RELEASE'
+}
+if ($source -notmatch [regex]::Escape('if ($Verify)') -or
+    $source.IndexOf('if ($Verify)') -gt $source.IndexOf('Invoke-WebRequest -Uri $VendorChecksumUrl')) {
+    throw 'G1_PG17_VERIFY_MUST_PRECEDE_NETWORK_OPERATIONS'
+}
+Write-Host 'G1_PG17_VERIFY_READ_ONLY_FAIL_CLOSED=PASS'
+
 # Reproducible fixed ZIP, source domain and hash; any change needs review.
 if ($source -notmatch [regex]::Escape('postgresql-17.12-1-windows-x64-binaries.zip')) { throw 'G1_PG17_ZIP_NOT_PINNED' }
 if ($source -notmatch [regex]::Escape('a2cd8a774389347b70be7748ac4a37ef43cb6ee539c5fc3e85ae264b15e4a04c')) {
