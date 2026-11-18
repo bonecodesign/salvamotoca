@@ -57,3 +57,15 @@ test('API inacessível em produção, apenas operador de PG isolado',()=>{
  assert.match(race,/F2_EXTERNAL_NOTIFICATIONS=ZERO/);
  assert.match(race,/127\.0\.0\.1/);
 });
+
+test("SM-DEC-047/048 SQL candidato: três municípios e raios 5/15/60 somente OFFLINE",()=>{
+ const f3=get('supabase/drafts/f3_tow_backend_candidate.sql');
+ assert.match(schema,/then 5 when 2 then 15 else 60/);
+ assert.match(schema,/\('belo horizonte','contagem','betim'\)/);
+ assert.match(seed,/'Contagem','MG'/);
+ assert.match(seed,/'Betim','MG'/);
+ assert.match(legacy,/array\[5,15,60\]/);
+ assert.match(legacy,/\('belo horizonte','contagem','betim'\)/);
+ assert.match(f3,/array\[5,15,60\]/);
+ assert.match(f3,/\('belo horizonte','contagem','betim'\)/);
+});
