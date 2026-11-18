@@ -45,6 +45,23 @@ Um exemplo de execução da fase de preparação, depois da sincronização:
 
 O comando **realiza download de software e escreve unicamente dentro do diretório de testes autorizado**. Será executado apenas por iniciativa do usuário e não libera a F1.
 
+## Diagnóstico do erro de pasta inexistente (17/11/2026)
+
+A mensagem `Get-ChildItem : Não é possível localizar o caminho ...\\testes-temporarios\\postgres17-portatil` significa somente que o diretório do ZIP ainda **não foi preparado**. Não é prova de falha no repositório, nem no Supabase. O comando `Get-ChildItem` apenas lista conteúdo; ele **não cria pastas**.
+
+Na mesma conta de Windows em que o checkout já existe, executar em sequência **somente quando decidir baixar o pacote oficial**:
+
+```powershell
+git -C 'D:\boneco\SALVAMOTOCA\codigo' pull --ff-only
+& powershell.exe -NoProfile -ExecutionPolicy Bypass -File 'D:\boneco\SALVAMOTOCA\codigo\scripts\g1-prepare-pg17-portable.ps1' -Plan
+& powershell.exe -NoProfile -ExecutionPolicy Bypass -File 'D:\boneco\SALVAMOTOCA\codigo\scripts\g1-prepare-pg17-portable.ps1' -Apply
+& powershell.exe -NoProfile -ExecutionPolicy Bypass -File 'D:\boneco\SALVAMOTOCA\codigo\scripts\g1-prepare-pg17-portable.ps1' -Verify
+```
+
+O `-Apply` **cria automaticamente** o diretório temporário ausente, mas somente após verificar a origem do repositório, a branch G1 e a limpeza do checkout. O `-Verify` é um novo modo **somente leitura e totalmente offline**: confere manifesto, ZIP, checksum e versões dos binários preparados, **sem baixar nada nem iniciar PostgreSQL**. Se a pasta ainda não existir, retorna o código de saída **3** e `POSTGRESQL_17_12_PORTABLE=NOT_PREPARED`, com `RELEASE=NO_GO`. Um retorno `POSTGRESQL_17_12_PORTABLE=VERIFIED_READ_ONLY` significa apenas que o pacote local passou nessas verificações — **não comprova backup, restauração ou homologação F1**.
+
+Os caminhos `D:\...` pertencem ao **computador do responsável**; nem o GitHub Actions nem esta conversa têm acesso ao drive local. Os jobs de Windows validam os modos offline em um Windows descartável, não a execução do download no dispositivo do usuário.
+
 ## Resultado esperado
 
 ```text
