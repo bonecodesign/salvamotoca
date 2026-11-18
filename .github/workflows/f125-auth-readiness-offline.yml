@@ -1,0 +1,54 @@
+name: "F1-F5 - HTTP Auth A/B/C preparation and G1 strict gate (OFFLINE)"
+on:
+  pull_request:
+    paths:
+      - "scripts/f125-http-auth-readonly.mjs"
+      - "tests/f125-http-auth-readonly.test.mjs"
+      - "docs/F125_HOSTED_CATALOG_READONLY.sql"
+      - "docs/F125_HOSTED_AUTH_READINESS.md"
+      - ".github/workflows/f125-auth-readiness-offline.yml"
+  push:
+    branches:
+      - "feat/f125-hosted-auth-http-preflight-gated-offline"
+    paths:
+      - "scripts/f125-http-auth-readonly.mjs"
+      - "tests/f125-http-auth-readonly.test.mjs"
+      - "docs/F125_HOSTED_CATALOG_READONLY.sql"
+      - "docs/F125_HOSTED_AUTH_READINESS.md"
+      - ".github/workflows/f125-auth-readiness-offline.yml"
+permissions:
+  contents: read
+jobs:
+  guarded-http-preparation:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: Static syntax and no-network planning
+        run: |
+          node --check scripts/f125-http-auth-readonly.mjs
+          node scripts/f125-http-auth-readonly.mjs --plan > "$RUNNER_TEMP/f125_plan.txt"
+          grep -q "NO NETWORK OR AUTH" "$RUNNER_TEMP/f125_plan.txt"
+      - name: Simulated HTTP A/B/C, deny private data, G1 fail-closed
+        run: |
+          node --test tests/f125-http-auth-readonly.test.mjs tests/f1-work-storage-e2e.test.mjs
+      - name: Re-run earlier F234 role boundaries and release lock
+        run: |
+          node --test tests/f234-auth-roles-contract.test.mjs tests/f234-handoff-contract.test.mjs
+          node scripts/release-readiness-offline.mjs > "$RUNNER_TEMP/f125_release.json"
+          node -e "const r=require(process.env.RUNNER_TEMP+'/f125_release.json');if(r.decision!=='NO_GO'||r.g1!=='BLOCKED'||r.realProven!==0)process.exit(1)"
+      - name: Explicit verify no online authentication or data mutation executed
+        run: |
+          echo "HTTP_REAL_A_B_C=NOT_RUN"
+          echo "HOSTED_CATALOG=READ_ONLY_PRECHECKED_SEPARATELY"
+          echo "F1_REAL_STORAGE_WRITE=NOT_RUN"
+          echo "F2_F3_HOSTED_MIGRATION=NOT_PERFORMED"
+          echo "F4_REAL_PSP=NOT_CONNECTED"
+          echo "F5_REAL_NOTIFICATIONS=NOT_SENT"
+          echo "DEVICE_LOCAL_TESTS=NOT_RUN"
+          echo "SUPABASE_HOSTED_WRITES=NONE_BY_THIS_WORKFLOW"
+          echo "G1_BACKUP_RESTORE=BLOCKED"
+          echo "RELEASE=NO_GO"
