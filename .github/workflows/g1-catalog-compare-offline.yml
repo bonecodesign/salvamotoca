@@ -6,6 +6,9 @@ on:
       - "docs/G1_CATALOG_FINGERPRINT_RESTORE_RUNBOOK.md"
       - "scripts/g1-catalog-fingerprint-compare.mjs"
       - "tests/g1-catalog-fingerprint-compare.test.mjs"
+      - "scripts/g1-prepare-pg17-portable.ps1"
+      - "tests/g1-prepare-pg17-portable.test.ps1"
+      - "docs/G1_PG17_PORTABLE_WINDOWS.md"
       - ".github/workflows/g1-catalog-compare-offline.yml"
   push:
     branches:
@@ -65,6 +68,11 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: "24"
+      - name: PowerShell 5.1: preparar binarios PG17 apenas no modo sem rede
+        shell: pwsh
+        run: |
+          & powershell.exe -NoLogo -NoProfile -ExecutionPolicy Bypass -File tests/g1-prepare-pg17-portable.test.ps1
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
       - name: Provar compatibilidade Windows sem exigir admin ou Developer Mode
         shell: pwsh
         run: |
