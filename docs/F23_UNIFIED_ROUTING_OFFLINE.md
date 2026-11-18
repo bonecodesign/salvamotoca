@@ -42,7 +42,7 @@ O novo módulo `f23-routing-bridge-offline.js` é **um planejador puro em Node**
 1. Conciliar os PRs empilhados #42 → #44 → ... → #57 → #61 → #62 → #63 → #64 e este PR, sem merge automático e sem integrar o módulo local a um emissor real.
 2. Executar G1 de backup/restauração privados com provas de DB, Auth e Storage **antes de qualquer DDL hospedado**.
 3. Implementar RPCs reais revisadas e autorizadas para escolha F2/F3, incluindo concorrência e revisão de acesso às fotos, destino do reboque, rota e segurança veicular.
-4. Definir raios e política operacional por tipo de serviço; os `1/3/10 km` são **somente exemplos de teste**.
+4. **SM-DEC-047**: os anéis de busca **5/15/60 km** foram definidos pelo fundador em 18/11/2026, para F2 e F3. Seu uso permanece **apenas no roteamento de simulação**; dependem de homologação em campo, definição do método de distância (linha reta versus rota viária), limites geográficos do piloto e capacidade declarada do prestador. Não há promessa de cobertura, tempo de chegada ou despacho.
 5. Homologar PSP, notificações, Android físico, consentimentos, revisão jurídica e suporte humano. Não enviar novos dados de usuários ou informações privadas à CI.
 
 **Resultado esperado: somente CI offline. `G1=BLOCKED`, `F1–F7=NO_GO`; nenhuma mudança de produção.**
