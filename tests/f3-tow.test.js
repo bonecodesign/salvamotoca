@@ -177,3 +177,70 @@ test("F3: origem e prestador podem estar em BH, Contagem ou Betim; destino não 
  assert.equal(find([provider("a",{city:"Betim",stateCode:"SP"})],req).status,"no_provider");
  assert.deepEqual(F.PILOT_CITIES,["belo horizonte","contagem","betim"]);
 });
+
+// SM-DEC-049 — externos são DESTINOS; a origem e a base continuam no piloto.
+test("F3: origem BH permite destinos externos em MG e em outra UF, sem ampliar a busca",()=>{
+  for(const [destinationCity,destinationStateCode,estimatedRouteKm] of [
+    ["Ouro Preto","MG",105],["São Paulo","SP",500],["Juiz de Fora","MG",270]
+  ]){
+    const raw={...base(),destinationCity,destinationStateCode,estimatedRouteKm};
+    const validated=F.validateTowRequest(raw);
+    assert.equal(validated.destination.city,destinationCity);
+    assert.equal(find([provider("p")],validated,[5,15,60]).status,"candidates");
+    assert.equal(validated.estimatedRouteKm,estimatedRouteKm);
+  }
+  const invalidOrigin=F.validateTowRequest({...base(),pickupCity:"Nova Lima",
+    destinationCity:"Betim"});
+  assert.equal(find([provider("p")],invalidOrigin,[5,15,60]).status,"no_provider");
+});
+test("F3: destino externo requer disponibilidade e aceitação expressa do prestador para criar prévia",()=>{
+ const input={request:{...base(),destinationCity:"Ouro Preto",estimatedRouteKm:105},
+  providerAvailable:true,providerAcceptsDestination:true,
+  serviceCents:{reboque_moto:23000},travelCents:4000};
+ for(const patch of [
+   {providerAvailable:false},
+   {providerAvailable:undefined},
+   {providerAcceptsDestination:false},
+   {providerAcceptsDestination:undefined}
+ ]){
+  assert.throws(()=>F.previewTowRouteQuote({...input,...patch}),/prestador precisa/i);
+ }
+ const result=F.previewTowRouteQuote(input);
+ assert.equal(result.destination.city,"Ouro Preto");
+ assert.equal(result.estimatedRouteKm,105);
+ assert.equal(result.serviceTotalCents,23000);
+ assert.equal(result.travelTotalCents,4000);
+ assert.equal(result.totalCents,27000);
+ assert.equal(result.customerSubtotalBeforeProcessingCents,29300);
+ assert.equal(result.providerReceivableCents,24700);
+ for(const field of ["paymentAllowed","chatAllowed","dispatchAllowed",
+   "destinationAddressShared","routeAcceptanceVerified","routeDistanceVerified"]){
+   assert.equal(result[field],false);
+ }
+ assert.equal(result.mockOnly,true);
+ assert.ok(!JSON.stringify(result).includes(input.request.destinationAddress));
+ assert.throws(()=>F.previewTowRouteQuote({...input,travelCents:undefined}),/Deslocamento/);
+});
+test("F3: raio de 60 km limita busca por profissional, NÃO trajeto até destino",()=>{
+ const raw={...base(),pickupCity:"Contagem",destinationCity:"São Paulo",
+   destinationStateCode:"SP",estimatedRouteKm:500};
+ const originProvider=provider("p",{city:"Betim"});
+ assert.equal(find([originProvider],F.validateTowRequest(raw),[5,15,60]).radiusKm,5);
+ const quote=F.previewTowRouteQuote({request:raw,providerAvailable:true,
+   providerAcceptsDestination:true,serviceCents:{reboque_moto:16000},
+   travelCents:25000});
+ assert.equal(quote.estimatedRouteKm,500);
+ assert.equal(quote.travelTotalCents,25000);
+ assert.equal(quote.dispatchAllowed,false);
+ assert.throws(()=>F.previewTowRouteQuote({request:{...raw,pickupCity:"Sabará"},
+   providerAvailable:true,providerAcceptsDestination:true,
+   serviceCents:{reboque_moto:10000},travelCents:1000}),/Origem fora/);
+});
+test("F3 SQL Draft não limita destino à praça inicial nem finge aceite de rota",()=>{
+ const {readFileSync}=require("node:fs");
+ const sql=readFileSync(require("node:path").join(__dirname,"../supabase/drafts/f3_tow_backend_candidate.sql"),"utf8");
+ assert.match(sql,/SM-DEC-049: o município de DESTINO pode ser externo/);
+ assert.match(sql,/p_destination_city text,p_destination_state text/);
+ assert.match(sql,/lower\(btrim\(coalesce\(p_pickup_city,''\)\)\) not in/);
+ assert.doesNotMatch(sql,/lower\(btrim\(coalesce\(p_destination_city,''\)\)\) not in/);
+});
