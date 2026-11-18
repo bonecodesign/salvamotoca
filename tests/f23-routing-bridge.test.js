@@ -5,6 +5,7 @@ const BR=require("../f23-routing-bridge-offline.js");
 const F2=require("../f2-flow.js");
 const F3=require("../f3-tow.js");
 const SUPPORT=require("../f23-support-hybrid-offline.js");
+const CRITICAL=require("../f23-critical-alert-plan-offline.js");
 
 const NOW=Date.parse("2026-11-17T19:00:00Z");
 const RID="11111111-aaaa-4111-8111-111111111111";
@@ -552,4 +553,114 @@ test("SM-DEC-053: outro responsável só entra quando futuramente designado e di
  assert.equal(SUPPORT.planOnCallEscalation({...flags,
    delegateReachableMock:false}).suggestedTarget,"uncovered");
  assert.throws(()=>SUPPORT.planOnCallEscalation({delegateAssignedMock:"yes"}),/booleano/);
+});
+
+// SM-PLAN-001: preparação zero contratação; protótipo NUNCA envia alertas reais.
+test("SM-PLAN-001: marcos 2min/5min apenas na simulação, sem envio real",()=>{
+ const begin=Date.parse("2026-11-22T05:30:00Z");
+ const base={kind:"safety_report",incidentAt:begin,
+   founderAssignedMock:true,founderDutyConfirmedMock:true,
+   founderChannelVerifiedMock:true,linkedToRequestMock:true};
+ for(const [elapsed,reminder,escalate,status] of [
+  [0,false,false,"awaiting_founder_ack_mock"],
+  [119999,false,false,"awaiting_founder_ack_mock"],
+  [120000,true,false,"awaiting_founder_ack_mock"],
+  [299999,true,false,"awaiting_founder_ack_mock"],
+  [300000,true,true,"no_verified_ack_mock"]
+ ]){
+  const x=CRITICAL.planCriticalAlert({...base,now:begin+elapsed});
+  assert.equal(x.reminderDueMock,reminder,elapsed);
+  assert.equal(x.escalationDueMock,escalate,elapsed);
+  assert.equal(x.status,status,elapsed);
+  assert.equal(x.realAlertSent,false);
+  assert.equal(x.realAlertDelivered,false);
+  assert.equal(x.humanAcknowledgementProved,false);
+  assert.equal(x.productionAuthorized,false);
+  assert.equal(x.requestPausedInServer,false);
+ }
+});
+test("SM-PLAN-001: sem rede/canal ou titular fora de plantão é SEM COBERTURA",()=>{
+ const start="2026-11-22T05:30:00Z",now="2026-11-22T05:31:00Z";
+ for(const flags of [
+  {},{founderAssignedMock:true},
+  {founderAssignedMock:true,founderDutyConfirmedMock:true},
+  {founderAssignedMock:true,founderChannelVerifiedMock:true}
+ ]){
+  const x=CRITICAL.planCriticalAlert({kind:"safety_report",incidentAt:start,now,...flags});
+  assert.equal(x.status,"uncovered_mock");
+  assert.equal(x.lackOfHumanCoverageMock,true);
+  assert.equal(x.humanAcknowledgementProved,false);
+  assert.equal(x.emergencyServiceGuidanceSuggested,true);
+ }
+});
+test("SM-PLAN-001: ACK fictício válido encerra lembretes sem virar prova de leitura real",()=>{
+ const incident=Date.parse("2026-11-22T05:30:00Z");
+ const x=CRITICAL.planCriticalAlert({kind:"safety_report",incidentAt:incident,
+  now:incident+360000,founderAssignedMock:true,founderDutyConfirmedMock:true,
+  founderChannelVerifiedMock:true,founderAckAtMock:incident+120000});
+ assert.equal(x.status,"founder_acknowledged_mock");
+ assert.equal(x.reminderDueMock,false);
+ assert.equal(x.escalationDueMock,false);
+ assert.equal(x.humanAcknowledgementProved,false);
+ assert.equal(x.supportResponseGuaranteed,false);
+ assert.throws(()=>CRITICAL.planCriticalAlert({
+  kind:"safety_report",incidentAt:incident,now:incident+60000,
+  founderAckAtMock:incident+30000}),/sem responsável/);
+ assert.throws(()=>CRITICAL.planCriticalAlert({
+  kind:"safety_report",incidentAt:incident,now:incident+60000,
+  founderAssignedMock:true,founderDutyConfirmedMock:true,
+  founderChannelVerifiedMock:true,founderAckAtMock:incident+90000}),/janela/);
+});
+test("SM-PLAN-001: substituto futuro não existe até credenciamento e canal simulados",()=>{
+ const base={kind:"safety_report",incidentAt:"2026-11-22T05:30:00Z",
+  now:"2026-11-22T05:36:00Z",founderAssignedMock:true,
+  founderDutyConfirmedMock:true,founderChannelVerifiedMock:true};
+ for(const flags of [
+  {},{delegateAssignedMock:true,delegateDutyConfirmedMock:true},
+  {delegateAssignedMock:true,delegateChannelVerifiedMock:true}
+ ]){
+  const x=CRITICAL.planCriticalAlert({...base,...flags});
+  assert.equal(x.escalateToDelegateMock,false);
+  assert.equal(x.status,"no_verified_ack_mock");
+ }
+ const x=CRITICAL.planCriticalAlert({...base,
+  delegateAssignedMock:true,delegateDutyConfirmedMock:true,
+  delegateChannelVerifiedMock:true});
+ assert.equal(x.escalateToDelegateMock,true);
+ assert.equal(x.status,"delegate_escalation_candidate_mock");
+ assert.equal(x.secondPersonNotDesignatedInProject,true);
+ assert.equal(x.realTicketCreated,false);
+ assert.equal(x.payoutAllowed,false);
+ assert.equal(x.productionAuthorized,false);
+});
+test("SM-PLAN-001: contestação financeira continua em revisão, mesmo com flags de plantão",()=>{
+ const x=CRITICAL.planCriticalAlert({kind:"payment_dispute",
+  incidentAt:"2026-11-18T21:00:00Z",now:"2026-11-18T21:10:00Z",
+  linkedToRequestMock:true,founderAssignedMock:true,founderDutyConfirmedMock:true,
+  founderChannelVerifiedMock:true});
+ assert.equal(x.priority,"high");
+ assert.equal(x.recommendHoldSettlementMock,true);
+ assert.equal(x.refundAllowed,false);
+ assert.equal(x.payoutAllowed,false);
+ assert.equal(x.paymentHeldInPSP,false);
+ const finance=require("../f4-finance.js");
+ assert.equal(finance.settlementEligibility({paymentVerifiedByServer:true,
+  providerConfirmed:true,customerConfirmed:true,disputeOpen:true})
+  .candidateForServerSettlement,false);
+});
+test("SM-PLAN-001: texto público não expõe ocorrência, GPS, contato ou identidade",()=>{
+ const incident={kind:"safety_report",incidentAt:"2026-11-18T21:00:00Z",
+  now:"2026-11-18T21:01:00Z",linkedToRequestMock:true};
+ const x=CRITICAL.planCriticalAlert(incident);
+ for(const word of ["Rua","GPS","CPF","cliente","telefone","foto"]){
+  assert.ok(!x.publicNotificationLabel.includes(word),word);
+ }
+ assert.equal(x.realTicketCreated,false);
+ assert.equal(x.paymentHeldInPSP,false);
+ assert.equal(x.dispatchAllowed,false);
+ assert.ok(Object.isFrozen(x));
+ assert.throws(()=>CRITICAL.planCriticalAlert({...incident,kind:"other"}),/Tipo/);
+ assert.throws(()=>CRITICAL.planCriticalAlert({...incident,now:"invalid"}),/Horário/);
+ assert.throws(()=>CRITICAL.planCriticalAlert({...incident,
+  founderAssignedMock:"yes"}),/booleano/);
 });
