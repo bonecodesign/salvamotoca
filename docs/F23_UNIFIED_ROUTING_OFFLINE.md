@@ -41,9 +41,17 @@ O novo módulo `f23-routing-bridge-offline.js` é **um planejador puro em Node**
 
 O fundador aprovou **somente Belo Horizonte, Contagem e Betim (MG)** para a praça inicial. As três cidades formam um conjunto autorizado: F2 e F3 podem selecionar prestadores com base em qualquer uma das três cidades para uma **origem de pedido também em uma delas**, desde que a distância geográfica esteja nos anéis **5/15/60 km** e o prestador esteja homologado, online, compatível e dentro da cobertura que declarou. **Sabará, Nova Lima e outros municípios da RMBH ficam excluídos**, mesmo se estiverem a poucos metros.
 
-A triagem do código Node é uma simulação e **não comprova limites municipais reais** a partir de coordenadas. Antes de ativar o servidor, a origem do chamado e a base do prestador exigem verificação geográfica confiável por servidor; campos de cidade enviados pelo próprio cliente não bastam. A política sobre a **cidade de destino do reboque** ainda depende de definição separada: a autorização municipal nesta etapa se refere à **origem do atendimento e ao prestador**, sem decidir rotas finais.
+A triagem do código Node é uma simulação e **não comprova limites municipais reais** a partir de coordenadas. Antes de ativar o servidor, a origem do chamado e a base do prestador exigem verificação geográfica confiável por servidor; campos de cidade enviados pelo próprio cliente não bastam. **SM-DEC-049 (18/11/2026):** o destino final do reboque pode ser **fora** de BH, Contagem e Betim, desde que o prestador **esteja disponível**, **aceite expressamente atender aquele destino** e **apresente orçamento transparente** (serviço com materiais inclusos e deslocamento). A autorização da praça inicial se aplica à **origem do pedido e à base do prestador**, não ao destino. Os 5/15/60 km medem a busca por prestadores **até a origem**; não definem o limite do percurso do reboque. Não há promessa de rota longa nem aceitação automática, e a tarifa PSP depende de homologação.
 
 As funções SQL candidatas F2/F3 e as fixtures descartáveis são apenas propostas; nenhum SQL foi aplicado ao Supabase. **G1=BLOCKED; RELEASE=NO_GO**.
+
+## Política de proposta para destinos externos — somente offline
+
+- A decisão do prestador é **voluntária e específica para o destino e a rota**, nunca inferida apenas de estar online ou de constar no anel de 60 km.
+- O protótipo de domínio `previewTowRouteQuote` exige flags fictícias explícitas de disponibilidade e aceite do destino, além de orçamento itemizado. Retorna apenas município/UF, distância estimada e valores. **Não revela o endereço de destino**.
+- A prova real deverá vincular prestador autenticado, pedido, destino/rota, valor, confirmação do cliente e capacidade de transporte por evento auditável e servidor seguro. Nenhuma flag recebida do navegador pode servir como autorização real.
+- Os limites 1–500 km para distância estimada e R$ 5.000 para o valor total atualmente encontrados no simulador são validações de teste, **não uma política comercial definitiva de distância/preço**.
+- Não há despacho, chat, cobrança, envio de GPS, cadastro real nem alteração do Supabase; `G1=BLOCKED` e `RELEASE=NO_GO`.
 
 ## Dependências restantes
 

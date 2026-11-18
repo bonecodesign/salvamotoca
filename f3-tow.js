@@ -174,9 +174,37 @@
       travelTotalCents:travelCents,paymentAllowed:false,
       chatAllowed:false,dispatchAllowed:false};
   }
+  // SM-DEC-049 — ensaio de proposta intermunicipal. NÃO autoriza operação.
+  // Campos de aceite/online simulados NÃO são provas do servidor ou do PSP.
+  function previewTowRouteQuote({
+    request,providerAvailable,providerAcceptsDestination,
+    serviceCents,travelCents,parts=[]
+  }={}){
+    const tow=validateTowRequest(request);
+    ensure(isPilotPlace(tow.pickup.city,tow.pickup.stateCode),
+      "Origem fora dos três municípios do piloto.");
+    ensure(providerAvailable===true,
+      "O prestador precisa estar disponível para essa rota.");
+    ensure(providerAcceptsDestination===true,
+      "O prestador precisa aceitar expressamente o destino.");
+    const price=quoteTow({serviceTypes:tow.serviceTypes,
+      serviceCents,travelCents,parts});
+    return {
+      ...price,
+      mockOnly:true,
+      routeAcceptanceVerified:false,
+      routeDistanceVerified:false,
+      destination:{...tow.destination},
+      estimatedRouteKm:tow.estimatedRouteKm,
+      destinationAddressShared:false,
+      paymentAllowed:false,
+      chatAllowed:false,
+      dispatchAllowed:false
+    };
+  }
   return Object.freeze({
     EQUIPMENT,REBOQUE,BASIC,ALL,PRESENCE_MS,COMMISSION_BPS,
     validateTowRequest,publicSummary,validateProviderCapacity,eligibleProvider,isPilotPlace,PILOT_CITIES,
-    findTowProviders,quoteTow,distanceKm,servicesOf
+    findTowProviders,quoteTow,previewTowRouteQuote,distanceKm,servicesOf
   });
 });

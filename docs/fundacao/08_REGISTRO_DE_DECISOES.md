@@ -59,10 +59,12 @@ Aprovado significa **definido pelo responsável do produto**, não necessariamen
 
 | SM-DEC-048 | **Praça inicial de atendimento limitada a Belo Horizonte, Contagem e Betim (MG)**. Permitir busca cruzada de profissionais homologados entre os três municípios, respeitando os anéis 5/15/60 km, o cadastro de cobertura, os serviços, a disponibilidade e a segurança. **Municípios externos não entram pela mera proximidade.** | **Aprovada expressamente pelo fundador em 18/11/2026**. F2/F3 somente simulação/Draft; ainda exige verificação confiável de município da origem e posição do prestador pelo backend, testes de fronteira e decisão de destino de reboque. Não gera promessa de cobertura ou despacho real. |
 
+| SM-DEC-049 | **Destino de reboque pode ser em município fora de Belo Horizonte, Contagem e Betim**, desde que a origem do chamado e a base do prestador permaneçam na praça inicial aprovada (SM-DEC-048), o prestador concorde com o percurso e sua disponibilidade, e apresente orçamento prévio com serviço e deslocamento discriminados. O solicitante aceita ou recusa o total antes de qualquer pagamento. Os anéis 5/15/60 km (SM-DEC-047) são somente para localizar o prestador em relação à origem, **não** limitam automaticamente a quilometragem de transporte até o destino. | **Aprovada expressamente pelo fundador em 18/11/2026**. Não equivale a cobertura garantida, despacho, aceitação presumida do profissional, regra de frete ilimitado ou autorização de pagamento. O destino, trajeto rodoviário, custos, condições de transporte, segurança e limites efetivamente aceitos exigem verificação/homologação e consentimento do prestador; regras jurídicas e tributárias pendentes. |
+
 ## Definições técnicas adotadas, ajustáveis após testes
 
 - Heartbeat de prestador aproximadamente a cada 30 segundos; presença considerada efetiva com sinal recente, dentro de janela de cerca de 90 segundos.
-- Busca piloto no mesmo município: priorizar prestadores online mais próximos e ampliar progressivamente a área quando não houver atendimento; usar proximidade aproximada quando houver coordenadas.
+- Busca piloto entre **Belo Horizonte, Contagem e Betim (MG)**: priorizar prestadores online mais próximos e ampliar progressivamente em **5/15/60 km** apenas em relação ao ponto de coleta; para reboque, destino em outros municípios depende da aceitação e do orçamento do prestador, sem promessa de cobertura.
 - Em cada rodada, preferir quem tem zero recusas, depois quem tem uma; nunca devolver imediatamente a proposta ao profissional recém-recusado.
 - Encerrar solicitação de **teste** usa estado cancelado. A conclusão de serviço real exige outra lógica.
 - Cada solicitação tem ID independente e histórico de tentativas próprio.
@@ -74,7 +76,7 @@ Aprovado significa **definido pelo responsável do produto**, não necessariamen
 | SM-OPEN-001 | Pessoa jurídica, razão social, CNPJ e contatos oficiais | Contratos, notas e canal de atendimento |
 | SM-OPEN-002 | Escolha/homologação de PSP, Pix/cartões, custo efetivo, split e liquidação compatíveis com a retenção/repasses aprovados | Implementar sem taxas-surpresa e com transparência |
 | SM-OPEN-003 | Critérios complementares, checagem, catálogo de serviços e guarda segura dos dados de homologação | Segurança, privacidade e legalidade |
-| SM-OPEN-004 | Anéis 5/15/60 km e municípios BH/Contagem/Betim aprovados; pendem verificação de geocodificação/limites municipais, método de distância, destino de reboque e homologação da cobertura do prestador | Área do piloto definida; ainda sem cobertura comercial garantida ou validação em campo |
+| SM-OPEN-004 | Anéis 5/15/60 km e origem/base em BH/Contagem/Betim aprovados; destino do reboque liberado para outros municípios somente com aceite/orçamento do prestador. Pendes: comprovação geográfica dos municípios, distância viária, rota, segurança e homologação da cobertura/capacidade | Busca e política do destino aprovadas, porém sem cobertura comercial garantida e ainda sem homologação em campo |
 | SM-OPEN-005 | Implementação, consentimento e homologação em dispositivos reais das notificações | Garantir que o prazo de resposta seja justo e auditável |
 | SM-OPEN-006 | Critérios publicados de revisão de valores potencialmente abusivos/incoerentes | Transparência sem tabela fixa ou ajuste automático |
 | SM-OPEN-007 | Implementação/homologação de cancelamento, estorno, taxas e mediação pós-pagamento | Direitos e incidentes |
@@ -123,6 +125,8 @@ Aprovado significa **definido pelo responsável do produto**, não necessariamen
 - **18/11/2026 — SM-DEC-047:** fundador definiu anéis de busca **5 km → 15 km → 60 km**, substituindo 1/3/10 km ilustrativos para F2/F3; atividade comercial não autorizada. Registro e testes candidatos em PR dependente do #65.
 
 - **18/11/2026 — SM-DEC-048:** fundador delimitou a praça inicial aos três municípios Belo Horizonte, Contagem e Betim (MG). Busca cruzada permitida entre eles, mantendo os anéis 5/15/60 km e o respeito à área declarada. Outros municípios não participam automaticamente. Candidatos F2/F3 offline em PR empilhado sobre o #70.
+
+- **18/11/2026 — SM-DEC-049:** fundador autorizou destinos de reboque em municípios externos à praça BH/Contagem/Betim, condicionados à disponibilidade e ao orçamento do prestador. O limite de 60 km permanece para localizar prestadores próximos à origem, não para limitar o trajeto do veículo rebocado. Sem ativação real; validação somente em código candidato/Draft.
 
 ## Controle de alteração
 
