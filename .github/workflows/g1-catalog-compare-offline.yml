@@ -71,7 +71,7 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: "24"
-      - name: PowerShell 5.1: preparar binarios PG17 apenas no modo sem rede
+      - name: "PowerShell 5.1 — preparar binarios PG17 apenas no modo sem rede"
         shell: pwsh
         run: |
           & powershell.exe -NoLogo -NoProfile -ExecutionPolicy Bypass -File tests/g1-prepare-pg17-portable.test.ps1
