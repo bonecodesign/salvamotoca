@@ -96,7 +96,8 @@ function Assert-Repository {
 # initializes a database cluster, changes the PATH, or creates a directory.
 if ($Verify) {
     Require (-not $Apply -and -not $Plan) 'VERIFY_MODE_CONFLICT'
-    Assert-Repository
+    Require ([Environment]::Is64BitOperatingSystem -and $env:OS -eq 'Windows_NT') 'REQUIRES_WINDOWS_X64'
+    # The read-only check does not need a Git checkout: it never modifies local or hosted data.
     Require ($TestRoot.StartsWith($ProjectBase + '\', [StringComparison]::OrdinalIgnoreCase)) 'UNSAFE_TARGET'
     Require ($Destination.StartsWith($TestRoot + '\', [StringComparison]::OrdinalIgnoreCase)) 'UNSAFE_TARGET'
     if (-not (Test-Path -LiteralPath $Destination -PathType Container)) {
