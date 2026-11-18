@@ -92,6 +92,18 @@ O módulo puro `f23-support-hybrid-offline.js`, função `planDutyCoverage`, dem
 
 **SM-OPEN-009 permanece parcialmente aberto:** confirmar horário e escala de trabalho, responsáveis e substitutos, cobertura de feriados, canal de contato, tempo de resposta e contingência de incidentes críticos, privacidade de dados e governança financeira/jurídica. Sem prova desses recursos, **G1=BLOCKED; RELEASE=NO_GO**.
 
+## SM-DEC-053 — responsável inicial pelo plantão: fundador
+
+**Aprovado em 18/11/2026:** a operação do suporte e o plantão crítico começam sob responsabilidade **do fundador do Salva Motoca!**. Uma **segunda pessoa será designada mais adiante**. Até que ela exista, não há segundo operador homologado, substituto assumindo chamadas, cobertura de folgas ou turno de ausência. Atribuição de responsabilidade não garante disponibilidade 24h.
+
+Planejamento da continuidade:
+1. **Titular inicial:** papel `founder` como primeira referência para incidentes críticos, não um contato pessoal público. Identidade/autenticação, canal de alerta, tempo de reconhecimento e acesso ao painel ainda devem ser homologados com o titular.
+2. **Ausência do titular:** se não houver comprovação de disponibilidade e canal ativo, classificar cobertura crítica como **indisponível**, registrar risco e não declarar que alguém responderá. O piloto comercial segue bloqueado até um procedimento humano seguro, inclusive para incidentes noturnos.
+3. **Substituto futuro:** receberá apenas permissões mínimas e função de escalonamento após designação expressa, treinamento, aceite, testes de alerta, revisão de privacidade, separação de funções financeiras e confirmação da escala. Não adicionar nome, credenciais ou dados pessoais às fixtures.
+4. **Operação real:** exigirá recepção auditável do relato, confirmação de ciência do humano, registros de decisão/tempo e um canal de contingência. A ausência de resposta não pode permitir liberação automática de repasses, cancelamento irreversível ou falsa conclusão.
+
+A prévia `planOnCallEscalation` no módulo puro `f23-support-hybrid-offline.js` modela titular primeiro e substituto habilitado apenas em cenário futuro sintético. Nenhum alerta é enviado, nenhum canal é verificado e **nenhum plantão é ativado** pela simulação. **SM-OPEN-009 continua aberto; G1=BLOCKED; RELEASE=NO_GO.**
+
 ## Dependências restantes
 
 1. Conciliar os PRs empilhados #42 → #44 → ... → #57 → #61 → #62 → #63 → #64 e este PR, sem merge automático e sem integrar o módulo local a um emissor real.
