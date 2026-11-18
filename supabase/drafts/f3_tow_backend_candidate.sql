@@ -204,6 +204,9 @@ begin
  if p_pickup_lat is null or p_pickup_lng is null
    or p_pickup_lat not between -90 and 90 or p_pickup_lng not between -180 and 180
    or length(btrim(coalesce(p_pickup_city,''))) not between 2 and 80
+    or lower(btrim(coalesce(p_pickup_city,''))) not in
+      ('belo horizonte','contagem','betim')
+    or p_pickup_state is distinct from 'MG'
    or p_pickup_state is null or p_pickup_state !~ '^[A-Z]{2}$'
    or length(btrim(coalesce(p_destination_city,''))) not between 2 and 80
    or p_destination_state is null or p_destination_state !~ '^[A-Z]{2}$'
@@ -334,7 +337,8 @@ begin
  select coalesce(max(round_number),0)+1 into v_round
    from public.f2_request_offers where request_id=p_request_id;
  if v_round>20 then raise exception 'Limite de rodadas atingido.'; end if;
- for v_ring in select unnest(array[1,3,10]::integer[]) loop
+ -- SM-DEC-047/048: raios e cidades piloto; SQL candidato, nunca produção.
+   for v_ring in select unnest(array[5,15,60]::integer[]) loop
    for candidate in
      select p.id as provider_id,
        private.f2_distance_km(v_req.latitude,v_req.longitude,p.latitude,p.longitude) as dist
@@ -348,7 +352,10 @@ begin
        and cap.tie_down_points>=2 and cap.max_moto_kg>=v_tow.motorcycle_weight_kg
      left join public.f2_provider_capacity basic on basic.provider_id=p.id
      where p.status='approved' and p.is_active
-       and p.city=v_tow.pickup_city and p.state_code=v_tow.pickup_state_code
+       and lower(btrim(p.city)) in ('belo horizonte','contagem','betim')
+        and p.state_code='MG'
+        and lower(btrim(v_tow.pickup_city)) in ('belo horizonte','contagem','betim')
+        and v_tow.pickup_state_code='MG'
        and p.latitude is not null and p.longitude is not null
        and private.f2_distance_km(v_req.latitude,v_req.longitude,p.latitude,p.longitude)
          <=least(v_ring,cap.coverage_km)

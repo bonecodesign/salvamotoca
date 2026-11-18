@@ -321,3 +321,25 @@ test("Anel de 60 km não substitui limite de cobertura declarado pelo prestador"
  assert.equal(run(tow(),[nearTow("limited",{location:remote,
   capacity:{...capacity(),coverageKm:20}})]).status,"no_provider");
 });
+
+// SM-DEC-048 — as três cidades formam uma ÚNICA praça, sem estender a RMG toda.
+test("F2/F3 permitem atendimento cruzado entre BH, Contagem e Betim",()=>{
+ const t=tire();t.city="Contagem";
+ const fromBh=run(t,[nearTire("bh",{city:"Belo Horizonte"})]);
+ assert.equal(fromBh.status,"invite_mock");
+ assert.equal(fromBh.radiusKm,5);
+ const towRequest=tow();towRequest.pickupCity="Betim";
+ const fromContagem=run(towRequest,[nearTow("contagem",{city:"Contagem"})]);
+ assert.equal(fromContagem.status,"invite_mock");
+ assert.equal(fromContagem.radiusKm,5);
+ proveNoAuthority(fromBh);proveNoAuthority(fromContagem);
+});
+test("F2/F3 nunca expandem para municípios não autorizados, mesmo a poucos metros",()=>{
+ const fromOutside=tire();fromOutside.city="Sabará";
+ assert.equal(run(fromOutside,[nearTire("bh")]).status,"no_provider");
+ const notPartner=nearTire("out",{city:"Nova Lima",coverageKm:60});
+ assert.equal(run(tire(),[notPartner]).status,"no_provider");
+ const towRequest=tow();towRequest.pickupCity="Nova Lima";
+ assert.equal(run(towRequest,[nearTow("bh")]).status,"no_provider");
+ assert.equal(run(tow(),[nearTow("out",{city:"Sabará"})]).status,"no_provider");
+});

@@ -31,7 +31,10 @@ test("F2: tipos múltiplos válidos e reboque bloqueado até F3",()=>{
 test("F2: cidade e estado são comparados sem caixa/acentos",()=>{
   const p=provider("a",{city:"BELO HORIZONTE",stateCode:"mg"});
   assert.equal(distribute([p]).candidates.length,1);
-  assert.equal(distribute([provider("b",{city:"Contagem"})]).status,"no_provider");
+  assert.equal(distribute([provider("b",{city:"Contagem"})]).candidates.length,1);
+  assert.equal(distribute([provider("c",{city:"Betim"})]).candidates.length,1);
+  assert.equal(distribute([provider("d",{city:"Sabará"})]).status,"no_provider");
+  assert.equal(distribute([provider("e",{city:"Contagem",stateCode:"SP"})]).status,"no_provider");
 });
 test("F2: somente prestador homologado, ativo, delivery ativo",()=>{
   for(const patch of [{approved:false},{active:false},{deliveryEnabled:false},{serviceActive:false}]){
@@ -245,4 +248,19 @@ test("F2: recusa proposta duplicada antes de escolher vencedor",()=>{
   const offers=sampleOffers();offers[1].id=offers[0].id;
   assert.throws(()=>F2.selectWinningQuote({quotes:offers,quoteId:"quote-a",
     customerId:"cliente",actingUserId:"cliente",now:NOW+1000}),/duplicada/);
+});
+
+test("F2: origem também deve estar em BH, Contagem ou Betim",()=>{
+  for(const city of ["Belo Horizonte","Contagem","Betim"]){
+    const req={...REQ,city};
+    const providers=[provider("a",{city:"Betim"})];
+    assert.equal(F2.distribute({providers,request:req,radiiKm:[5,15,60],now:NOW}).status,"candidates");
+  }
+  for(const city of ["Sabará","Nova Lima","São Paulo"]){
+    const req={...REQ,city};
+    assert.equal(F2.distribute({providers:[provider("a")],request:req,radiiKm:[5,15,60],now:NOW}).status,"no_provider");
+  }
+  const wrongState={...REQ,city:"Betim",stateCode:"SP"};
+  assert.equal(F2.distribute({providers:[provider("a")],request:wrongState,radiiKm:[5,15,60],now:NOW}).status,"no_provider");
+  assert.deepEqual(F2.PILOT_CITIES,["belo horizonte","contagem","betim"]);
 });

@@ -16,9 +16,14 @@
   const MAX_QUOTE_CENTS=500000;
   const COMMISSION_BPS=1000; // cada lado paga 10% do SERVIÇO; materiais inclusos.
   const PRESENCE_MS=90000;
+  // SM-DEC-048: cobertura municipal da origem, não do destino privado de reboque.
+  const PILOT_CITIES=Object.freeze(["belo horizonte","contagem","betim"]);
   function ensure(ok,message){if(!ok)throw new Error(message)}
   function string(v){return typeof v==="string"?v.trim():""}
   function city(v){return string(v).normalize("NFD").replace(/[\u0300-\u036f]/g,"").toLowerCase()}
+  function isPilotPlace(cityName,stateCode){
+    return string(stateCode).toUpperCase()==="MG" && PILOT_CITIES.includes(city(cityName));
+  }
   function integer(v,min,max,name){
     ensure(Number.isSafeInteger(v)&&v>=min&&v<=max,name+" fora da faixa permitida.");
     return v;
@@ -101,9 +106,9 @@
     const last=typeof provider.lastSeenAt==="number"?provider.lastSeenAt:Date.parse(provider.lastSeenAt);
     if(!Number.isFinite(last)||last>now||now-last>PRESENCE_MS)
       return {ok:false,reason:"Presença expirada"};
-    if(city(provider.city)!==city(tow.pickup.city)
-      ||provider.stateCode!==tow.pickup.stateCode)
-      return {ok:false,reason:"Fora da praça inicial"};
+    if(!isPilotPlace(tow.pickup.city,tow.pickup.stateCode)
+      ||!isPilotPlace(provider.city,provider.stateCode))
+      return {ok:false,reason:"Fora dos três municípios do piloto"};
     let capacity;
     try{capacity=validateProviderCapacity(provider.capacity)}
     catch(e){return {ok:false,reason:"Equipamento sem capacidade válida"}}
@@ -171,7 +176,7 @@
   }
   return Object.freeze({
     EQUIPMENT,REBOQUE,BASIC,ALL,PRESENCE_MS,COMMISSION_BPS,
-    validateTowRequest,publicSummary,validateProviderCapacity,eligibleProvider,
+    validateTowRequest,publicSummary,validateProviderCapacity,eligibleProvider,isPilotPlace,PILOT_CITIES,
     findTowProviders,quoteTow,distanceKm,servicesOf
   });
 });

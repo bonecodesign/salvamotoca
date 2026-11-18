@@ -1,4 +1,4 @@
--- Synthetic locations in Belo Horizonte for LOCAL PG17 tests ONLY.
+-- Synthetic BH / Contagem / Betim identities for LOCAL PG17 tests ONLY.
 -- Latitude/longitude here are invented fixtures, never device or user location.
 insert into public.service_categories(id,code) values(2,'borracharia_delivery');
 insert into public.providers(
@@ -12,10 +12,10 @@ insert into public.providers(
  'Belo Horizonte','MG',-19.926,-43.940),
 ('bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb',
  '33333333-3333-4333-8333-333333333333','Provedor Ficticio B','approved',true,
- 'Belo Horizonte','MG',-20.008,-43.940),
+ 'Contagem','MG',-20.008,-43.940),
 ('cccccccc-cccc-4ccc-8ccc-cccccccccccc',
  '44444444-4444-4444-8444-444444444444','Provedor Ficticio C','approved',true,
- 'Belo Horizonte','MG',-20.270,-43.940),
+ 'Betim','MG',-20.270,-43.940),
 ('dddddddd-dddd-4ddd-8ddd-dddddddddddd',
  '55555555-5555-4555-8555-555555555555','Provedor Ficticio D','suspended',false,
  'Belo Horizonte','MG',-19.921,-43.940),

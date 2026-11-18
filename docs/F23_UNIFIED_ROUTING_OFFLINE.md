@@ -37,6 +37,14 @@ O novo módulo `f23-routing-bridge-offline.js` é **um planejador puro em Node**
 
 **Nota de segurança:** o histórico entregue ao planejador é usado somente para simulação. Em produção, as decisões de estado devem ser tomadas por transação no servidor, com JWT/Auth e RLS revisados, prova independente do estado da proposta, idempotência, localização protegida, controle de retries e integração real de F2/F3 com PSP validado. Um JSON malicioso não pode ser fonte de autorização.
 
+## SM-DEC-048 — municípios do piloto (18/11/2026)
+
+O fundador aprovou **somente Belo Horizonte, Contagem e Betim (MG)** para a praça inicial. As três cidades formam um conjunto autorizado: F2 e F3 podem selecionar prestadores com base em qualquer uma das três cidades para uma **origem de pedido também em uma delas**, desde que a distância geográfica esteja nos anéis **5/15/60 km** e o prestador esteja homologado, online, compatível e dentro da cobertura que declarou. **Sabará, Nova Lima e outros municípios da RMBH ficam excluídos**, mesmo se estiverem a poucos metros.
+
+A triagem do código Node é uma simulação e **não comprova limites municipais reais** a partir de coordenadas. Antes de ativar o servidor, a origem do chamado e a base do prestador exigem verificação geográfica confiável por servidor; campos de cidade enviados pelo próprio cliente não bastam. A política sobre a **cidade de destino do reboque** ainda depende de definição separada: a autorização municipal nesta etapa se refere à **origem do atendimento e ao prestador**, sem decidir rotas finais.
+
+As funções SQL candidatas F2/F3 e as fixtures descartáveis são apenas propostas; nenhum SQL foi aplicado ao Supabase. **G1=BLOCKED; RELEASE=NO_GO**.
+
 ## Dependências restantes
 
 1. Conciliar os PRs empilhados #42 → #44 → ... → #57 → #61 → #62 → #63 → #64 e este PR, sem merge automático e sem integrar o módulo local a um emissor real.

@@ -116,7 +116,7 @@ begin
    join public.f2_provider_capacity cap on cap.provider_id=p.id
      and cap.service_types @> v_req.service_types
    where p.status='approved' and p.is_active
-     and p.city='Belo Horizonte' and p.state_code='MG'
+     and lower(btrim(p.city)) in ('belo horizonte','contagem','betim') and p.state_code='MG'
      and p.latitude between -90 and 90
      and p.longitude between -180 and 180
      and cap.coverage_km>=private.f2_distance_km(

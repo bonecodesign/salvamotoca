@@ -91,7 +91,9 @@ test("F3: heartbeat expira em 90 segundos e não aceita relógio futuro",()=>{
  assert.equal(find([provider("a",{lastSeenAt:T+1})]).status,"no_provider");
 });
 test("F3: cobertura por proximidade e município de origem",()=>{
- assert.equal(find([provider("a",{city:"Contagem"})]).status,"no_provider");
+ assert.equal(find([provider("a",{city:"Contagem"})]).status,"candidates");
+ assert.equal(find([provider("a",{city:"Betim"})]).status,"candidates");
+ assert.equal(find([provider("a",{city:"Sabará"})]).status,"no_provider");
  assert.equal(find([provider("a",{location:{lat:-20.3,lng:-43.95}})]).status,"no_provider");
  assert.equal(find([provider("a",{capacity:{...capacity(),coverageKm:1}})]).candidates.length,1);
 });
@@ -159,4 +161,19 @@ test("F3: jamais calcula distância de endereço exato confidencial",()=>{
  const d=F.distanceKm(req.pickupLocation,p.location);
  assert.ok(d<1);
  assert.equal(F.distanceKm({lat:999,lng:0},p.location),Infinity);
+});
+
+test("F3: origem e prestador podem estar em BH, Contagem ou Betim; destino não determina elegibilidade",()=>{
+ for(const pickupCity of ["Belo Horizonte","Contagem","Betim"]){
+  const req=F.validateTowRequest({...base(),pickupCity,destinationCity:"Nova Lima"});
+  const out=find([provider("a",{city:"Betim"})],req);
+  assert.equal(out.status,"candidates");
+ }
+ for(const pickupCity of ["Sabará","Nova Lima"]){
+  const req=F.validateTowRequest({...base(),pickupCity});
+  assert.equal(find([provider("a")],req).status,"no_provider");
+ }
+ const req=request();
+ assert.equal(find([provider("a",{city:"Betim",stateCode:"SP"})],req).status,"no_provider");
+ assert.deepEqual(F.PILOT_CITIES,["belo horizonte","contagem","betim"]);
 });
