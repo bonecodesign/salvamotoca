@@ -97,21 +97,39 @@ test('CLI exige dois caminhos privados e distintos',()=>{
   ['--run'],['--compare','--host','db.supabase.co','--source','x']
  ])assert.throws(()=>parseArgs(args),/ARGS_INVALID/);
 });
-test('CLI permite ficheiros locais fora do GitHub mas recusa symlink e repo',t=>{
+test('CLI permite snapshots privados fora do checkout e recusa arquivos do repo',t=>{
  const now=Date.now(),folder=mkdtempSync(join(tmpdir(),'g1-compare-offline-'));
  t.after(()=>rmSync(folder,{recursive:true,force:true}));
- const a=join(folder,'source.json'),b=join(folder,'restore.json'),link=join(folder,'alias.json');
+ const a=join(folder,'source.json'),b=join(folder,'restore.json');
  writeFileSync(a,JSON.stringify(sample(now-2000)));
  writeFileSync(b,JSON.stringify(sample(now-1000)));
  const out=execFileSync(process.execPath,[script,'--compare','--source',a,'--restore',b],{encoding:'utf8'});
  assert.equal(JSON.parse(out).decision,'REVIEW_REQUIRED_NO_GO');
- symlinkSync(a,link);
- const bad=spawnSync(process.execPath,[script,'--compare','--source',link,'--restore',b],{encoding:'utf8'});
- assert.notEqual(bad.status,0);
- assert.match(bad.stderr,/PRIVATE_EVIDENCE_FILE_INVALID/);
  const repoBad=spawnSync(process.execPath,[script,'--compare','--source',script,'--restore',b],{encoding:'utf8'});
  assert.notEqual(repoBad.status,0);
  assert.match(repoBad.stderr,/EVIDENCE_MUST_STAY_OUTSIDE_REPOSITORY/);
+});
+test('CLI recusa symlink de evidencias quando o sistema permite cria-lo',t=>{
+ const now=Date.now(),folder=mkdtempSync(join(tmpdir(),'g1-symlink-offline-'));
+ t.after(()=>rmSync(folder,{recursive:true,force:true}));
+ const a=join(folder,'source.json'),b=join(folder,'restore.json'),link=join(folder,'alias.json');
+ writeFileSync(a,JSON.stringify(sample(now-2000)));
+ writeFileSync(b,JSON.stringify(sample(now-1000)));
+ try{
+  symlinkSync(a,link,'file');
+ }catch(error){
+  // Windows sem Developer Mode ou privilégio SeCreateSymbolicLinkPrivilege.
+  // O código de produção continua recusando links; não exigir elevação.
+  if(process.platform==='win32'&&['EPERM','EACCES','ENOTSUP'].includes(error?.code)){
+   t.diagnostic('Windows não permite criar symlink de arquivo; somente este subteste é ignorado.');
+   t.skip('sem privilégio Windows para criar symlink; sem concessão de administrador');
+   return;
+  }
+  throw error;
+ }
+ const bad=spawnSync(process.execPath,[script,'--compare','--source',link,'--restore',b],{encoding:'utf8'});
+ assert.notEqual(bad.status,0);
+ assert.match(bad.stderr,/PRIVATE_EVIDENCE_FILE_INVALID/);
 });
 test('Consulta de fingerprint so possui SELECT de metadados e contagens',()=>{
  const code=readFileSync(new URL('../docs/G1_CATALOG_FINGERPRINT_READONLY.sql',import.meta.url),'utf8');
