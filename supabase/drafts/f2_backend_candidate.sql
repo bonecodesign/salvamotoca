@@ -15,10 +15,11 @@ create table private.f2_release_gate (
 insert into private.f2_release_gate(singleton,enabled) values (true,false);
 revoke all on private.f2_release_gate from public,anon,authenticated;
 
+-- SM-DEC-047: máximo de cobertura por prestador 60 km (somente proposta offline).
 create table public.f2_provider_capacity (
   provider_id uuid primary key references public.providers(id) on delete cascade,
   service_types text[] not null,
-  coverage_km numeric(6,2) not null check (coverage_km between 0.1 and 30),
+  coverage_km numeric(6,2) not null check (coverage_km between 0.1 and 60),
   updated_at timestamptz not null default now(),
   constraint f2_capabilities_valid check (
     cardinality(service_types) between 1 and 5 and
@@ -155,7 +156,7 @@ begin
      or not p_services <@ array['pneu_furado','troca_camara','troca_pneu',
        'calibragem_valvula','outro']::text[]
      or (select count(distinct s) from unnest(p_services) s) <> cardinality(p_services)
-     or p_coverage_km is null or p_coverage_km not between 0.1 and 30
+     or p_coverage_km is null or p_coverage_km not between 0.1 and 60
   then raise exception 'Capacidades ou cobertura inválidas.'; end if;
   select id into v_provider from public.providers where owner_id=v_user;
   if v_provider is null then raise exception 'Prestador não encontrado.'; end if;

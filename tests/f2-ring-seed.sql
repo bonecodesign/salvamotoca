@@ -12,10 +12,10 @@ insert into public.providers(
  'Belo Horizonte','MG',-19.926,-43.940),
 ('bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb',
  '33333333-3333-4333-8333-333333333333','Provedor Ficticio B','approved',true,
- 'Belo Horizonte','MG',-19.941,-43.940),
+ 'Belo Horizonte','MG',-20.008,-43.940),
 ('cccccccc-cccc-4ccc-8ccc-cccccccccccc',
  '44444444-4444-4444-8444-444444444444','Provedor Ficticio C','approved',true,
- 'Belo Horizonte','MG',-19.985,-43.940),
+ 'Belo Horizonte','MG',-20.270,-43.940),
 ('dddddddd-dddd-4ddd-8ddd-dddddddddddd',
  '55555555-5555-4555-8555-555555555555','Provedor Ficticio D','suspended',false,
  'Belo Horizonte','MG',-19.921,-43.940),
@@ -29,7 +29,7 @@ select id,true,pg_catalog.now() from public.providers;
 insert into public.f2_provider_capacity(provider_id,service_types,coverage_km)
 select id,case when id='eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee'
  then array['troca_pneu']::text[] else array['pneu_furado']::text[] end,
- 15 from public.providers;
+ 60 from public.providers;
 insert into public.service_requests(
  id,customer_id,category_id,service_types,latitude,longitude,
  f2_mode,status,problem_description

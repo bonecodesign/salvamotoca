@@ -55,6 +55,8 @@ Aprovado significa **definido pelo responsável do produto**, não necessariamen
 | SM-DEC-045 | **Modelo de comissão aprovado em 16/11/2026:** 10% da base de serviços é acrescido ao pagamento do solicitante e 10% dessa mesma base é deduzido do repasse do prestador. A plataforma reconhece, teoricamente, 20% do valor do serviço como receita bruta de intermediação. **O deslocamento não entra na base.** | **Decisão comercial vigente**; substitui percentuais/pagadores das decisões SM-DEC-014, -017, -034 e -043. Sem ativação de cobrança, exige revisão jurídica, tributária e PSP homologado. |
 | SM-DEC-046 | **Orçamento apresentado em somente duas categorias: SERVIÇO (inclui os materiais/peças necessários) e DESLOCAMENTO (apresentado separadamente).** Não cobrar materiais como uma terceira linha nem acrescentá-los novamente ao total. Vários serviços solicitados podem ser detalhados internamente, mas a proposta consolida o preço de serviço com materiais inclusos; extras exigem novo orçamento e aceite. | **Decisão de produto vigente** em 16/11/2026; substitui a separação de peças/materiais aprovada em SM-DEC-041 e -042. Código candidato F2/F3/F4 preparado em Draft PR #56/#57, testado offline; implementação real pendente. |
 
+| SM-DEC-047 | **Raios progressivos de busca: 5 km → 15 km → 60 km** para convite de orçamento de borracharia delivery (F2) e reboque (F3). Priorizar os mais próximos; ampliar somente quando não houver candidato elegível ou após recusa/expiração corretamente registrada, respeitando área declarada e habilitação do prestador. | **Aprovada expressamente pelo fundador em 18/11/2026**; substitui parâmetros ilustrativos 1/3/10 km. Implementação F2/F3 permanece offline/Draft, sem notificação, cobrança ou despacho real; critério de distância viária/geodésica, abrangência intermunicipal e validação em campo ainda pendentes. |
+
 ## Definições técnicas adotadas, ajustáveis após testes
 
 - Heartbeat de prestador aproximadamente a cada 30 segundos; presença considerada efetiva com sinal recente, dentro de janela de cerca de 90 segundos.
@@ -70,7 +72,7 @@ Aprovado significa **definido pelo responsável do produto**, não necessariamen
 | SM-OPEN-001 | Pessoa jurídica, razão social, CNPJ e contatos oficiais | Contratos, notas e canal de atendimento |
 | SM-OPEN-002 | Escolha/homologação de PSP, Pix/cartões, custo efetivo, split e liquidação compatíveis com a retenção/repasses aprovados | Implementar sem taxas-surpresa e com transparência |
 | SM-OPEN-003 | Critérios complementares, checagem, catálogo de serviços e guarda segura dos dados de homologação | Segurança, privacidade e legalidade |
-| SM-OPEN-004 | Parâmetros de distância, etapas de expansão, limite operacional e validação da área declarada | Chamados viáveis sem impor deslocamento inviável |
+| SM-OPEN-004 | Anéis aprovados (5/15/60 km); pendentes método de medir distâncias, alcance intermunicipal, limite/viabilidade de deslocamento e validação da cobertura declarada | Política de busca definida, ainda sem promessa de cobertura e sem homologação em campo |
 | SM-OPEN-005 | Implementação, consentimento e homologação em dispositivos reais das notificações | Garantir que o prazo de resposta seja justo e auditável |
 | SM-OPEN-006 | Critérios publicados de revisão de valores potencialmente abusivos/incoerentes | Transparência sem tabela fixa ou ajuste automático |
 | SM-OPEN-007 | Implementação/homologação de cancelamento, estorno, taxas e mediação pós-pagamento | Direitos e incidentes |
@@ -115,6 +117,8 @@ Aprovado significa **definido pelo responsável do produto**, não necessariamen
 - **13/11/2026 — SM-DEC-044:** reboque segue o mesmo fluxo da borracharia, com requisito adicional de capacidade/equipamento compatível declarado pelo prestador.
 
 - **16/11/2026 — SM-DEC-045/046:** decisão posterior prevalece sobre a comissão anterior de 15% e a apresentação separada de peças. **10% do serviço ao solicitante + 10% do serviço ao prestador**, deslocamento sem comissão; materiais já incluídos no preço do serviço. Aprovação comercial não equivale a cobrança liberada. Candidatos F2–F7 em Draft PR #57 testados offline; não executar merge sem revisão da cadeia, PSP e gates reais.
+
+- **18/11/2026 — SM-DEC-047:** fundador definiu anéis de busca **5 km → 15 km → 60 km**, substituindo 1/3/10 km ilustrativos para F2/F3; atividade comercial não autorizada. Registro e testes candidatos em PR dependente do #65.
 
 ## Controle de alteração
 
