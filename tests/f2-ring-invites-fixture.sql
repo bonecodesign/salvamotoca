@@ -1,7 +1,7 @@
 -- Salva Motoca! F2 proximity/radius invitation test candidate.
 -- PostgreSQL 17 DISPOSABLE ONLY; requires F2 stage/setup and F2 backend candidate.
 -- Not a migration, no push, no SMS, no GPS disclosure, no Supabase hosted writes.
--- 1/3/10 km are illustrative, NOT operationally approved constants.
+-- SM-DEC-047: 5/15/60 km approved by founder, offline-only candidate.
 
 create table private.f2_mock_ring_gate(
  singleton boolean primary key default true check(singleton),
@@ -106,7 +106,7 @@ begin
  -- expanding to a more distant ring. Never duplicate invitations.
  -- Each call invites at most ONE provider; active invites block progression.
  for v_ring in greatest(1,v_progress.ring_index)..3 loop
-   v_radius:=case v_ring when 1 then 1 when 2 then 3 else 10 end;
+   v_radius:=case v_ring when 1 then 5 when 2 then 15 else 60 end;
    select p.id into v_provider from public.providers p
    join public.provider_services ps on ps.provider_id=p.id
      and ps.category_id=v_req.category_id and ps.is_active
