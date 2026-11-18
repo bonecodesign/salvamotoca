@@ -1,4 +1,4 @@
--- F2 synthetic 1/3/10km ring escalation adversarial, PG17 isolated only.
+-- F2 synthetic 5/15/60km ring escalation adversarial, PG17 isolated only.
 -- Changes deliberately rolled back; zero remote messages or real deliveries.
 begin;
 do $$
@@ -37,7 +37,7 @@ declare
 begin
  result:=private.f2_mock_advance_ring(r,1000000);
  if result->>'status'<>'invited_mock' or (result->>'ring')::int<>1
-  or result->>'providerId'<>a::text
+  or (result->>'radiusKm')::int<>5 or result->>'providerId'<>a::text
  then raise exception 'FIRST_RING_NOT_NEAREST'; end if;
  offer:=(result->>'offerId')::uuid;
  if (private.f2_mock_advance_ring(r,1000010))->>'status'<>'waiting'
@@ -70,7 +70,7 @@ begin
  -- No mock ACK/delivery => can retry another provider, no absence credited.
  result:=private.f2_mock_advance_ring(r,1700000);
  if result->>'status'<>'invited_mock' or (result->>'ring')::int<>2
-  or result->>'providerId'<>b::text
+  or (result->>'radiusKm')::int<>15 or result->>'providerId'<>b::text
  then raise exception 'SECOND_RING_AFTER_NEAR_EXHAUSTION'; end if;
  if not exists(select 1 from private.f2_mock_invites
     where request_id=r and provider_id=f
@@ -89,7 +89,7 @@ begin
 
  result:=private.f2_mock_advance_ring(r,1710001);
  if result->>'status'<>'invited_mock' or (result->>'ring')::int<>3
-  or result->>'providerId'<>c::text
+  or (result->>'radiusKm')::int<>60 or result->>'providerId'<>c::text
  then raise exception 'FAR_THIRD_RING_NOT_LAST'; end if;
  if (select count(*) from private.f2_mock_invites where request_id=r)<>4
  or (select count(distinct provider_id) from private.f2_mock_invites
