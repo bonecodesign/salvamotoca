@@ -17,6 +17,8 @@
   const REMINDERS_MS = Object.freeze([2 * 60 * 1000, 4.5 * 60 * 1000]);
   const CODES = Object.freeze(["pneu_furado", "troca_camara", "troca_pneu", "calibragem_valvula", "outro"]);
   const BLOCKED_CODES = Object.freeze(["reboque_moto"]);
+  // SM-DEC-048: somente BH, Contagem e Betim no piloto; sem garantia de cobertura.
+  const PILOT_CITIES=Object.freeze(["belo horizonte","contagem","betim"]);
 
   function invariant(condition, message) {
     if (!condition) throw new Error(message);
@@ -58,6 +60,9 @@
   function normalizePlace(v) {
     return cleanString(v).normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
   }
+  function isPilotPlace(city,stateCode) {
+    return normalizePlace(stateCode)==="mg" && PILOT_CITIES.includes(normalizePlace(city));
+  }
   function validRings(radii) {
     invariant(Array.isArray(radii) && radii.length > 0 && radii.length <= 10, "Defina áreas progressivas de teste.");
     for (let i = 0; i < radii.length; i++) {
@@ -73,9 +78,9 @@
     if (!p.onlineRequested || !Number.isFinite(toTimeSafe(p.lastSeenAt)) ||
         toTimeSafe(p.lastSeenAt) > now || now - toTimeSafe(p.lastSeenAt) > PRESENCE_MS)
       return { ok: false, reason: "Prestador offline ou sem sinal recente" };
-    if (normalizePlace(p.city) !== normalizePlace(request.city) ||
-        normalizePlace(p.stateCode) !== normalizePlace(request.stateCode))
-      return { ok: false, reason: "Fora da praça piloto" };
+    if (!isPilotPlace(request.city,request.stateCode) ||
+        !isPilotPlace(p.city,p.stateCode))
+      return { ok: false, reason: "Fora dos três municípios do piloto" };
     if (!Array.isArray(p.serviceTypes) || !request.serviceTypes.every(v => p.serviceTypes.includes(v)))
       return { ok: false, reason: "Não atende a todos os serviços pedidos" };
     const lastRefusals = Number(p.rejectionCount || 0);
@@ -230,7 +235,7 @@
   return Object.freeze({
     RESPONSE_MS, QUOTE_MS, PRESENCE_MS, REMINDERS_MS, ABSENCE_WINDOW_MS,
     ABSENCE_REVIEW_THRESHOLD, CODES, BLOCKED_CODES,
-    serviceTypes, distanceKm, distribute, providerEligibility, notificationDecision,
+    serviceTypes, distanceKm, distribute, providerEligibility, isPilotPlace, PILOT_CITIES, notificationDecision,
     absenceReview, quoteBreakdown, quoteDecision, selectWinningQuote, validRings
   });
 });
