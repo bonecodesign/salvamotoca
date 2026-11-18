@@ -4,6 +4,7 @@ const assert=require("node:assert/strict");
 const BR=require("../f23-routing-bridge-offline.js");
 const F2=require("../f2-flow.js");
 const F3=require("../f3-tow.js");
+const SUPPORT=require("../f23-support-hybrid-offline.js");
 
 const NOW=Date.parse("2026-11-17T19:00:00Z");
 const RID="11111111-aaaa-4111-8111-111111111111";
@@ -374,4 +375,64 @@ test("F2/F3 fora do horário comercial nunca inventam atendimento sem online",()
    assert.equal(result.status,"invite_mock");
    proveNoAuthority(result);
  }
+});
+
+// SM-DEC-051: triagem de suporte aprovada, somente simulação.
+test("Suporte híbrido: dúvidas podem receber orientação digital de madrugada, sem humano garantido",()=>{
+ const result=SUPPORT.previewSupportCase({kind:"general_question",
+   eventAt:"2026-11-22T05:15:00Z",humanSupportAvailable:false});
+ assert.equal(result.intakeAvailable24h,true);
+ assert.equal(result.automatedGuidanceOnly,true);
+ assert.equal(result.humanSupportAvailableInMock,false);
+ assert.equal(result.ticketCreated,false);
+ assert.equal(result.customerNotified,false);
+ assert.equal(result.productionAuthorized,false);
+});
+test("Suporte híbrido: divergência de serviço entra em mediação, sem resolução automática",()=>{
+ const x=SUPPORT.previewSupportCase({kind:"service_issue",
+   eventAt:"2026-11-18T13:00:00Z",humanSupportAvailable:false,
+   linkedToActiveRequest:true});
+ assert.equal(x.humanReviewRequired,true);
+ assert.equal(x.queueForHuman,true);
+ assert.equal(x.priority,"routine");
+ assert.equal(x.refundAllowed,false);
+ assert.equal(x.dispatchAllowed,false);
+});
+test("Suporte híbrido: pagamento contestado sugere retenção; repasse continua bloqueado por F4",()=>{
+ const x=SUPPORT.previewSupportCase({kind:"payment_dispute",
+   eventAt:"2026-11-18T13:00:00Z",humanSupportAvailable:false,
+   linkedToActiveRequest:true});
+ assert.equal(x.priority,"high");
+ assert.equal(x.freezeSettlementPendingReview,true);
+ assert.equal(x.payoutAllowed,false);
+ assert.equal(x.refundAllowed,false);
+ const finance=require("../f4-finance.js");
+ const hold=finance.settlementEligibility({paymentVerifiedByServer:true,
+   providerConfirmed:true,customerConfirmed:true,disputeOpen:true});
+ assert.equal(hold.candidateForServerSettlement,false);
+ assert.equal(hold.transferAllowedInThisModule,false);
+});
+test("Suporte híbrido: relato grave à noite pede revisão urgente, sem simular plantão ativo",()=>{
+ for(const humanSupportAvailable of [false,true]){
+   const x=SUPPORT.previewSupportCase({kind:"safety_report",
+     eventAt:"2026-11-22T06:00:00Z",humanSupportAvailable,
+     linkedToActiveRequest:true});
+   assert.equal(x.priority,"critical");
+   assert.equal(x.showEmergencyServiceGuidance,true);
+   assert.equal(x.pauseRequestPendingReview,true);
+   assert.equal(x.freezeSettlementPendingReview,true);
+   assert.equal(x.criticalWithoutHumanCoverage,!humanSupportAvailable);
+   assert.equal(x.humanActionConfirmed,false);
+   assert.equal(x.ticketCreated,false);
+   assert.equal(x.productionAuthorized,false);
+   assert.equal(x.paymentCaptured,false);
+ }
+});
+test("Suporte híbrido: não aceita categorias inventadas ou dados de triagem inválidos",()=>{
+ const x={eventAt:"2026-11-18T13:00:00Z"};
+ assert.throws(()=>SUPPORT.previewSupportCase({...x,kind:"automatically_release_funds"}),/Categoria/);
+ assert.throws(()=>SUPPORT.previewSupportCase({...x,kind:"safety_report",humanSupportAvailable:"yes"}),/Disponibilidade/);
+ assert.throws(()=>SUPPORT.previewSupportCase({...x,kind:"safety_report",linkedToActiveRequest:"yes"}),/Vínculo/);
+ assert.throws(()=>SUPPORT.previewSupportCase({kind:"payment_dispute",eventAt:"not-a-date"}),/Horário/);
+ assert.ok(Object.isFrozen(SUPPORT.KINDS));
 });

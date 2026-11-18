@@ -63,6 +63,20 @@ Se nenhum prestador for elegível, apresentar indisponibilidade (não inventar p
 
 O planejador F2/F3 offline já não continha restrição por relógio; não foi necessário alterar o seu motor para esta decisão. Os testes adicionados validam horários variados, ausência de online ou heartbeat expirado e não acionamento de notificações/pagamentos reais. Nenhuma alteração em produção: **G1=BLOCKED; F1–F7=NO_GO**.
 
+## SM-DEC-051 — suporte híbrido, prioridade de segurança (fundador: opção 3)
+
+O aplicativo poderá **receber relatos e fornecer orientações automáticas 24h**. A triagem digital é separada da **resposta humana**, que ocorrerá em horários/plantões ainda não definidos. Não oferecer garantia de atendimento, resolução ou monitoramento humano 24h. No relato, gerar futuramente protocolo com horário e histórico auditável.
+
+Regras do modelo aprovado, para futuro servidor e procedimentos:
+1. Dúvida simples: informações automáticas de orientação, com encaminhamento humano se necessário; **nenhuma IA ou chatbot contratado foi aprovado**.
+2. Problema de serviço ou divergência: registro de ocorrência e fila de mediação humana, preservando o chat necessário conforme SM-DEC-031 e -039.
+3. Contestação de pagamento: conservar evidências e **impedir repasse automático enquanto houver disputa aberta**; aplicar decisão humana e regras PSP/estorno já aprovadas; não inventar reembolso.
+4. Relato de segurança: **prioridade crítica**, indicação de buscar serviços oficiais de emergência quando houver risco imediato, sinalização para suspender/proteger o chamado e encaminhamento à revisão humana. Uma tela de recebimento automático **não é um plantão de resgate**; antes do lançamento é necessário prover canal de resposta para ocorrências críticas fora do expediente e procedimentos verificáveis.
+
+O módulo `f23-support-hybrid-offline.js` é apenas uma **prévia determinística**: categoriza casos fictícios e devolve *recomendações* de contenção de pedido/repasse. Nunca abre protocolo verdadeiro, não envia notificações, não suspende pedido real, não executa transição financeira ou confirma disponibilidade humana. A decisão real depende de Auth/RLS, proteção contra falsificação, auditabilidade, segurança da informação, revisão jurídica e uma equipe/canal efetivamente designado.
+
+**SM-OPEN-009 segue pendente** para horários humanos, monitoramento crítico, escalonamento e nível mínimo de serviço. Sem esta homologação, **G1=BLOCKED, RELEASE=NO_GO**.
+
 ## Dependências restantes
 
 1. Conciliar os PRs empilhados #42 → #44 → ... → #57 → #61 → #62 → #63 → #64 e este PR, sem merge automático e sem integrar o módulo local a um emissor real.
