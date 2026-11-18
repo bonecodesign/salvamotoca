@@ -58,7 +58,7 @@ Lançar piloto comercial inicialmente em **Belo Horizonte, Contagem e Betim (MG)
 | Engenharia | Responsável técnico + testes | A designar |
 | Privacidade e jurídico | Profissional jurídico e responsável pelo tratamento | A designar |
 | Financeiro/fiscal | Contabilidade e responsável financeiro | A designar |
-| Operação e suporte | Responsável operacional com acesso seguro | A designar |
+| Operação e suporte | **Fundador — responsável inicial (SM-DEC-053)**; segundo operador a ser definido futuramente | Papel definido, mas **plantão não homologado**: faltam canal, escala, substituto/contingência e teste de incidente crítico |
 
 ## Medição honesta de progresso
 

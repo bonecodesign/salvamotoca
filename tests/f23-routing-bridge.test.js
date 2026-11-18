@@ -514,3 +514,42 @@ test("SM-DEC-052: rejeita horário inválido, categoria desconhecida e sinalizad
  assert.throws(()=>SUPPORT.planDutyCoverage({kind:"safety_report",
    eventAt:"2026-11-22T05:30:00Z",onCallAssignedMock:"yes"}),/booleano/);
 });
+
+// SM-DEC-053: fundador assume inicialmente; outro responsável somente no futuro.
+test("SM-DEC-053: fundador é destinatário preferencial apenas no cenário em que está disponível",()=>{
+ const x=SUPPORT.planOnCallEscalation({
+   founderAssignedMock:true,founderReachableMock:true,
+   delegateAssignedMock:true,delegateReachableMock:true
+ });
+ assert.equal(x.primaryRole,"founder");
+ assert.equal(x.suggestedTarget,"founder_mock");
+ assert.equal(x.contactChannelVerified,false);
+ assert.equal(x.realPageSent,false);
+ assert.equal(x.productionAuthorized,false);
+});
+test("SM-DEC-053: fundador indisponível e substituto não designado nunca geram falsa cobertura",()=>{
+ for(const flags of [
+   {},{founderAssignedMock:true},
+   {founderAssignedMock:true,delegateReachableMock:true},
+   {founderReachableMock:true}
+ ]){
+   const x=SUPPORT.planOnCallEscalation(flags);
+   assert.equal(x.suggestedTarget,"uncovered");
+   assert.equal(x.noHumanCoverageMock,true);
+   assert.equal(x.escalationGuaranteed,false);
+   assert.equal(x.humanAcknowledgementReceived,false);
+ }
+});
+test("SM-DEC-053: outro responsável só entra quando futuramente designado e disponível",()=>{
+ const flags={founderAssignedMock:true,founderReachableMock:false,
+   delegateAssignedMock:true,delegateReachableMock:true};
+ const x=SUPPORT.planOnCallEscalation(flags);
+ assert.equal(x.suggestedTarget,"future_delegate_mock");
+ assert.equal(x.delegateDesignatedInProject,false);
+ assert.equal(x.liveRotaVerified,false);
+ assert.equal(x.paymentOrRefundAuthorized,false);
+ assert.equal(x.productionAuthorized,false);
+ assert.equal(SUPPORT.planOnCallEscalation({...flags,
+   delegateReachableMock:false}).suggestedTarget,"uncovered");
+ assert.throws(()=>SUPPORT.planOnCallEscalation({delegateAssignedMock:"yes"}),/booleano/);
+});
