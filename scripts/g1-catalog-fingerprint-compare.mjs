@@ -74,7 +74,7 @@ export function validateSnapshot(input,{now=Date.now(),kind='source'}={}){
 export function compareSnapshots(source,restored,{now=Date.now()}={}){
  const a=validateSnapshot(source,{now,kind:'source'});
  const b=validateSnapshot(restored,{now,kind:'restore'});
- if(b.capturedAt<a.capturedAt)err('RESTORE_EVIDENCE_BEFORE_SOURCE');
+ if(b.capturedAt<=a.capturedAt)err('RESTORE_EVIDENCE_NOT_AFTER_SOURCE');
  const differingKinds=KINDS.filter(k=>
   a.components[k].digest.toLowerCase()!==b.components[k].digest.toLowerCase()
   ||a.components[k].objects!==b.components[k].objects);
