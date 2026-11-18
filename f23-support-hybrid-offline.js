@@ -56,4 +56,57 @@ function previewSupportCase({
     productionAuthorized:false
   });
 }
-module.exports=Object.freeze({KINDS,PRIORITY,previewSupportCase});
+
+// SM-DEC-052: desenho de escala OFFLINE; sinalizadores de cobertura são
+// estritamente sintéticos, NÃO comprovam um responsável ou canal de plantão.
+// Horário de referência: seg-sex 09:00-18:00 America/Sao_Paulo, fim exclusivo.
+// Feriados exigem um calendário confiável na implementação de produção.
+const DUTY_TIMEZONE="America/Sao_Paulo";
+const OFFICE_START_MINUTE=9*60;
+const OFFICE_END_MINUTE=18*60;
+function planDutyCoverage({
+  kind,eventAt,isHolidayMock=false,officeStaffedMock=false,
+  onCallAssignedMock=false,onCallChannelReadyMock=false
+}={}){
+  assert(KINDS.includes(kind),"Categoria de suporte não reconhecida.");
+  for(const [name,value] of Object.entries({
+    isHolidayMock,officeStaffedMock,onCallAssignedMock,onCallChannelReadyMock
+  })){
+    assert(typeof value==="boolean",name+" precisa ser booleano.");
+  }
+  const at=typeof eventAt==="number"?eventAt:Date.parse(eventAt);
+  assert(Number.isFinite(at),"Horário do relato inválido.");
+  const segments=Object.fromEntries(new Intl.DateTimeFormat("en-GB",{
+    timeZone:DUTY_TIMEZONE,weekday:"short",hour:"2-digit",
+    minute:"2-digit",hourCycle:"h23"
+  }).formatToParts(new Date(at)).filter(p=>p.type!=="literal").map(p=>[p.type,p.value]));
+  const day=segments.weekday;
+  const minutes=Number(segments.hour)*60+Number(segments.minute);
+  const workday=["Mon","Tue","Wed","Thu","Fri"].includes(day);
+  const officeWindow=workday&&!isHolidayMock&&
+    minutes>=OFFICE_START_MINUTE&&minutes<OFFICE_END_MINUTE;
+  const officeCovered=officeWindow&&officeStaffedMock;
+  const onCallCovered=onCallAssignedMock&&onCallChannelReadyMock;
+  const critical=kind==="safety_report";
+  const decision=critical
+    ?officeCovered?"critical_office_mock":
+      onCallCovered?"critical_oncall_mock":"critical_uncovered"
+    :officeCovered?"human_office_mock":"queue_for_human";
+  return Object.freeze({
+    mockOnly:true,timezone:DUTY_TIMEZONE,
+    officeWindow,officeCoveredMock:officeCovered,
+    onCallCoveredMock:onCallCovered,
+    priority:PRIORITY[kind],category:kind,decision,
+    supportIntake24h:true,automaticGuidanceAvailable:true,
+    queueForHuman:decision==="queue_for_human",
+    criticalWithoutVerifiedCoverageMock:decision==="critical_uncovered",
+    emergencyGuidanceSuggested:critical,
+    holidayCalendarVerified:false,
+    staffingVerifiedByServer:false,
+    supportDutyConfirmed:false,
+    realAlertSent:false,realTicketOpened:false,realRequestPaused:false,
+    realPaymentHeld:false,realRefundIssued:false,realPayoutIssued:false,
+    humanResponseGuaranteed:false,launchAllowed:false
+  });
+}
+module.exports=Object.freeze({KINDS,PRIORITY,previewSupportCase,planDutyCoverage});
