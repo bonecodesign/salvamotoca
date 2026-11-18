@@ -18,7 +18,7 @@ test('F2 usa a tabela de ofertas e a distância existentes, sem novo backend rea
 });
 test('Proximidade antes de raio maior e limite de um convite por passo',()=>{
  assert.match(schema,/greatest\(1,v_progress\.ring_index\)\.\.3/);
- assert.match(schema,/when 1 then 1 when 2 then 3 else 10/);
+ assert.match(schema,/when 1 then 5 when 2 then 15 else 60/);
  assert.match(schema,/order by private\.f2_distance_km/);
  assert.match(schema,/limit 1/);
  assert.match(schema,/unique\(request_id,provider_id\)/);
