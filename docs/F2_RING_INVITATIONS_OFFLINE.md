@@ -19,7 +19,7 @@ O usuário aprovou a preferência de **notificar primeiro os prestadores mais pr
 
 ## Parâmetros e política de proteção
 
-**1, 3 e 10 km são somente parâmetros exemplificativos de testes, NÃO uma configuração comercial decidida.** Neste candidato, apenas **um prestador por etapa operacional** recebe o convite em simulação. O seguinte é considerado somente se o anterior recusar, expirar corretamente ou se não houver prestador elegível naquele anel.
+**Decisão SM-DEC-047 (18/11/2026): 5, 15 e 60 km são os três anéis aprovados pelo fundador.** A configuração continua **somente simulada** neste PR; nenhum convite externo foi habilitado. O terceiro anel permanece subordinado à capacidade e área declaradas pelo prestador, à elegibilidade e aos gates de lançamento. Neste candidato, apenas **um prestador por etapa operacional** recebe o convite em simulação. O seguinte é considerado somente se o anterior recusar, expirar corretamente ou se não houver prestador elegível naquele anel.
 
 | Situação fictícia | Regra |
 |---|---|
@@ -42,7 +42,7 @@ A execução da CI usa somente um banco PostgreSQL descartável no GitHub Action
 
 ## Próximos passos de produção (não autorizados ainda)
 
-1. Definir raios, tempos, máximo de convites simultâneos e regras por região com base em testes e operação, pois os números da fixture não são política aprovada.
+1. Homologar em campo os raios já definidos (5/15/60 km), o método de medição da distância, a política intermunicipal, tempos, máximo de convites simultâneos e regras por região com base em testes e operação, pois os números da fixture não são política aprovada.
 2. Integrar a elegibilidade à F2 real, revisar concorrência, Auth/RLS, mudanças de localização/serviços, status de orçamentos, acesso de foto e gestão de ausências sem dano ao prestador.
 3. Construir **outbox real com provedor de mensagens autorizado**, idempotência de emissão e confirmação verificável; não confundir ACK de abertura com entrega push.
 4. Validar F3 reboque, suporte e custos, além de testar Android, internet instável e GPS controlado **após G1 real de backup e restauração**.
