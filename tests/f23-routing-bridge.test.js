@@ -436,3 +436,81 @@ test("Suporte híbrido: não aceita categorias inventadas ou dados de triagem in
  assert.throws(()=>SUPPORT.previewSupportCase({kind:"payment_dispute",eventAt:"not-a-date"}),/Horário/);
  assert.ok(Object.isFrozen(SUPPORT.KINDS));
 });
+
+// SM-DEC-052: horários são referências de produto, não plantão comprovado.
+test("SM-DEC-052: 9h inclusivo e 18h exclusivo em São Paulo, sem alterar busca 24h",()=>{
+ for(const [at,officeWindow] of [
+   ["2026-11-18T11:59:00Z",false], // 08h59 de quarta
+   ["2026-11-18T12:00:00Z",true],  // 09h00 de quarta
+   ["2026-11-18T20:59:00Z",true],  // 17h59 de quarta
+   ["2026-11-18T21:00:00Z",false], // 18h00 de quarta
+   ["2026-11-22T13:00:00Z",false], // domingo 10h
+   ["2026-11-23T12:00:00Z",true]   // segunda 09h
+ ]){
+   const x=SUPPORT.planDutyCoverage({kind:"service_issue",eventAt:at,officeStaffedMock:true});
+   assert.equal(x.officeWindow,officeWindow,at);
+   assert.equal(x.timezone,"America/Sao_Paulo");
+   assert.equal(x.supportIntake24h,true);
+   assert.equal(x.launchAllowed,false);
+ }
+ const r=tire();const t=Date.parse("2026-11-22T13:00:00Z");
+ assert.equal(run(r,[nearTire("available",{lastSeenAt:t-15000})],[],{now:t}).status,"invite_mock");
+});
+test("SM-DEC-052: janela de expediente sem responsável não finge atendimento",()=>{
+ const x=SUPPORT.planDutyCoverage({kind:"service_issue",
+   eventAt:"2026-11-18T13:00:00Z",officeStaffedMock:false});
+ assert.equal(x.officeWindow,true);
+ assert.equal(x.officeCoveredMock,false);
+ assert.equal(x.decision,"queue_for_human");
+ assert.equal(x.realTicketOpened,false);
+ assert.equal(x.humanResponseGuaranteed,false);
+});
+test("SM-DEC-052: feriado simulado desativa expediente e exige plantão habilitado",()=>{
+ const input={kind:"safety_report",eventAt:"2026-11-18T13:00:00Z",
+   isHolidayMock:true,officeStaffedMock:true};
+ const noOncall=SUPPORT.planDutyCoverage(input);
+ assert.equal(noOncall.officeWindow,false);
+ assert.equal(noOncall.decision,"critical_uncovered");
+ const oncall=SUPPORT.planDutyCoverage({...input,onCallAssignedMock:true,
+   onCallChannelReadyMock:true});
+ assert.equal(oncall.decision,"critical_oncall_mock");
+ assert.equal(oncall.holidayCalendarVerified,false);
+ assert.equal(oncall.supportDutyConfirmed,false);
+});
+test("SM-DEC-052: crítico na madrugada só indica plantão com pessoa E canal simulados",()=>{
+ const base={kind:"safety_report",eventAt:"2026-11-22T05:30:00Z"};
+ for(const flags of [
+   {},{onCallAssignedMock:true},{onCallChannelReadyMock:true}
+ ]){
+   const x=SUPPORT.planDutyCoverage({...base,...flags});
+   assert.equal(x.decision,"critical_uncovered");
+   assert.equal(x.criticalWithoutVerifiedCoverageMock,true);
+   assert.equal(x.emergencyGuidanceSuggested,true);
+   assert.equal(x.launchAllowed,false);
+ }
+ const oncall=SUPPORT.planDutyCoverage({...base,onCallAssignedMock:true,
+   onCallChannelReadyMock:true});
+ assert.equal(oncall.decision,"critical_oncall_mock");
+ for(const forbidden of [
+   "realAlertSent","realTicketOpened","realRequestPaused","realPaymentHeld",
+   "realRefundIssued","realPayoutIssued","humanResponseGuaranteed","launchAllowed"
+ ]) assert.equal(oncall[forbidden],false,forbidden);
+});
+test("SM-DEC-052: disputa financeira à noite aguarda humano; F4 preserva retenção",()=>{
+ const x=SUPPORT.planDutyCoverage({kind:"payment_dispute",
+   eventAt:"2026-11-22T05:30:00Z",onCallAssignedMock:true,onCallChannelReadyMock:true});
+ assert.equal(x.priority,"high");
+ assert.equal(x.decision,"queue_for_human");
+ assert.equal(x.realPaymentHeld,false);
+ const F4=require("../f4-finance.js");
+ const settlement=F4.settlementEligibility({paymentVerifiedByServer:true,
+   providerConfirmed:true,customerConfirmed:true,disputeOpen:true});
+ assert.equal(settlement.candidateForServerSettlement,false);
+ assert.equal(settlement.transferAllowedInThisModule,false);
+});
+test("SM-DEC-052: rejeita horário inválido, categoria desconhecida e sinalizadores malformados",()=>{
+ assert.throws(()=>SUPPORT.planDutyCoverage({kind:"safety_report",eventAt:"bad"}),/Horário/);
+ assert.throws(()=>SUPPORT.planDutyCoverage({kind:"other",eventAt:Date.now()}),/Categoria/);
+ assert.throws(()=>SUPPORT.planDutyCoverage({kind:"safety_report",
+   eventAt:"2026-11-22T05:30:00Z",onCallAssignedMock:"yes"}),/booleano/);
+});

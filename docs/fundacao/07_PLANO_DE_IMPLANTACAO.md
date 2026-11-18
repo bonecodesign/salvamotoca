@@ -4,7 +4,7 @@
 
 ## Objetivo final
 
-Lançar um piloto comercial em área limitada de Belo Horizonte com prestadores devidamente homologados, transações protegidas e operação de suporte capaz de resolver falhas.
+Lançar piloto comercial inicialmente em **Belo Horizonte, Contagem e Betim (MG)**, somente com prestadores homologados, transações protegidas e operação de suporte capaz de resolver falhas; a abertura das três cidades depende de validação geográfica confiável (SM-DEC-048).
 
 ## Marcos com dependências
 
@@ -13,10 +13,10 @@ Lançar um piloto comercial em área limitada de Belo Horizonte com prestadores 
 | M0 — Fundação | Identidade, modelo de negócio, requisitos, documentação básica | Decisões registradas e responsável definido | Em elaboração |
 | M1 — MVP técnico | Cadastro, catálogo, localização, presença, fila, orçamento, aceite/recusa | Código revisado, testes integrados e ambiente estável | Parcial |
 | M2 — Homologação fechada | Teste real com 2 contas e 2 prestadores fictícios consentidos, cenários de rede e segurança | RLS, Auth e logs revisados | Pendente |
-| M3 — Operação assistida | Painel administrativo, notificações, timeout, suporte, contestação | Responsáveis humanos e critérios operacionais | Pendente |
+| M3 — Operação assistida | Painel administrativo, notificações, timeout, suporte híbrido 24h digital, referência de expediente humano seg-sex 9h–18h e plantão crítico (SM-DEC-051/052) | Escala efetiva, responsáveis, canal testado, substitutos, tratamento financeiro e resposta a incidentes homologados | Pendente |
 | M4 — Pagamento protegido | Pix/cartões, webhooks, split e reembolso com conciliação | PSP homologado, contratos e contas empresariais | Pendente |
 | M5 — Conformidade final | Termos, privacidade, contrato de prestador, fiscal e procedimentos | Revisão jurídica e contábil, dados reais minimizados | Pendente |
-| M6 — Piloto BH | Prestadores verificados, área delimitada, atendimento real monitorado | Aprovação go/no-go de todas as áreas | Pendente |
+| M6 — Piloto BH/Contagem/Betim | Prestadores verificados, municípios geograficamente validados, atendimento real monitorado | Aprovação go/no-go de todas as áreas | Pendente |
 | M7 — Melhoria e expansão | Indicadores positivos e crescimento sustentável | Dados operacionais reais e segurança mantida | Não iniciado |
 
 ## Plano imediato — priorização
