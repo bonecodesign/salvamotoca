@@ -40,6 +40,12 @@ As tabelas e funções `private.f2_mock_*` possuem RLS, `SECURITY INVOKER`, sem 
 
 A execução da CI usa somente um banco PostgreSQL descartável no GitHub Actions. **Não executa SQL no Supabase hospedado, não envia push/SMS/e-mail, não realiza cobranças, não cria usuários, não faz merge nem aciona seu dispositivo**. Caso seja necessário testar localmente, os arquivos serão temporários e só serão criados **na pasta indicada pelo usuário**, com limpeza documentada.
 
+## Limite municipal aprovado — SM-DEC-048
+
+O piloto tem exatamente **Belo Horizonte, Contagem e Betim (MG)** como cidades autorizadas. Prestadores com base em qualquer uma dessas três cidades podem participar da busca para solicitações originadas em qualquer uma delas, **independentemente de estarem no mesmo município**, mas respeitando os raios 5/15/60 km e sua cobertura própria. Nenhuma outra cidade entra por simples proximidade. As posições e a identidade municipal dos prestadores nos arquivos de teste são fictícias.
+
+A SQL F2 candidata e a fixture de convites foram ajustadas **somente em branch Draft**. A tabela atual de pedidos não guarda uma origem municipal autoritativa validada por geocodificação; esta verificação de limites por coordenadas é bloqueio para o backend real antes de qualquer roteamento hospedado.
+
 ## Próximos passos de produção (não autorizados ainda)
 
 1. Homologar em campo os raios já definidos (5/15/60 km), o método de medição da distância, a política intermunicipal, tempos, máximo de convites simultâneos e regras por região com base em testes e operação, pois os números da fixture não são política aprovada.
