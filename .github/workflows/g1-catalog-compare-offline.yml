@@ -1,0 +1,58 @@
+name: "G1 - catalog fingerprint comparison (offline NO-GO)"
+on:
+  pull_request:
+    paths:
+      - "docs/G1_CATALOG_FINGERPRINT_READONLY.sql"
+      - "docs/G1_CATALOG_FINGERPRINT_RESTORE_RUNBOOK.md"
+      - "scripts/g1-catalog-fingerprint-compare.mjs"
+      - "tests/g1-catalog-fingerprint-compare.test.mjs"
+      - ".github/workflows/g1-catalog-compare-offline.yml"
+  push:
+    branches:
+      - "chore/g1-restore-proof-catalog-fingerprint-no-go"
+    paths:
+      - "docs/G1_CATALOG_FINGERPRINT_READONLY.sql"
+      - "docs/G1_CATALOG_FINGERPRINT_RESTORE_RUNBOOK.md"
+      - "scripts/g1-catalog-fingerprint-compare.mjs"
+      - "tests/g1-catalog-fingerprint-compare.test.mjs"
+      - ".github/workflows/g1-catalog-compare-offline.yml"
+permissions:
+  contents: read
+jobs:
+  offline-only:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: Syntax and no network for catalog comparison
+        run: |
+          node --check scripts/g1-catalog-fingerprint-compare.mjs
+          if grep -nE 'https?://|fetch\(|spawnSync\(|execSync\(|createClient\(|\.rpc\(|sb_secret_|service_role' scripts/g1-catalog-fingerprint-compare.mjs; then
+            echo 'G1 comparison must not make network, shell or Supabase calls.'
+            exit 1
+          fi
+          node scripts/g1-catalog-fingerprint-compare.mjs --plan > "$RUNNER_TEMP/g1-plan.json"
+          node -e "const p=require(process.env.RUNNER_TEMP+'/g1-plan.json');if(p.decision!=='REVIEW_REQUIRED_NO_GO'||p.mode!=='NO_FILES_NO_NETWORK')process.exit(1)"
+      - name: Validate fingerprints, fake snapshot rejection and fail-closed proof
+        run: node --test tests/g1-catalog-fingerprint-compare.test.mjs
+      - name: Regress G1 and HTTP readiness from earlier PRs
+        run: |
+          node --test tests/f125-http-auth-readonly.test.mjs
+          node scripts/release-readiness-offline.mjs > "$RUNNER_TEMP/release.json"
+          node -e "const p=require(process.env.RUNNER_TEMP+'/release.json');if(p.decision!=='NO_GO'||p.g1!=='BLOCKED')process.exit(1)"
+      - name: No real backup, restore or device activity
+        run: |
+          echo 'G1_SOURCE_CATALOG=READ_ONLY_INSPECTED_SEPARATELY'
+          echo 'G1_SOURCE_BACKUP=NOT_EXECUTED'
+          echo 'G1_INDEPENDENT_DB_RESTORE=NOT_EXECUTED'
+          echo 'G1_AUTH_RECOVERY=NOT_VERIFIED'
+          echo 'G1_STORAGE_BYTES=NOT_VERIFIED'
+          echo 'G1_PRIVATE_EVIDENCE=NOT_UPLOADED'
+          echo 'HOSTED_SUPABASE_MUTATIONS=NONE'
+          echo 'USER_WINDOWS_DIRECTORY=NOT_TOUCHED'
+          echo 'F1_TO_F7_REAL_OPERATIONS=DISABLED'
+          echo 'G1=BLOCKED'
+          echo 'RELEASE=NO_GO'
