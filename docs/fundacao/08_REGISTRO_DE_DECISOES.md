@@ -57,6 +57,8 @@ Aprovado significa **definido pelo responsável do produto**, não necessariamen
 
 | SM-DEC-047 | **Raios progressivos de busca: 5 km → 15 km → 60 km** para convite de orçamento de borracharia delivery (F2) e reboque (F3). Priorizar os mais próximos; ampliar somente quando não houver candidato elegível ou após recusa/expiração corretamente registrada, respeitando área declarada e habilitação do prestador. | **Aprovada expressamente pelo fundador em 18/11/2026**; substitui parâmetros ilustrativos 1/3/10 km. Implementação F2/F3 permanece offline/Draft, sem notificação, cobrança ou despacho real; critério de distância viária/geodésica, abrangência intermunicipal e validação em campo ainda pendentes. |
 
+| SM-DEC-048 | **Praça inicial de atendimento limitada a Belo Horizonte, Contagem e Betim (MG)**. Permitir busca cruzada de profissionais homologados entre os três municípios, respeitando os anéis 5/15/60 km, o cadastro de cobertura, os serviços, a disponibilidade e a segurança. **Municípios externos não entram pela mera proximidade.** | **Aprovada expressamente pelo fundador em 18/11/2026**. F2/F3 somente simulação/Draft; ainda exige verificação confiável de município da origem e posição do prestador pelo backend, testes de fronteira e decisão de destino de reboque. Não gera promessa de cobertura ou despacho real. |
+
 ## Definições técnicas adotadas, ajustáveis após testes
 
 - Heartbeat de prestador aproximadamente a cada 30 segundos; presença considerada efetiva com sinal recente, dentro de janela de cerca de 90 segundos.
@@ -72,7 +74,7 @@ Aprovado significa **definido pelo responsável do produto**, não necessariamen
 | SM-OPEN-001 | Pessoa jurídica, razão social, CNPJ e contatos oficiais | Contratos, notas e canal de atendimento |
 | SM-OPEN-002 | Escolha/homologação de PSP, Pix/cartões, custo efetivo, split e liquidação compatíveis com a retenção/repasses aprovados | Implementar sem taxas-surpresa e com transparência |
 | SM-OPEN-003 | Critérios complementares, checagem, catálogo de serviços e guarda segura dos dados de homologação | Segurança, privacidade e legalidade |
-| SM-OPEN-004 | Anéis aprovados (5/15/60 km); pendentes método de medir distâncias, alcance intermunicipal, limite/viabilidade de deslocamento e validação da cobertura declarada | Política de busca definida, ainda sem promessa de cobertura e sem homologação em campo |
+| SM-OPEN-004 | Anéis 5/15/60 km e municípios BH/Contagem/Betim aprovados; pendem verificação de geocodificação/limites municipais, método de distância, destino de reboque e homologação da cobertura do prestador | Área do piloto definida; ainda sem cobertura comercial garantida ou validação em campo |
 | SM-OPEN-005 | Implementação, consentimento e homologação em dispositivos reais das notificações | Garantir que o prazo de resposta seja justo e auditável |
 | SM-OPEN-006 | Critérios publicados de revisão de valores potencialmente abusivos/incoerentes | Transparência sem tabela fixa ou ajuste automático |
 | SM-OPEN-007 | Implementação/homologação de cancelamento, estorno, taxas e mediação pós-pagamento | Direitos e incidentes |
@@ -119,6 +121,8 @@ Aprovado significa **definido pelo responsável do produto**, não necessariamen
 - **16/11/2026 — SM-DEC-045/046:** decisão posterior prevalece sobre a comissão anterior de 15% e a apresentação separada de peças. **10% do serviço ao solicitante + 10% do serviço ao prestador**, deslocamento sem comissão; materiais já incluídos no preço do serviço. Aprovação comercial não equivale a cobrança liberada. Candidatos F2–F7 em Draft PR #57 testados offline; não executar merge sem revisão da cadeia, PSP e gates reais.
 
 - **18/11/2026 — SM-DEC-047:** fundador definiu anéis de busca **5 km → 15 km → 60 km**, substituindo 1/3/10 km ilustrativos para F2/F3; atividade comercial não autorizada. Registro e testes candidatos em PR dependente do #65.
+
+- **18/11/2026 — SM-DEC-048:** fundador delimitou a praça inicial aos três municípios Belo Horizonte, Contagem e Betim (MG). Busca cruzada permitida entre eles, mantendo os anéis 5/15/60 km e o respeito à área declarada. Outros municípios não participam automaticamente. Candidatos F2/F3 offline em PR empilhado sobre o #70.
 
 ## Controle de alteração
 
