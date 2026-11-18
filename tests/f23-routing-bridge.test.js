@@ -41,7 +41,7 @@ const nearTow=(id="tow-a",patch={})=>({
  otherServiceTypes:["pneu_furado","troca_camara"],refusals:0,...patch
 });
 const run=(request,providers,history=[],other={})=>
- BR.planNextInvitation({request,providers,history,now:NOW,radiiKm:[1,3,10],...other});
+ BR.planNextInvitation({request,providers,history,now:NOW,...other});
 const history=(p,status="pending",patch={})=>({
  requestId:RID,offerId:"offer-"+p,providerId:p,
  status,offeredAt:NOW-60000,...patch
@@ -60,7 +60,7 @@ test("F2 categoria de borracharia escolhe o prestador próximo",()=>{
   nearTire("close")
  ]);
  assert.equal(out.phase,"F2");assert.equal(out.providerId,"close");
- assert.equal(out.stage,1);assert.equal(out.radiusKm,1);
+ assert.equal(out.stage,1);assert.equal(out.radiusKm,5);
  assert.equal(out.status,"invite_mock");proveNoAuthority(out);
 });
 test("F3 com reboque escolhe apenas prestador com equipamento adequado",()=>{
@@ -100,14 +100,14 @@ test("A proximidade tem prioridade sobre uma recusa, sem liberar duas recusas",(
 });
 test("F2 abre anel seguinte somente quando não há elegíveis no atual",()=>{
  const out=run(tire(),[
-  nearTire("second-ring",{location:{lat:-19.940,lng:-43.938}})
+  nearTire("second-ring",{location:{lat:-20.008,lng:-43.938}})
  ]);
- assert.equal(out.stage,2);assert.equal(out.radiusKm,3);
+ assert.equal(out.stage,2);assert.equal(out.radiusKm,15);
 });
 test("F3 abre anel seguinte respeitando cobertura e homologação",()=>{
  const out=run(tow(),[
   nearTow("suspended",{approved:false}),
-  nearTow("second-ring",{location:{lat:-19.940,lng:-43.938}})
+  nearTow("second-ring",{location:{lat:-20.008,lng:-43.938}})
  ]);
  assert.equal(out.stage,2);assert.equal(out.providerId,"second-ring");
 });
@@ -292,4 +292,32 @@ test("Bridge apenas planeja: não há método de pagamento, API, push ou autoriz
  assert.equal(BR.dispatch,undefined);
  assert.equal(BR.authorize,undefined);
  assert.equal(F2.RESPONSE_MS,BR.INVITE_WINDOW_MS);
+});
+
+// SM-DEC-047: política de raios 5/15/60, sem operação externa.
+test("Anéis do fundador 5, 15 e 60 km são o padrão congelado",()=>{
+ assert.deepEqual(BR.APPROVED_RADII_KM,[5,15,60]);
+ assert.ok(Object.isFrozen(BR.APPROVED_RADII_KM));
+ for(const req of [tire(),tow()]){
+  const p=req.categoryCode==="reboque_moto"?nearTow():nearTire();
+  assert.equal(run(req,[p]).radiusKm,5);
+ }
+});
+test("F2/F3 abrem o terceiro anel a 60 km, mas jamais vão além dele",()=>{
+ const remote={lat:-20.20,lng:-43.938}; // ~30 km, posições sintéticas
+ const beyond={lat:-20.65,lng:-43.938}; // >60 km, posições sintéticas
+ const tireResult=run(tire(),[nearTire("remote",{location:remote,coverageKm:65})]);
+ assert.equal(tireResult.stage,3);assert.equal(tireResult.radiusKm,60);
+ const towResult=run(tow(),[nearTow("remote",{location:remote,
+  capacity:{...capacity(),coverageKm:65}})]);
+ assert.equal(towResult.stage,3);assert.equal(towResult.radiusKm,60);
+ assert.equal(run(tire(),[nearTire("too-far",{location:beyond,coverageKm:100})]).status,"no_provider");
+ assert.equal(run(tow(),[nearTow("too-far",{location:beyond,
+  capacity:{...capacity(),coverageKm:100}})]).status,"no_provider");
+});
+test("Anel de 60 km não substitui limite de cobertura declarado pelo prestador",()=>{
+ const remote={lat:-20.20,lng:-43.938};
+ assert.equal(run(tire(),[nearTire("limited",{location:remote,coverageKm:15})]).status,"no_provider");
+ assert.equal(run(tow(),[nearTow("limited",{location:remote,
+  capacity:{...capacity(),coverageKm:20}})]).status,"no_provider");
 });
