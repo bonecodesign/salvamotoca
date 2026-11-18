@@ -9,6 +9,8 @@ const F4=require("./f4-finance.js");
 
 const UUID=/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 const INVITE_WINDOW_MS=300000;
+// SM-DEC-047: anéis aprovados pelo fundador; APENAS planejamento offline.
+const APPROVED_RADII_KM=Object.freeze([5,15,60]);
 const CLOSED=new Set(["declined","expired_no_delivery","expired_after_mock_open","cancelled"]);
 const ACTIVE=new Set(["pending","opened_mock","quoted"]);
 const WINNER=new Set(["accepted","selected"]);
@@ -69,7 +71,7 @@ function validateHistory(history,requestId,now){
  return {used:providers,hasActive,hasWinner,closed};
 }
 function planNextInvitation({
- request,providers,history=[],radiiKm=[1,3,10],now,rotationSeed=""
+ request,providers,history=[],radiiKm=APPROVED_RADII_KM,now,rotationSeed=""
 }={}){
  need(Number.isSafeInteger(now)&&now>0,"Horário fictício inválido.");
  const route=identify(request);
@@ -145,5 +147,5 @@ function quoteDryRun({request,quoteId,serviceCents,travelCents}={}){
  };
 }
 module.exports=Object.freeze({
- PHASES,INVITE_WINDOW_MS,identify,planNextInvitation,quoteDryRun
+ PHASES,INVITE_WINDOW_MS,APPROVED_RADII_KM,identify,planNextInvitation,quoteDryRun
 });
