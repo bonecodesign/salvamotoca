@@ -53,6 +53,16 @@ As funções SQL candidatas F2/F3 e as fixtures descartáveis são apenas propos
 - Os limites 1–500 km para distância estimada e R$ 5.000 para o valor total atualmente encontrados no simulador são validações de teste, **não uma política comercial definitiva de distância/preço**.
 - Não há despacho, chat, cobrança, envio de GPS, cadastro real nem alteração do Supabase; `G1=BLOCKED` e `RELEASE=NO_GO`.
 
+## SM-DEC-050 — solicitações a qualquer hora, apenas com prestadores online
+
+**18/11/2026 — fundador aprovou:** o aplicativo pode receber chamadas a **qualquer hora, todos os dias**, mas somente prestadores **voluntariamente online e com presença confirmada recentemente**, homologados, compatíveis e dentro da área de cobertura podem ser candidatos a orçamento F2/F3. O sistema **não impõe escalas ou plantões**. Não usar bloqueio fixo por madrugada, fim de semana ou feriado.
+
+Se nenhum prestador for elegível, apresentar indisponibilidade (não inventar profissional, horário de chegada ou cobertura, e não despachar/cobrar). A eventual retomada posterior de pedido sem candidato demanda política e consentimento próprios, **não aprovados nesta decisão**. As notificações fictícias devem manter timeout justo e não gerar ausências quando não houver prova de entrega.
+
+**A operação do produto 24 horas não cria promessa de suporte humano 24 horas.** `SM-DEC-025` continua vigente; apoio humano, escala de incidentes críticos e mediação fora do expediente seguem abertos em `SM-OPEN-009`. A inexistência de canal humano confiável em incidentes relevantes é um **bloqueio do lançamento real**, não um motivo para considerar a política de horários indeferida.
+
+O planejador F2/F3 offline já não continha restrição por relógio; não foi necessário alterar o seu motor para esta decisão. Os testes adicionados validam horários variados, ausência de online ou heartbeat expirado e não acionamento de notificações/pagamentos reais. Nenhuma alteração em produção: **G1=BLOCKED; F1–F7=NO_GO**.
+
 ## Dependências restantes
 
 1. Conciliar os PRs empilhados #42 → #44 → ... → #57 → #61 → #62 → #63 → #64 e este PR, sem merge automático e sem integrar o módulo local a um emissor real.
