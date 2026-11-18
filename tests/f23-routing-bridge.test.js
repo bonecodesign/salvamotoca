@@ -343,3 +343,35 @@ test("F2/F3 nunca expandem para municípios não autorizados, mesmo a poucos met
  assert.equal(run(towRequest,[nearTow("bh")]).status,"no_provider");
  assert.equal(run(tow(),[nearTow("out",{city:"Sabará"})]).status,"no_provider");
 });
+
+// SM-DEC-050: requests can be considered 24/7 (no arbitrary opening-hour gate).
+test("F2/F3 aceitam candidatos elegíveis de madrugada, manhã e fim de semana",()=>{
+ for(const when of [
+   "2026-11-18T06:15:00Z", // 03:15 em Belo Horizonte (UTC-3)
+   "2026-11-18T13:00:00Z", // 10:00 local
+   "2026-11-22T05:40:00Z"  // domingo, 02:40 local
+ ]){
+   const now=Date.parse(when);
+   for(const [request,provider] of [
+      [tire(),nearTire("online-tire",{lastSeenAt:now-15000})],
+      [tow(),nearTow("online-tow",{lastSeenAt:now-15000})]
+   ]){
+     const result=run(request,[provider],[],{now});
+     assert.equal(result.status,"invite_mock");
+     assert.equal(result.radiusKm,5);
+     proveNoAuthority(result);
+   }
+ }
+});
+test("F2/F3 fora do horário comercial nunca inventam atendimento sem online",()=>{
+ const now=Date.parse("2026-11-22T05:40:00Z");
+ for(const req of [tire(),tow()]){
+   assert.equal(run(req,[],[],{now}).status,"no_provider");
+   const p=req.categoryCode==="reboque_moto"?nearTow():nearTire();
+   assert.equal(run(req,[{...p,onlineRequested:false,lastSeenAt:now-15000}],[],{now}).status,"no_provider");
+   assert.equal(run(req,[{...p,onlineRequested:true,lastSeenAt:now-90001}],[],{now}).status,"no_provider");
+   const result=run(req,[{...p,onlineRequested:true,lastSeenAt:now-15000}],[],{now});
+   assert.equal(result.status,"invite_mock");
+   proveNoAuthority(result);
+ }
+});
