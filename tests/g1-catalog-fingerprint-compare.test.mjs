@@ -81,7 +81,7 @@ test('Recusa evidencia antiga, futura, ou restore anterior a captura de origem',
  assert.throws(()=>validateSnapshot(sample(now-8*86400000),{now}),/TIMESTAMP_INVALID_OR_STALE/);
  assert.throws(()=>validateSnapshot(sample(now+600000),{now}),/TIMESTAMP_INVALID_OR_STALE/);
  assert.throws(()=>compareSnapshots(sample(now-1000),sample(now-2000),{now}),
-  /RESTORE_EVIDENCE_BEFORE_SOURCE/);
+  /RESTORE_EVIDENCE_NOT_AFTER_SOURCE/);
 });
 test('Contagens negativas ou Storage sem metadata correspondente falham',()=>{
  const now=Date.now();const a=sample(now);a.source_counts.auth_users=-1;
