@@ -51,6 +51,29 @@ Regras de lançamento recomendadas, condicionadas à revisão do fundador e téc
 - Quando houver pessoa substituta: aprovação expressa, menor privilégio no painel, MFA quando disponível, teste de recebimento/ACK, revogação e auditoria de ações.
 - Não publicar no GitHub dados pessoais, telefones, tokens, senhas, e-mail de destino nem localização de usuários.
 
+## SM-PLAN-002 — central de incidentes do fundador (nova preparação offline)
+
+Foi implementado `f23-founder-incident-desk-offline.js`, **máquina de estados pura em memória** para prever como uma fila administrativa poderia funcionar sem contratar sistemas ou gerar chamados reais. Complementa as regras de triagem F23 e os estados de revisão já esboçados em F5/F6, **sem conectar módulos a pagamentos ou requisições reais**.
+
+### Estados e responsabilidades simulados
+
+| Estado da prévia | Transição permitida | O que não comprova |
+| --- | --- | --- |
+| `queued_mock` | abertura de caso sintético; prioridade `critical`, `high` ou `routine` | chamado recebido pelo Supabase ou suporte real |
+| `escalated_uncovered_mock` | apenas caso **de segurança**, com teste T+5 sem reconhecimento, por `system_mock` | entrega de push ou contato com fundador |
+| `acknowledged_mock` | somente papel `founder_mock` com escala/canal **ficticiamente** indicados | identidade real ou que alguém leu um alerta |
+| `under_review_mock` | após reconhecimento, a partir de ação do `founder_mock` | revisão ou proteção efetiva do pedido |
+| `reviewed_mock` | após revisão e marcação **fictícia** de evidência, com motivo predefinido compatível com categoria | resolução jurídica, atendimento, devolução de dinheiro ou liberação de repasses |
+
+- **Fila do painel**: ocorrências não resolvidas primeiro; segurança antes de pagamentos, depois rotina; ordenar por abertura. Projeção contém identificador sintético, categoria, prioridade, estado, versão e recomendações de proteção, sem texto livre, fotos, endereço, telefone ou GPS. Não é uma interface administrativa autenticada.
+- **Auditoria e idempotência**: registrar apenas IDs, ator fictício, tipo, horário e motivo de lista fechada; repetir o mesmo evento com o mesmo ID/conteúdo não duplica efeito; ID reutilizado com conteúdo diferente, evento fora de ordem, campos desconhecidos e ator sem papel permitido devem falhar.
+- **Pagamento/segurança**: `recommendHoldSettlementMock` e `recommendPauseRequestMock` são somente avisos. Mesmo após `reviewed_mock`, não liberar recursos reais; o bloqueio de F4 depende da disputa **no backend autorizado**, revisão humana e conciliação PSP. Sem integração com contas ou processamento financeiro.
+- **Titular**: o fundador é o único papel humano fictício atualmente permitido. O futuro segundo operador **não** é habilitado neste pacote; a designação requer aprovação e controle de acesso no backend.
+- **Não persistência**: o módulo não grava localmente ou na nuvem, não envia eventos, e não faz notificações. Após reinício perde o estado; isso **não é seguro para produção**, onde será obrigatório ledger transacional durável, RLS, prova de origem e logs imutáveis de auditoria.
+- **Acesso/privacidade**: o futuro painel não poderá considerar `actorRole: founder_mock` vindo do navegador como autenticação. Identidade deve ser validada no servidor e as pessoas só podem ver ocorrências autorizadas, com minimização de dados.
+
+A suíte F23 agora cobre triagem, fila, duplicação de eventos, adulteração, confirmação, escalonamento, revisão, bloqueio de decisões financeiras e impossibilidade de ações reais. **Nenhuma migração ou nova ferramenta foi contratada.**
+
 ## Testes gratuitos antes de qualquer ativação
 
 - Node offline: prioridade crítica versus alta, T+2/T+5, ACK apenas em cenário fictício elegível, falta de cobertura, indisponibilidade sem substituto, no-PII nas mensagens, financeiro F4 sem repasse automático e impossibilidade de enviar alertas reais. Executar via workflow F23 já existente, sem testes duplicados.
