@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" role="img" aria-labelledby="title desc">
+<title id="title">Pin com pneu furado — protótipo de símbolo</title>
+<desc id="desc">Marcador de localização contendo pneu de moto murcho, achatado na parte inferior, com sinal de perfuração.</desc>
+<g fill="none" stroke="#000" stroke-linecap="round" stroke-linejoin="round">
+<path d="M64 5C37 5 18 25 18 52c0 34 46 68 46 68s46-34 46-68C110 25 91 5 64 5Z" stroke-width="7"/>
+<path d="M42 71c-5-6-8-13-8-21 0-17 13-29 30-29s30 12 30 29c0 8-3 15-8 21" stroke-width="7"/>
+<path d="M40 73c8 5 39 6 48-1" stroke-width="6"/>
+<path d="M47 74c2-12 7-20 17-20s15 8 17 20" stroke-width="5"/>
+<path d="M52 45c3-4 7-6 12-6s9 2 12 6" stroke-width="5"/>
+<path d="M46 30l-5 4m-3 6-6 1m46-11 5 4m4 6 6 1" stroke-width="4"/>
+<path d="M51 67c4 4 22 4 26 0" stroke-width="3"/>
+<path d="M85 28 74 42" stroke-width="5"/>
+<path d="m84 27 7-5" stroke-width="7"/>
+<path d="m71 43 2 7" stroke-width="3"/>
+</g>
+</svg>
