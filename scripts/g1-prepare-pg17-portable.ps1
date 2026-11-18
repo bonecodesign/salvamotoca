@@ -7,7 +7,8 @@
 [CmdletBinding()]
 param(
     [switch]$Apply,
-    [switch]$Plan
+    [switch]$Plan,
+    [switch]$Verify
 )
 Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
@@ -91,9 +92,42 @@ function Assert-Repository {
     $dirty = @(& git -C $Checkout status --porcelain)
     Require ($LASTEXITCODE -eq 0 -and -not $dirty) 'DIRTY_CHECKOUT'
 }
+# Read-only post-download verification. Unlike -Apply this NEVER accesses the network,
+# initializes a database cluster, changes the PATH, or creates a directory.
+if ($Verify) {
+    Require (-not $Apply -and -not $Plan) 'VERIFY_MODE_CONFLICT'
+    Assert-Repository
+    Require ($TestRoot.StartsWith($ProjectBase + '\', [StringComparison]::OrdinalIgnoreCase)) 'UNSAFE_TARGET'
+    Require ($Destination.StartsWith($TestRoot + '\', [StringComparison]::OrdinalIgnoreCase)) 'UNSAFE_TARGET'
+    if (-not (Test-Path -LiteralPath $Destination -PathType Container)) {
+        Heading 'NOT_PREPARED: pasta temporaria ainda nao existe. -Plan nao a cria; -Apply a cria automaticamente.'
+        Write-Host 'POSTGRESQL_17_12_PORTABLE=NOT_PREPARED'
+        Write-Host 'G1_BACKUP_RESTORE=BLOCKED'
+        Write-Host 'RELEASE=NO_GO'
+        exit 3
+    }
+    $target = Join-Path $Destination $VendorFilename
+    $manifestPath = Join-Path $Destination 'g1-pg17-package-manifest.json'
+    Require (Test-Path -LiteralPath $manifestPath -PathType Leaf) 'MANIFEST_MISSING'
+    $manifest = Get-Content -LiteralPath $manifestPath -Raw | ConvertFrom-Json
+    Require ($manifest.archive_sha256 -eq $PinnedSha256 -and
+             $manifest.archive_file -eq $VendorFilename -and
+             $manifest.version -eq '17.12-1' -and
+             $manifest.backup_restore_proven -eq $false) 'MANIFEST_INVALID'
+    Verify-Package $target
+    Validate-ZipEntries $target
+    Verify-ExecutableVersions (Join-Path $Destination 'pgsql\bin')
+    Heading 'READY_VERIFIED_READ_ONLY: binarios portateis conferidos; nenhum backup/restauracao executado.'
+    Write-Host 'POSTGRESQL_17_12_PORTABLE=VERIFIED_READ_ONLY'
+    Write-Host 'DATABASE_CLUSTER=NOT_INITIALIZED_BY_THIS_SCRIPT'
+    Write-Host 'G1_BACKUP_RESTORE=BLOCKED'
+    Write-Host 'RELEASE=NO_GO'
+    exit 0
+}
 if ($Plan -or -not $Apply) {
     Heading 'PLAN_ONLY: nenhuma rede, nenhuma escrita, nenhum binario executado.'
     Heading ('Destino permitido: ' + $Destination)
+    Heading 'A pasta do destino NAO precisa existir no -Plan. Ela sera criada apenas no -Apply.'
     Heading 'Fonte: EnterpriseDB ZIP PostgreSQL 17.12-1 x64 + sidecar SHA256 oficial.'
     Heading 'Aplicar somente com -Apply; nao faz initdb/restore ou altera o Supabase.'
     Write-Host 'G1_BACKUP_RESTORE=NOT_VERIFIED'
