@@ -109,4 +109,35 @@ function planDutyCoverage({
     humanResponseGuaranteed:false,launchAllowed:false
   });
 }
-module.exports=Object.freeze({KINDS,PRIORITY,previewSupportCase,planDutyCoverage});
+
+// SM-DEC-053 — titular fundador, substituto somente quando futuramente habilitado.
+// A simulação não conhece nomes, contatos, escala real ou disponibilidade verificada.
+function planOnCallEscalation({
+  founderAssignedMock=false,founderReachableMock=false,
+  delegateAssignedMock=false,delegateReachableMock=false
+}={}){
+  for(const [name,value] of Object.entries({
+    founderAssignedMock,founderReachableMock,delegateAssignedMock,delegateReachableMock
+  })) assert(typeof value==="boolean",name+" precisa ser booleano.");
+  const primaryReady=founderAssignedMock&&founderReachableMock;
+  const delegateReady=delegateAssignedMock&&delegateReachableMock;
+  const suggestedTarget=primaryReady?"founder_mock":
+    delegateReady?"future_delegate_mock":"uncovered";
+  return Object.freeze({
+    mockOnly:true,
+    primaryRole:"founder",
+    delegateRole:"future_designated_person",
+    delegateDesignatedInProject:false,
+    suggestedTarget,
+    noHumanCoverageMock:suggestedTarget==="uncovered",
+    requiresHumanConfirmation:true,
+    contactChannelVerified:false,
+    liveRotaVerified:false,
+    humanAcknowledgementReceived:false,
+    realPageSent:false,
+    escalationGuaranteed:false,
+    paymentOrRefundAuthorized:false,
+    productionAuthorized:false
+  });
+}
+module.exports=Object.freeze({KINDS,PRIORITY,previewSupportCase,planDutyCoverage,planOnCallEscalation});
