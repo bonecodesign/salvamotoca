@@ -104,6 +104,16 @@ Planejamento da continuidade:
 
 A prévia `planOnCallEscalation` no módulo puro `f23-support-hybrid-offline.js` modela titular primeiro e substituto habilitado apenas em cenário futuro sintético. Nenhum alerta é enviado, nenhum canal é verificado e **nenhum plantão é ativado** pela simulação. **SM-OPEN-009 continua aberto; G1=BLOCKED; RELEASE=NO_GO.**
 
+## SM-PLAN-002 — central administrativa de incidentes (simulação sem custos)
+
+O arquivo `f23-founder-incident-desk-offline.js` adiciona fila priorizada e uma máquina de estados **estritamente local**: abertura sintética, alerta crítico sem confirmação no T+5 de teste, confirmação fictícia pelo fundador, início de revisão e marcação de revisão simulada. Cada evento possui ID, versão, horário e motivo padronizado; repetição idêntica é idempotente e alterações com mesmo ID ou campos livres inesperados falham fechadas.
+
+Esta etapa **reusa**, em vez de duplicar, os módulos `f23-support-hybrid-offline.js` (classificação), `f23-critical-alert-plan-offline.js` (T+2/T+5 propostos) e o bloqueio financeiro candidato F4, além dos estados de suporte desenhados nas fases F5/F6. Não implementa interface com usuários, login administrativo, ticket persistente, confirmação humana autêntica, retenção no PSP, mensagens, fotos, push, SMS ou suporte contratado.
+
+**Guarda de produção:** nenhum `actorRole`, `evidenceCheckedMock` ou `dutyConfirmedMock` enviado pelo navegador pode autorizar triagem real, mudança de estado, pagamento ou conclusão. Antes de integrar, requer banco transacional após G1, Auth/RLS, anti-replay, segregação de funções, controle de acesso às ocorrências, retenção limitada, mediação humana e testes de perda de rede/concorrência. A fila administrativa deve manter o caso **sem cobertura** até confirmação efetiva de um operador com canal testado; o fundador continua como único responsável definido e o substituto está pendente.
+
+**Situação:** somente CI offline. `G1=BLOCKED`; `RELEASE=NO_GO`.
+
 ## Dependências restantes
 
 1. Conciliar os PRs empilhados #42 → #44 → ... → #57 → #61 → #62 → #63 → #64 e este PR, sem merge automático e sem integrar o módulo local a um emissor real.

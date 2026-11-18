@@ -6,6 +6,7 @@ const F2=require("../f2-flow.js");
 const F3=require("../f3-tow.js");
 const SUPPORT=require("../f23-support-hybrid-offline.js");
 const CRITICAL=require("../f23-critical-alert-plan-offline.js");
+const DESK=require("../f23-founder-incident-desk-offline.js");
 
 const NOW=Date.parse("2026-11-17T19:00:00Z");
 const RID="11111111-aaaa-4111-8111-111111111111";
@@ -663,4 +664,136 @@ test("SM-PLAN-001: texto público não expõe ocorrência, GPS, contato ou ident
  assert.throws(()=>CRITICAL.planCriticalAlert({...incident,now:"invalid"}),/Horário/);
  assert.throws(()=>CRITICAL.planCriticalAlert({...incident,
   founderAssignedMock:"yes"}),/booleano/);
+});
+
+// SM-PLAN-002 — central de incidentes do fundador: somente estado/auditoria sintéticos.
+test("SM-PLAN-002: fila organizada por segurança, disputa e horário, sem detalhes pessoais",()=>{
+ const opened="2026-11-18T22:00:00Z";
+ const cases=[
+  DESK.createIncidentFixture({caseId:"routine-case-001",kind:"general_question",openedAt:opened}),
+  DESK.createIncidentFixture({caseId:"money-case-001",kind:"payment_dispute",
+    openedAt:"2026-11-18T23:00:00Z",linkedToRequestMock:true}),
+  DESK.createIncidentFixture({caseId:"security-case-001",kind:"safety_report",
+    openedAt:"2026-11-18T23:30:00Z",linkedToRequestMock:true}),
+  DESK.createIncidentFixture({caseId:"security-case-002",kind:"safety_report",
+    openedAt:"2026-11-18T23:20:00Z"})
+ ];
+ const board=DESK.founderDeskPreview(cases);
+ assert.deepEqual(board.cases.map(c=>c.caseId),
+  ["security-case-002","security-case-001","money-case-001","routine-case-001"]);
+ assert.equal(board.ticketCount,4);
+ assert.equal(board.pendingCount,4);
+ assert.equal(board.criticalUnacknowledgedCount,2);
+ assert.equal(board.potentialFinancialHolds,2);
+ for(const flag of ["realCasesRetrieved","humanCoverageVerified",
+   "realNotificationSent","realFundsFrozen","productionAuthorized"])
+  assert.equal(board[flag],false);
+ assert.equal(JSON.stringify(board).includes("Rua"),false);
+ assert.ok(Object.isFrozen(board.cases));
+ assert.ok(Object.isFrozen(board.cases[0]));
+});
+test("SM-PLAN-002: só titular de teste reconhece um caso com sinalização de escala e canal",()=>{
+ const a=DESK.createIncidentFixture({caseId:"security-case-001",
+   kind:"safety_report",openedAt:"2026-11-18T22:00:00Z",linkedToRequestMock:true});
+ const when="2026-11-18T22:01:00Z";
+ const base={eventId:"acknowledge-0001",action:"acknowledge",at:when};
+ for(const extras of [
+  {actorRole:"system_mock",dutyConfirmedMock:true,channelVerifiedMock:true},
+  {actorRole:"founder_mock",dutyConfirmedMock:true},
+  {actorRole:"founder_mock",channelVerifiedMock:true}
+ ]){
+  assert.throws(()=>DESK.applyIncidentFixture(a,{...base,...extras}),/Reconhecimento/);
+ }
+ const accepted=DESK.applyIncidentFixture(a,{...base,actorRole:"founder_mock",
+   dutyConfirmedMock:true,channelVerifiedMock:true});
+ assert.equal(accepted.duplicate,false);
+ assert.equal(accepted.state.status,"acknowledged_mock");
+ assert.equal(accepted.state.version,1);
+ assert.equal(accepted.state.supportTicketCreated,false);
+ assert.equal(accepted.state.humanIdentityVerified,false);
+ assert.equal(accepted.state.realServiceRequestPaused,false);
+ assert.equal(accepted.state.productionAuthorized,false);
+ assert.ok(Object.isFrozen(accepted.state.events));
+ assert.ok(Object.isFrozen(accepted.state.events[0]));
+});
+test("SM-PLAN-002: alerta sem resposta vira escalado, nunca resolvido ou enviado de verdade",()=>{
+ const initial=DESK.createIncidentFixture({caseId:"security-case-001",
+   kind:"safety_report",openedAt:"2026-11-18T22:00:00Z"});
+ const late={eventId:"escalate-000001",action:"flag_unanswered",
+   actorRole:"system_mock",at:"2026-11-18T22:05:00Z"};
+ assert.throws(()=>DESK.applyIncidentFixture(initial,{...late,at:"2026-11-18T22:04:59Z"}),/Somente/);
+ const x=DESK.applyIncidentFixture(initial,late);
+ assert.equal(x.state.status,"escalated_uncovered_mock");
+ assert.equal(x.state.productionAuthorized,false);
+ assert.equal(x.state.realCustomerNotified,false);
+ assert.equal(x.state.financialReleaseAuthorized,false);
+ const y=DESK.applyIncidentFixture(x.state,{eventId:"ack-late-0001",
+   action:"acknowledge",actorRole:"founder_mock",at:"2026-11-18T22:06:00Z",
+   dutyConfirmedMock:true,channelVerifiedMock:true});
+ assert.equal(y.state.status,"acknowledged_mock");
+ assert.equal(y.state.version,2);
+});
+test("SM-PLAN-002: eventos duplicados são idempotentes, adulterações ou ordem inválida falham",()=>{
+ const initial=DESK.createIncidentFixture({caseId:"financial-case-001",
+   kind:"payment_dispute",openedAt:"2026-11-18T22:00:00Z",linkedToRequestMock:true});
+ const e={eventId:"acknowledge-0001",action:"acknowledge",
+   actorRole:"founder_mock",at:"2026-11-18T22:01:00Z",
+   dutyConfirmedMock:true,channelVerifiedMock:true};
+ const once=DESK.applyIncidentFixture(initial,e);
+ const twice=DESK.applyIncidentFixture(once.state,e);
+ assert.equal(twice.duplicate,true);
+ assert.equal(twice.state,once.state);
+ assert.equal(twice.state.version,1);
+ assert.throws(()=>DESK.applyIncidentFixture(once.state,{...e,at:"2026-11-18T22:02:00Z"}),/Colisão/);
+ assert.throws(()=>DESK.applyIncidentFixture(once.state,{
+   eventId:"review-00000001",action:"start_review",actorRole:"founder_mock",
+   at:"2026-11-18T21:59:59Z"}),/fora de ordem/);
+ assert.throws(()=>DESK.applyIncidentFixture(once.state,{...e,
+   eventId:"another-00001",note:"Rua da pessoa, 100"}),/campos não autorizados/);
+});
+test("SM-PLAN-002: revisão exige reconhecimento, evidência mock e motivo compatível; sem repasse",()=>{
+ let x=DESK.createIncidentFixture({caseId:"financial-case-001",
+   kind:"payment_dispute",openedAt:"2026-11-18T22:00:00Z",
+   linkedToRequestMock:true});
+ const review={eventId:"review-00000001",action:"start_review",
+   actorRole:"founder_mock",at:"2026-11-18T22:02:00Z"};
+ assert.throws(()=>DESK.applyIncidentFixture(x,review),/reconhecido/);
+ x=DESK.applyIncidentFixture(x,{eventId:"acknowledge-0001",
+   action:"acknowledge",actorRole:"founder_mock",
+   at:"2026-11-18T22:01:00Z",
+   dutyConfirmedMock:true,channelVerifiedMock:true}).state;
+ x=DESK.applyIncidentFixture(x,review).state;
+ const completion={eventId:"resolve-0000001",action:"resolve_review_mock",
+   actorRole:"founder_mock",at:"2026-11-18T22:03:00Z"};
+ assert.throws(()=>DESK.applyIncidentFixture(x,{...completion,
+   reasonCode:"service_reviewed_mock",evidenceCheckedMock:true}),/Revisão fictícia/);
+ assert.throws(()=>DESK.applyIncidentFixture(x,{...completion,
+   reasonCode:"financial_reviewed_mock"}),/Revisão fictícia/);
+ x=DESK.applyIncidentFixture(x,{...completion,
+   reasonCode:"financial_reviewed_mock",evidenceCheckedMock:true}).state;
+ assert.equal(x.status,"reviewed_mock");
+ assert.equal(x.version,3);
+ assert.equal(x.recommendHoldSettlementMock,true); // liberação depende do PSP/servidor real
+ for(const prop of ["financialReleaseAuthorized","refundAuthorized",
+   "humanIdentityVerified","productionAuthorized"]) assert.equal(x[prop],false);
+ assert.throws(()=>DESK.applyIncidentFixture(x,{...completion,eventId:"resolve-0000002"}),/Revisão fictícia/);
+ const finance=require("../f4-finance.js");
+ assert.equal(finance.settlementEligibility({
+   paymentVerifiedByServer:true,providerConfirmed:true,
+   customerConfirmed:true,disputeOpen:true}).candidateForServerSettlement,false);
+});
+test("SM-PLAN-002: impede campos livres/PII e casos duplicados em fila",()=>{
+ assert.throws(()=>DESK.createIncidentFixture({caseId:"bad",kind:"safety_report",
+   openedAt:"2026-11-18T22:00:00Z"}),/ID fictício/);
+ assert.throws(()=>DESK.createIncidentFixture({caseId:"unknown-case-001",
+   kind:"unsafe_custom",openedAt:"2026-11-18T22:00:00Z"}),/Categoria/);
+ const c=DESK.createIncidentFixture({caseId:"security-case-001",
+   kind:"safety_report",openedAt:"2026-11-18T22:00:00Z"});
+ assert.throws(()=>DESK.founderDeskPreview([c,c]),/duplicado/);
+ assert.throws(()=>DESK.applyIncidentFixture(c,{eventId:"wrong-00001",
+   action:"release_payment",actorRole:"founder_mock",
+   at:"2026-11-18T22:01:00Z"}),/Ação de suporte desconhecida/);
+ assert.throws(()=>DESK.applyIncidentFixture(c,{eventId:"wrong-00002",
+   action:"acknowledge",actorRole:"founder_mock",
+   at:"2026-11-18T22:01:00Z",reasonCode:"Rua Secreta"}),/Motivo padronizado/);
 });
