@@ -170,6 +170,11 @@ begin
 end;
 $$;
 
+-- SM-DEC-049: o município de DESTINO pode ser externo a BH/Contagem/Betim.
+-- Apenas a origem deve pertencer à praça do piloto (SM-DEC-048).
+-- O raio 5/15/60 km localiza prestadores até a ORIGEM, não limita a viagem final.
+-- A capacidade/aceite do percurso e o orçamento precisam de homologação
+-- autenticada antes de qualquer entrega ou cobrança real. SQL candidato OFFLINE.
 -- Pedido + dados privados em UMA transação, com foto F1 já existente.
 -- Dados de destino não aparecem nas ofertas nem em RLS do prestador.
 create or replace function public.f3_create_tow_request(
