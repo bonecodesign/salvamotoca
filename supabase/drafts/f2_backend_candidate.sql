@@ -207,7 +207,8 @@ begin
   if v_round>20 then raise exception 'Limite de rodadas atingido.'; end if;
   -- Preservar prestador originalmente selecionado se não houver NENHUM
   -- candidato. A liberação de foto só muda ao criar ofertas com sucesso.
-  for v_ring in select unnest(array[1,3,10]::integer[]) loop
+  -- SM-DEC-047: 5/15/60; SM-DEC-048: BH/Contagem/Betim. OFFLINE draft only.
+   for v_ring in select unnest(array[5,15,60]::integer[]) loop
     for candidate in
       select p.id as provider_id,
         private.f2_distance_km(v_req.latitude,v_req.longitude,p.latitude,p.longitude) as dist
@@ -219,7 +220,8 @@ begin
       join public.f2_provider_capacity cap on cap.provider_id=p.id
         and cap.service_types @> v_req.service_types
       where p.status='approved' and p.is_active
-        and p.city='Belo Horizonte' and p.state_code='MG'
+        and lower(btrim(p.city)) in ('belo horizonte','contagem','betim')
+         and p.state_code='MG'
         -- Na primeira rodada manual, respeitar exclusivamente o escolhido.
         -- Rodadas seguintes podem ampliar após recusa/vencimento.
         and (v_round>1 or coalesce(v_req.f2_mode,'automatic')='automatic'
