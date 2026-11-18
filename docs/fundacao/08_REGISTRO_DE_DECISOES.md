@@ -61,6 +61,8 @@ Aprovado significa **definido pelo responsável do produto**, não necessariamen
 
 | SM-DEC-049 | **Destino de reboque pode ser em município fora de Belo Horizonte, Contagem e Betim**, desde que a origem do chamado e a base do prestador permaneçam na praça inicial aprovada (SM-DEC-048), o prestador concorde com o percurso e sua disponibilidade, e apresente orçamento prévio com serviço e deslocamento discriminados. O solicitante aceita ou recusa o total antes de qualquer pagamento. Os anéis 5/15/60 km (SM-DEC-047) são somente para localizar o prestador em relação à origem, **não** limitam automaticamente a quilometragem de transporte até o destino. | **Aprovada expressamente pelo fundador em 18/11/2026**. Não equivale a cobertura garantida, despacho, aceitação presumida do profissional, regra de frete ilimitado ou autorização de pagamento. O destino, trajeto rodoviário, custos, condições de transporte, segurança e limites efetivamente aceitos exigem verificação/homologação e consentimento do prestador; regras jurídicas e tributárias pendentes. |
 
+| SM-DEC-050 | **Recebimento e busca de chamados a qualquer hora (24 horas/dia, 7 dias/semana)**, conforme disponibilidade real de prestadores homologados, com opção online voluntária e sinal recente. Não há horário fixo de fechamento para encaminhar pedidos F2/F3 no piloto. Mantêm-se área inicial BH/Contagem/Betim, raios 5/15/60 km, compatibilidade de serviços, capacidade e controle de notificações. **Sem prestador elegível, apresentar indisponibilidade clara e jamais prometer atendimento**, evitando cobrança ou despacho. | **Aprovada expressamente pelo fundador em 18/11/2026**; política de horários do produto, não compromisso de atendimento 24h e **não implica suporte humano 24h**. Suporte, incidentes de segurança/contestação e escalonamento fora do expediente permanecem pendentes em SM-OPEN-009 e exigem critérios de Go/No-Go, acompanhamento e plano de contingência antes de atendimentos reais. F1–F7 desativadas; implementação em testes offline, sem lançamento. |
+
 ## Definições técnicas adotadas, ajustáveis após testes
 
 - Heartbeat de prestador aproximadamente a cada 30 segundos; presença considerada efetiva com sinal recente, dentro de janela de cerca de 90 segundos.
@@ -81,7 +83,7 @@ Aprovado significa **definido pelo responsável do produto**, não necessariamen
 | SM-OPEN-006 | Critérios publicados de revisão de valores potencialmente abusivos/incoerentes | Transparência sem tabela fixa ou ajuste automático |
 | SM-OPEN-007 | Implementação/homologação de cancelamento, estorno, taxas e mediação pós-pagamento | Direitos e incidentes |
 | SM-OPEN-008 | Regime de tributação, notas e tratamento contábil | Sustentabilidade legal |
-| SM-OPEN-009 | Implementação, horários operacionais, chat de divergência e escalonamento humano do suporte | Operação real sem promessa indevida |
+| SM-OPEN-009 | Busca 24h condicionada ao prestador online aprovada (SM-DEC-050); **pendentes** horário e canal do suporte humano, plantão de incidentes críticos, tratamento de chamados sem prestadores, mediação fora do expediente e escalonamento | Produto 24h não significa suporte ou atendimento humano garantido 24h; condições mínimas devem ser homologadas antes do Go |
 | SM-OPEN-010 | Instrumentação e revisão dos resultados do piloto antes de ampliar | Gate de decisão |
 | SM-OPEN-011 | Implementação de idade/elegibilidade, geolocalização ativa, chegada, imagens, chat e retenção de dados | Direitos e proteção de dados |
 | SM-OPEN-012 | Implementação de reputação, moderação, alternância em empates e prevenção de direcionamento injusto | Transparência |
@@ -128,10 +130,12 @@ Aprovado significa **definido pelo responsável do produto**, não necessariamen
 
 - **18/11/2026 — SM-DEC-049:** fundador autorizou destinos de reboque em municípios externos à praça BH/Contagem/Betim, condicionados à disponibilidade e ao orçamento do prestador. O limite de 60 km permanece para localizar prestadores próximos à origem, não para limitar o trajeto do veículo rebocado. Sem ativação real; validação somente em código candidato/Draft.
 
+- **18/11/2026 — SM-DEC-050:** fundador aprovou receber solicitações a qualquer hora e buscar prestadores voluntariamente online com sinal recente; sem profissionais elegíveis, informar indisponibilidade, sem garantia de atendimento. Não altera a ausência de suporte humano 24h (SM-DEC-025) nem libera a operação. O comportamento já é independente do relógio nos motores F2/F3 candidatos; adicionados testes explícitos noturnos e fora de expediente em PR Draft sobre #72.
+
 ## Controle de alteração
 
 Uma alteração deve receber: ID, enunciado anterior, enunciado novo, razão, data, responsável que aprovou, impacto técnico/financeiro/jurídico, PR e teste de regressão. Caso uma decisão posterior conflite com uma antiga, sinalizar o conflito expressamente antes de alterar o código.
 
 ## Itens que NÃO estão decididos
 
-Não presumir: valor ou modalidade da tarifa sem PSP homologado, tempo de chegada garantido, atendimento 24 horas, cobertura de todo município, vínculo trabalhista ou ausência de vínculo, exclusão contratual ampla de responsabilidade, retenção indefinida de dados, habilitação de pagamentos ou autorização automática de candidatos prospectados.
+Não presumir: valor ou modalidade da tarifa sem PSP homologado, tempo de chegada garantido, **prestador disponível ou suporte humano 24h** (apesar de a busca no aplicativo ser permitida a qualquer hora), cobertura de todo município, vínculo trabalhista ou ausência de vínculo, exclusão contratual ampla de responsabilidade, retenção indefinida de dados, habilitação de pagamentos ou autorização automática de candidatos prospectados.
