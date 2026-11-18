@@ -77,6 +77,21 @@ O módulo `f23-support-hybrid-offline.js` é apenas uma **prévia determinístic
 
 **SM-OPEN-009 segue pendente** para horários humanos, monitoramento crítico, escalonamento e nível mínimo de serviço. Sem esta homologação, **G1=BLOCKED, RELEASE=NO_GO**.
 
+## SM-DEC-052 — expediente humano e plantão para incidentes críticos (18/11/2026)
+
+**Modelo operacional escolhido pelo fundador:** suporte humano ordinário **seg–sex, 9h–18h (America/Sao_Paulo)**, como horário de **referência inicial**, não escala contratada ou operativa. O recebimento digital é contínuo. À noite, nos fins de semana e feriados: dúvidas e problemas não críticos entram em fila humana; **incidentes críticos de segurança** exigem um responsável de sobreaviso, um substituto e um canal testado antes da liberação do piloto. Contestações financeiras conservam o bloqueio de repasse do módulo F4 enquanto houver disputa, com revisão posterior. Não automatizar reembolso, cancelamento irreversível ou liberação financeira por decurso de prazo.
+
+Fluxo proposto da triagem:
+1. Receber relato digital e retornar confirmação de recebimento, com protocolo/histórico quando o backend real estiver autorizado. Não afirmar que já houve resposta humana.
+2. Se for dúvida comum, oferecer orientação automática; se o caso exigir análise, enfileirar para o próximo expediente com horário de suporte claramente publicado.
+3. Se for divergência de serviço ou pagamento, preservar histórico, identificar pedido e registrar estado de contestação autenticado no servidor; **nenhum repasse na presença de disputa aberta**. Mediação apenas por responsável habilitado.
+4. Se for incidente de segurança, priorizar risco imediato, orientar acionamento de serviços oficiais de emergência quando necessário e sinalizar proteção do pedido. Acionar o responsável humano **somente quando houver plantão verificado**, com escalonamento ao substituto em caso de falta de resposta; não dizer que foi chamado se não houver comprovação.
+5. No lançamento real, monitorar incidentes críticos, registrar ciência, intervenções, horários e evidências, validar falhas de entrega e retorno; nenhuma mensagem de sucesso pode ser emitida antes de confirmação confiável.
+
+O módulo puro `f23-support-hybrid-offline.js`, função `planDutyCoverage`, demonstra as rotas e limites de horário em **testes sintéticos**. Seu indicador `isHolidayMock` não corresponde a calendário confiável. Mesmo quando os indicadores de pessoa/canal fictícios estão ativos, a resposta **nunca** comprova plantão real, alerta enviado ou autorização de lançamento. Testes de fronteira às 9h/18h, madrugada, domingo, feriado fictício, ausência de pessoa/canal e preservação financeira estão na suíte já existente F23; nenhum teste E2E real foi iniciado.
+
+**SM-OPEN-009 permanece parcialmente aberto:** confirmar horário e escala de trabalho, responsáveis e substitutos, cobertura de feriados, canal de contato, tempo de resposta e contingência de incidentes críticos, privacidade de dados e governança financeira/jurídica. Sem prova desses recursos, **G1=BLOCKED; RELEASE=NO_GO**.
+
 ## Dependências restantes
 
 1. Conciliar os PRs empilhados #42 → #44 → ... → #57 → #61 → #62 → #63 → #64 e este PR, sem merge automático e sem integrar o módulo local a um emissor real.
