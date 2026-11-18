@@ -56,3 +56,36 @@ jobs:
           echo 'F1_TO_F7_REAL_OPERATIONS=DISABLED'
           echo 'G1=BLOCKED'
           echo 'RELEASE=NO_GO'
+
+  windows-local-compat:
+    runs-on: windows-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+      - name: Provar compatibilidade Windows sem exigir admin ou Developer Mode
+        shell: pwsh
+        run: |
+          node --check scripts/g1-catalog-fingerprint-compare.mjs
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          node --test tests/g1-catalog-fingerprint-compare.test.mjs
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          node --test tests/f125-http-auth-readonly.test.mjs
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          $plan = node scripts/g1-catalog-fingerprint-compare.mjs --plan | ConvertFrom-Json
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          if ($plan.decision -ne 'REVIEW_REQUIRED_NO_GO' -or $plan.mode -ne 'NO_FILES_NO_NETWORK') {
+            throw 'G1 Windows guard did not remain NO-GO'
+          }
+          $release = node scripts/release-readiness-offline.mjs | ConvertFrom-Json
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          if ($release.decision -ne 'NO_GO' -or $release.g1 -ne 'BLOCKED') {
+            throw 'Release unexpectedly enabled on Windows'
+          }
+          Write-Host 'WINDOWS_NO_ADMIN_TESTS=PASS'
+          Write-Host 'WINDOWS_USER_DEVICE=NOT_TOUCHED'
+          Write-Host 'G1_BACKUP_RESTORE=NOT_EXECUTED'
+          Write-Host 'SUPABASE_HOSTED_WRITES=NONE'
+          Write-Host 'RELEASE=NO_GO'
