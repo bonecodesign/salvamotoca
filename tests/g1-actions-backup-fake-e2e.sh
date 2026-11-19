@@ -115,6 +115,71 @@ for f in roles.sql schema.sql data.sql history_schema.sql history_data.sql; do
  test -s "$tmp/unpacked/$f"
 done
 grep -q 'g1_restoration_verified=false' "$tmp/unpacked/manifest.txt"
+
+# Verificador rigoroso: decrypt sem extrair SQL, allowlist tar, SHA256,
+# metadados, inventário e cabeçalhos COPY. Só chaves FICTÍCIAS em CI.
+G1_SYNTHETIC_CI_ONLY=true python3 scripts/g1-verify-encrypted-bundle.py \
+  --archive "$tmp/encrypted-received.age" \
+  --identity "$tmp/fake-identity.txt" > "$tmp/integrity-ok.log"
+grep -q 'G1_ENCRYPTED_ARCHIVE_INTEGRITY=PASS' "$tmp/integrity-ok.log"
+grep -q 'G1_RESTORATION_VERIFIED=FALSE' "$tmp/integrity-ok.log"
+
+# Arquivo age adulterado: a autenticação criptográfica deve rejeitar.
+python3 - "$tmp/encrypted-received.age" "$tmp/corrupt.age" <<'PY'
+from pathlib import Path
+import sys
+raw=bytearray(Path(sys.argv[1]).read_bytes())
+raw[-1] ^= 1
+Path(sys.argv[2]).write_bytes(raw)
+PY
+if G1_SYNTHETIC_CI_ONLY=true python3 scripts/g1-verify-encrypted-bundle.py \
+  --archive "$tmp/corrupt.age" --identity "$tmp/fake-identity.txt" \
+  > "$tmp/corrupt.log" 2>&1; then
+ echo 'FAIL: tampered ciphertext accepted'; exit 1
+fi
+grep -q 'G1_ARCHIVE_REJECTED=' "$tmp/corrupt.log"
+
+# Arquivo TAR com caminho malicioso nunca deve ser extraído.
+python3 - "$tmp/restored.tar.gz" "$tmp/path-traversal.tar.gz" <<'PY'
+import sys,tarfile,io
+with tarfile.open(sys.argv[1], 'r:gz') as source:
+ with tarfile.open(sys.argv[2], 'w:gz') as target:
+  for m in source.getmembers():
+   target.addfile(m,source.extractfile(m))
+  payload=b'not-allowed'
+  malicious=tarfile.TarInfo('../../unsafe.sql')
+  malicious.size=len(payload)
+  target.addfile(malicious,io.BytesIO(payload))
+PY
+age -r "$G1_AGE_RECIPIENT" -o "$tmp/path-traversal.age" "$tmp/path-traversal.tar.gz"
+if G1_SYNTHETIC_CI_ONLY=true python3 scripts/g1-verify-encrypted-bundle.py \
+ --archive "$tmp/path-traversal.age" --identity "$tmp/fake-identity.txt" \
+ > "$tmp/traversal.log" 2>&1; then
+ echo 'FAIL: traversal archive accepted'; exit 1
+fi
+grep -q 'UNEXPECTED_OR_MISSING_ARCHIVE_FILES' "$tmp/traversal.log"
+
+# A cifra pode estar válida, mas o dado alterado sem atualizar o manifesto
+# SHA256 continua inválido (testa ataque pós-decriptografia).
+python3 - "$tmp/restored.tar.gz" "$tmp/modified.tar.gz" <<'PY'
+import sys,tarfile,io
+with tarfile.open(sys.argv[1],'r:gz') as source:
+ with tarfile.open(sys.argv[2],'w:gz') as target:
+  for m in source.getmembers():
+   data=source.extractfile(m).read()
+   if m.name=='data.sql':
+    data+=b'\n-- tampered fictional data\n'
+    m.size=len(data)
+   target.addfile(m,io.BytesIO(data))
+PY
+age -r "$G1_AGE_RECIPIENT" -o "$tmp/modified.age" "$tmp/modified.tar.gz"
+if G1_SYNTHETIC_CI_ONLY=true python3 scripts/g1-verify-encrypted-bundle.py \
+  --archive "$tmp/modified.age" --identity "$tmp/fake-identity.txt" \
+  > "$tmp/modified.log" 2>&1; then
+ echo 'FAIL: modified SQL accepted despite stale SHA256'; exit 1
+fi
+grep -q 'MANIFEST_SHA256_MISMATCH' "$tmp/modified.log"
+
 python3 - "$tmp/unpacked/source_inventory_before.json" <<'PY'
 import sys,json
 with open(sys.argv[1],encoding='utf-8') as f: d=json.load(f)
@@ -151,4 +216,8 @@ echo 'G1_CORRUPT_REMOTE_HASH=REJECTED'
 echo 'G1_MISSING_ESSENTIAL_TABLE=REJECTED'
 echo 'G1_SOURCE_INVENTORY_DRIFT=REJECTED'
 echo 'REAL_SUPABASE_AND_DROPBOX_ACCESSED=FALSE'
+echo 'G1_PRIVATE_ARCHIVE_VERIFIER=PASS'
+echo 'G1_TAMPERED_AGE=REJECTED'
+echo 'G1_UNSAFE_TAR_PATH=REJECTED'
+echo 'G1_CHANGED_SQL_WITH_OLD_HASH=REJECTED'
 echo 'G1=BLOCKED'
