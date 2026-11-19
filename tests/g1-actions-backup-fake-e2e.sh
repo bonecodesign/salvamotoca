@@ -223,7 +223,8 @@ rm -f "$tmp/inventory-counter"
 if G1_FAKE_DROP_TABLE=true bash "$script" > "$tmp/partial.log" 2>&1; then
  echo 'FAIL: incomplete dump accepted'; exit 1
 fi
-grep -q 'não inclui tabela essencial' "$tmp/partial.log"
+# O controle DINÂMICO pode rejeitar a ausência antes do teste legado.
+grep -Eq 'não inclui tabela essencial|dump não cobre todas as tabelas public/RLS/políticas' "$tmp/partial.log"
 # Do not publish a backup spanning two different source row-count states.
 rm -f "$tmp/inventory-counter"
 if G1_FAKE_INVENTORY_DRIFT=true bash "$script" > "$tmp/drift.log" 2>&1; then
