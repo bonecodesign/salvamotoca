@@ -28,6 +28,18 @@ A CI comprova: (a) rejeição de URL de outro projeto; (b) bloqueio quando há o
 
 Esses ensaios **não provam** autenticação no Supabase real, execução real da Supabase CLI com conexão remota, disponibilidade do OAuth Dropbox, backup físico de Storage, restauração do ambiente completo nem franquias do destino privado. A fonte para G1 real continua sendo a exportação efetiva e a restauração isolada, sob autorização do fundador.
 
+## SM-G1-ROBUSTEZ — pré-checagens reais e novos testes, 19/11/2026
+
+**Supabase CLI v3.2.0:** instalado no runner GitHub Actions, não apenas consultado na documentação. Foram verificadas via `supabase db dump --help` as opções de `--remote`, `--role-only`, `--data-only`, `--schema`, `--use-copy`, `--exclude` e `--file`, todas presentes. Evidência: [CI #44589540823](https://github.com/bonecodesign/salvamotoca/actions/runs/44589540823) — SUCCESS. A verificação do CLI **não se conectou ao Supabase hospedado**.
+
+**Inventário de origem:** o script de backup real candidato agora lê contagens de 8 conjuntos essenciais **antes e depois das cinco exportações**, cifra o inventário inicial e seu SHA-256 junto com o pacote e **interrompe o backup se alguma contagem mudar**. Além disso, só aceita `data.sql` contendo comandos **`COPY public.<tabela>` genuínos** para as três tabelas essenciais de prospecção/configuração (não basta o nome aparecer em texto ou comentários). Isso diminui o risco de backup incompleto ou inconsistente, mas **não detecta atualização de conteúdo sem alteração de contagens**, nem equivale a snapshot transacional único.
+
+Foi repetida consulta **somente SELECT**, diretamente no Supabase de testes, em 19/11/2026, e confirmado: `auth.users=0`, `service_requests=0`, `providers=0`, `prestadores_prospeccao=36`, `ofertas_prospeccao=40`, `configuracao_comercial=1`, `supabase_migrations.schema_migrations=11`, `storage.objects=0`. Os números são pontuais, sem copiar linhas com informações pessoais e sem gravação no projeto.
+
+**Testes adversariais de CI:** o mock local em `tests/g1-actions-backup-fake-e2e.sh` agora precisa provar, adicionalmente, a inclusão do inventário cifrado, rejeitar uma tabela essencial ausente do dump e rejeitar uma variação de contagens antes/depois. Os testes anteriores de criptografia, hash remoto adulterado, projeto inesperado e Storage não vazio foram mantidos, e a verificação continua **sem credenciais reais nem chamadas ao Supabase/Dropbox**. Evidência: [CI #44589991913](https://github.com/bonecodesign/salvamotoca/actions/runs/44589991913) — SUCCESS.
+
+Essas validações reduzem o risco antes da configuração humana. **Não significam que o `pg_dump` hospedado, a transmissão ao Dropbox ou a restauração real tenham ocorrido**.
+
 ## Por que NÃO é G1 aprovado
 
 1. A exportação não foi feita: faltam credenciais seguras, chave pública, destino privado e aprovação de execução.
