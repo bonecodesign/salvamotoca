@@ -45,8 +45,6 @@ jobs:
       G1_BACKUP_ENABLED: ${{ vars.G1_BACKUP_ENABLED }}
       G1_CONFIRM: ${{ inputs.confirm }}
       G1_AGE_RECIPIENT: ${{ vars.G1_AGE_RECIPIENT }}
-      G1_SUPABASE_DB_URL: ${{ secrets.G1_SUPABASE_DB_URL }}
-      G1_DROPBOX_ACCESS_TOKEN: ${{ secrets.G1_DROPBOX_ACCESS_TOKEN }}
     steps:
       - uses: actions/checkout@v4
         with:
@@ -68,4 +66,7 @@ jobs:
           psql --version
       - name: "G1 exportação somente de leitura + cifragem e upload"
         shell: bash
+        env:
+          G1_SUPABASE_DB_URL: ${{ secrets.G1_SUPABASE_DB_URL }}
+          G1_DROPBOX_ACCESS_TOKEN: ${{ secrets.G1_DROPBOX_ACCESS_TOKEN }}
         run: bash scripts/g1-actions-backup-real.sh
