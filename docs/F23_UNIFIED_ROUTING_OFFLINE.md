@@ -1,6 +1,6 @@
 # Salva Motoca! — ponte F2/F3: encaminhamento por tipo de serviço (OFFLINE)
 
-**Data da revisão:** 17/11/2026. **Ambiente:** somente testes Node 22 e PostgreSQL 17 descartável no GitHub Actions. Projeto Supabase existente `yivkqyjdeouxnwtwfekc`: **nenhuma alteração**. **Não é implementação de servidor ou migration.**
+**Data da revisão:** 18/11/2026. **Ambiente deste pacote:** somente testes Node 22 e PostgreSQL 17 descartável no GitHub Actions. Supabase existente `yivkqyjdeouxnwtwfekc`: **base hospedada de TESTES/HOMOLOGAÇÃO** por esclarecimento expresso do fundador (**SM-DEC-054**), e **não produção comercial**; nenhuma alteração ao projeto neste pacote. **Não é implementação de servidor ou migration.**
 
 ## Objetivo e descoberta
 
