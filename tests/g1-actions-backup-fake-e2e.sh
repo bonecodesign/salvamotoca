@@ -128,7 +128,12 @@ grep -q 'Storage não está vazio' "$tmp/objects.log"
 [[ ! -e "$tmp/encrypted-received.age" ]]
 
 # Real script runs end-to-end, but mock SQL and mock Dropbox only.
-bash "$script" > "$tmp/ok.log" 2>&1
+if ! bash "$script" > "$tmp/ok.log" 2>&1; then
+  # Apenas etiquetas do mock, nunca SQL real ou credenciais.
+  grep -E 'G1 INTERROMPIDO:|G1_DUMP_COVERAGE=' "$tmp/ok.log" | tail -n 3 >&2 || true
+  echo 'FAIL: synthetic backup pipeline did not pass' >&2
+  exit 1
+fi
 grep -q 'G1_ENCRYPTED_BACKUP_UPLOADED_PRIVATE_DROPBOX=CONFIRMED' "$tmp/ok.log"
 grep -q 'G1=BLOCKED' "$tmp/ok.log"
 test -s "$tmp/encrypted-received.age"
