@@ -61,10 +61,10 @@ esac
 printf '%s\n' "-- mock SQL for $out" 'select 1;' > "$out"
 if [[ "$out" == 'data.sql' ]]; then
  if [[ "${G1_FAKE_DROP_TABLE:-}" != "true" ]]; then
-   printf '%s\n' '-- COPY public.prestadores_prospeccao' >> "$out"
+   printf '%s\n' 'COPY public.prestadores_prospeccao (id) FROM stdin;' >> "$out"
  fi
- printf '%s\n' '-- COPY public.ofertas_prospeccao' \
-  '-- COPY public.configuracao_comercial' >> "$out"
+ printf '%s\n' 'COPY public.ofertas_prospeccao (id) FROM stdin;' \
+  'COPY public.configuracao_comercial (id) FROM stdin;' >> "$out"
 fi
 MOCK
 cat > "$tmp/bin/curl" <<'MOCK'
