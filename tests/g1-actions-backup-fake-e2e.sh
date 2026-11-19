@@ -5,6 +5,7 @@ umask 077
 for c in python3 age age-keygen tar sha256sum bash; do command -v "$c" >/dev/null; done
 tmp="$(mktemp -d)"
 trap 'rm -rf "$tmp"' EXIT
+trap 'echo "G1_MOCK_FAILED_AT_LINE=$LINENO" >&2; grep -hE "G1 INTERROMPIDO:|G1_DUMP_COVERAGE=" "$tmp"/*.log 2>/dev/null | tail -n 4 >&2 || true' ERR
 mkdir -p "$tmp/bin" "$tmp/runner"
 export RUNNER_TEMP="$tmp/runner"
 export GITHUB_REPOSITORY='bonecodesign/salvamotoca'
