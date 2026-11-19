@@ -51,7 +51,7 @@ jobs:
           docker run --rm --network host -e PGPASSWORD postgres:17 \
             psql -h 127.0.0.1 -U postgres -d postgres -v ON_ERROR_STOP=1 \
             -c "create database g1_restored"
-          docker run --rm --network host -e PGPASSWORD postgres:17 \
+          docker run --rm -i --network host -e PGPASSWORD postgres:17 \
             pg_restore -h 127.0.0.1 -U postgres -d g1_restored \
             --exit-on-error --no-owner --no-acl < "$dump"
           actual="$(docker run --rm --network host -e PGPASSWORD postgres:17 \
