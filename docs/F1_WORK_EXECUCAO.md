@@ -4,6 +4,8 @@
 **Repositório:** https://github.com/bonecodesign/salvamotoca  
 **Branch integrada:** main; PRs [#38](https://github.com/bonecodesign/salvamotoca/pull/38) e [#39](https://github.com/bonecodesign/salvamotoca/pull/39) já integrados.  
 **Supabase ÚNICO:** Salva Motoca, referência yivkqyjdeouxnwtwfekc, sa-east-1, plano Free. **Não criar outro projeto ou branch remota.**  
+**Classificação do fundador (SM-DEC-054, 18/11/2026):** este Supabase hospedado é o **ambiente atual de TESTES/HOMOLOGAÇÃO**, não um ambiente de produção comercial. A mudança de etapa dependerá de comunicação e autorização expressas do fundador. O banco efêmero da CI é um laboratório auxiliar; não substitui o Supabase de testes.
+
 **Estado atual:** código F1 integrado à main; flag f1TestRequestsEnabled=false; testes Node, Chrome e PostgreSQL isolado aprovados na main; **homologação real não concluída**.
 
 Este arquivo é a instrução de continuidade para o Work. Comece aqui; não refaça levantamento de requisitos já resolvidos. Preserve a F1 e suas decisões. O objetivo é produzir evidências **efetivas**, corrigir defeitos e deixar pronta a decisão de homologação, sem ativar o app nem simular sucesso.
@@ -13,7 +15,7 @@ Este arquivo é a instrução de continuidade para o Work. Comece aqui; não ref
 1. **Não contratar serviços, trocar de plano, habilitar cobrança/PITR, criar novo Supabase, gerar atendimento real, chamar motoboy/prestador, disparar notificações externas, realizar pagamentos, liberar chat, publicar F1 ou alterar f1TestRequestsEnabled.**
 2. **Não reaplicar** migration F1 já presente no banco e não executar rollback remoto. As alterações de código devem ser branch e PR próprios, com CI. Não modificar main diretamente sem revisão.
 3. Nunca colocar segredos, JWT, senha, URLs assinadas, dumps de banco ou dados pessoais no GitHub, logs, anotações ou conversas. Usar sessão de login do Work e ambiente privado/segredos do próprio operador. No teste HTTP, somente publishable key e login normal; **nunca service_role**.
-4. **Backup + teste de restauração são bloqueio obrigatório para qualquer gravação no Supabase.** Não substituir por simples inspeção de esquema nem por uma afirmação de que o projeto está vazio.
+4. **Mesmo sendo o Supabase de TESTES, backup + teste de restauração continuam bloqueio obrigatório antes de qualquer gravação hospedada** (SM-DEC-054), incluindo fixtures e alterações de esquema; diagnóstico somente leitura pode precedê-los. Não substituir por simples inspeção de esquema nem por uma afirmação de que o projeto está vazio. Não ativar operação comercial antes de autorização expressa.
 5. Se um teste falhar, registrar **FALHOU** ou **BLOQUEADO**, corrigir no ramo isolado e repetir; não marcar como aprovado por suposição.
 6. No plano Free, acompanhar consumo de cotas. O teste A/C envia **no máximo um JPEG sintético pequeno**, sem imagem pessoal. O script não cria pedidos, usuários ou prestadores.
 
