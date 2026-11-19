@@ -31,6 +31,14 @@ alter table public.f23_mock_incidents
  add column provider_at_report uuid,
  add column assignment_generation_at_report bigint;
 
+-- Não deixar uma ocorrência da atribuição A1 impedir um novo relato quando
+-- o mesmo profissional voltar em uma relação A3, mantendo unicidade em A1.
+drop index public.f23_mock_incident_active_reporter;
+create unique index f23_mock_incident_active_reporter
+ on public.f23_mock_incidents(
+  request_key,reporter_id,category,coalesce(assignment_generation_at_report,0))
+ where reporter_id is not null and status <> 'reviewed_mock';
+
 -- Serialize a checagem de vínculo de cliente/prestador com eventual troca
 -- de prestador. FOR UPDATE impede TOCTOU enquanto a submissão está aberta.
 -- FOR SHARE no prestador impede mudança concorrente de owner_id.
