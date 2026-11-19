@@ -121,6 +121,7 @@ begin
  where event_key=p_event_key;
  if found then
    if v_old.case_key is distinct from p_case_key or
+      v_old.actor_id is distinct from auth.uid() or
       v_old.action is distinct from p_action or
       v_old.reason_code is distinct from p_reason_code
    then raise exception 'Idempotência: event_key reutilizada com outro conteúdo'; end if;
@@ -183,7 +184,9 @@ begin
    i.status,i.version,i.opened_at
  from public.f23_mock_incidents i
  order by case when i.status='reviewed_mock' then 1 else 0 end,
-  priority,i.opened_at,i.case_key;
+  case i.category when 'safety_report' then 0
+    when 'payment_dispute' then 1 else 2 end,
+  i.opened_at,i.case_key;
 end $f$;
 
 -- Proprietário SQL tem bypass da RLS para RPCs SECURITY DEFINER.
