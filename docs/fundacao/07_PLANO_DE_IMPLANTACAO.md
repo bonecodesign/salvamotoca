@@ -6,6 +6,12 @@
 
 Lançar piloto comercial inicialmente em **Belo Horizonte, Contagem e Betim (MG)**, somente com prestadores homologados, transações protegidas e operação de suporte capaz de resolver falhas; a abertura das três cidades depende de validação geográfica confiável (SM-DEC-048).
 
+## Ambientes e decisão de promoção — SM-DEC-054 (18/11/2026)
+
+O **Supabase existente é a base remota de testes/homologação**, conforme esclarecimento do fundador; **não é produção comercial**. O PostgreSQL 17 descartável usado no GitHub Actions complementa a validação, mas não substitui os testes controlados no Supabase existente. **Não criar um segundo projeto** por suposição. O fundador avisará expressamente quando desejar iniciar a etapa real, com a decisão de implantação documentada e os gates cumpridos.
+
+A classificação como ambiente de testes **não dispensa proteção de dados, RLS, gestão de segredos, backup/restauração G1 comprovados antes de gravações hospedadas, isolamento de fixtures ou rollback**. Não iniciar cobranças, despachos, alertas externos ou atendimentos comerciais durante a homologação. Inspeções somente leitura podem orientar o plano sem alterar registros; mudanças de esquema ou dados precisam de análise e autorização específicas.
+
 ## Marcos com dependências
 
 | Marco | Entrega | Dependência para avançar | Estado |
