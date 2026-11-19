@@ -28,6 +28,9 @@ jobs:
           --health-timeout 5s
           --health-retries 10
     steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
       - name: "Prova local: pg_dump, SHA-256 e pg_restore em banco totalmente descartável"
         shell: bash
         env:
