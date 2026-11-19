@@ -39,6 +39,20 @@ O teste `tests/g1-actions-backup-fake-e2e.sh` fabrica um backup **inteiramente f
 4. Recusar um dump SQL alterado dentro de uma cifra válida, mas com manifesto SHA256 antigo.
 5. Preservar os testes existentes de `pg_dump`/`pg_restore` PostgreSQL17 descartável, rejeição de Storage com objetos, inventário alterado, dados essenciais omitidos e resposta Dropbox com hash errado.
 
+## Prova integrada de recuperação SQL sintética — 19/11/2026
+
+A suíte `tests/g1-encrypted-restore-pg17-offline.sh` acrescenta uma segunda prova, mais próxima do procedimento efetivo:
+
+1. Em **PostgreSQL 17 descartável da CI**, cria tabelas `prestadores_prospeccao`, `ofertas_prospeccao`, `configuracao_comercial` e `supabase_migrations.schema_migrations`, com **somente registros fictícios**.
+2. Executa o **`pg_dump` nativo real** para esquema, dados em `COPY` e histórico; gera inventário, manifesto SHA256 e pacote `tar.gz`, criptografado por `age` com identidade criada somente para o teste.
+3. Verifica o pacote pelo `scripts/g1-verify-encrypted-bundle.py` antes de descriptografar e executar scripts SQL recuperados.
+4. Recria o schema `public` **somente no segundo banco PostgreSQL 17 descartável** (não no Supabase hospedado), importa os SQL do pacote e confirma **2 prestadores, 3 ofertas, 1 configuração e 1 migração sintética**.
+5. Descarta toda a fixture ao encerrar o runner; não usa DNS Supabase, credenciais, Dropbox, Auth real ou Storage físico.
+
+**Evidência final:** [GitHub Actions #44593180766](https://github.com/bonecodesign/salvamotoca/actions/runs/44593180766), workflow **SUCCESS (1 job)**, logs confirmando `G1_PG17_SQL_AGE_VERIFY_PG17_RESTORE=PASS` e `G1_SYNTHETIC_RECORD_COUNTS=PASS`. Os testes adversariais do arquivo cifrado e a validação do Supabase CLI v3.2.0 também passaram.
+
+**Limite da prova:** autenticação, RLS real, extensão Supabase, importação das roles reais, configuração do bucket e recuperação de objetos físicos **não foram exercitadas**. Este é um ensaio real de `pg_dump` → `age` → verificador → `psql`, porém usando banco **exclusivamente artificial**. Não alterar `G1=BLOCKED` nem `RELEASE=NO_GO`.
+
 **Critério para G1 real:** após configuração de secrets, executar exportação verdadeira em `main` com confirmação e destino privado, conservar a identidade `age` exclusivamente com o fundador, validar o backup pelo verificador e **restaurar de fato** o conteúdo numa instância Supabase local descartável compatível (DB, RLS, grants, Auth e metadados de Storage; bytes de Storage separadamente se houver). Comparar as contagens com o inventário cifrado e registrar divergências. Só assim considerar `G1=PASS`; nunca promover automaticamente o aplicativo a produção comercial.
 
 ## Próxima etapa pendente
