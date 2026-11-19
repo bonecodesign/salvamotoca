@@ -6,6 +6,7 @@ on:
       - "docs/G1_GITHUB_ACTIONS_VIABILIDADE.md"
       - ".github/workflows/g1-supabase-backup-manual.yml"
       - "scripts/g1-actions-backup-real.sh"
+      - "tests/g1-actions-backup-fake-e2e.sh"
       - "docs/G1_BACKUP_ACTIONS_MANUAL_PREPARACAO.md"
 permissions:
   contents: read
@@ -111,4 +112,10 @@ jobs:
           echo 'SUPABASE_HOSTED_ACCESSED=FALSE'
           echo 'REAL_BACKUP=NOT_PERFORMED'
           echo 'G1=BLOCKED'
+      - name: "Executar pipeline completo com Supabase e Dropbox MOCK, sem rede"
+        shell: bash
+        run: |
+          set -euo pipefail
+          bash -n tests/g1-actions-backup-fake-e2e.sh
+          bash tests/g1-actions-backup-fake-e2e.sh
 
