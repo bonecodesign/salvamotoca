@@ -2,10 +2,34 @@
 -- DEPENDE de f23_incident_intake_candidate.sql; PG17 EFÊMERO NA CI SOMENTE.
 -- NÃO É migration autorizada para Supabase hospedado. Sem dados reais.
 
--- Registrar o prestador exatamente atribuído NO MOMENTO do relato.
--- Um novo prestador jamais herda acesso a ocorrências da relação anterior.
+-- Uma versão de atribuição aumenta a cada troca de prestador, inclusive
+-- A -> B -> A. Protege contra reaproveitar permissão de uma relação encerrada.
+-- Somente no PG17 descartável: trigger não aprovado para banco real.
+alter table public.service_requests
+ add column f23_mock_assignment_generation bigint not null default 1
+ check(f23_mock_assignment_generation >= 1);
+
+create or replace function private.f23_mock_bump_assignment_generation()
+returns trigger language plpgsql security definer set search_path = ''
+as $f$
+begin
+ if new.provider_id is distinct from old.provider_id then
+   new.f23_mock_assignment_generation:=old.f23_mock_assignment_generation+1;
+ else
+   new.f23_mock_assignment_generation:=old.f23_mock_assignment_generation;
+ end if;
+ return new;
+end $f$;
+revoke all on function private.f23_mock_bump_assignment_generation()
+ from public,anon,authenticated;
+create trigger f23_mock_assignment_generation_trg
+ before update on public.service_requests for each row
+ execute function private.f23_mock_bump_assignment_generation();
+
+-- Um novo prestador jamais herda acesso a ocorrência de relação anterior.
 alter table public.f23_mock_incidents
- add column provider_at_report uuid;
+ add column provider_at_report uuid,
+ add column assignment_generation_at_report bigint;
 
 -- Serialize a checagem de vínculo de cliente/prestador com eventual troca
 -- de prestador. FOR UPDATE impede TOCTOU enquanto a submissão está aberta.
@@ -18,6 +42,7 @@ declare
  v_caller uuid;
  v_customer uuid;
  v_provider uuid;
+ v_assignment_generation bigint;
  v_reporter_role text;
  v_owner uuid;
  v_existing public.f23_mock_incidents%rowtype;
@@ -32,8 +57,8 @@ begin
    ('general_question','service_issue','payment_dispute','safety_report')
  then raise exception 'Relato de teste inválido'; end if;
 
- select r.customer_id,r.provider_id
-   into v_customer,v_provider
+ select r.customer_id,r.provider_id,r.f23_mock_assignment_generation
+   into v_customer,v_provider,v_assignment_generation
  from public.service_requests r where r.id=p_request_key
  for update;
  if not found then raise exception 'Solicitação não autorizada'; end if;
@@ -51,9 +76,11 @@ begin
  end if;
 
  insert into public.f23_mock_incidents(
-   case_key,category,request_key,reporter_id,reporter_role,provider_at_report)
+   case_key,category,request_key,reporter_id,reporter_role,
+   provider_at_report,assignment_generation_at_report)
  values(p_case_key,p_category,p_request_key,v_caller,v_reporter_role,
-   case when v_reporter_role='provider' then v_provider else null end)
+   case when v_reporter_role='provider' then v_provider else null end,
+   case when v_reporter_role='provider' then v_assignment_generation else null end)
  on conflict(case_key) do nothing;
 
  select * into strict v_existing from public.f23_mock_incidents
@@ -63,7 +90,9 @@ begin
    v_existing.reporter_id is distinct from v_caller or
    v_existing.reporter_role is distinct from v_reporter_role or
    v_existing.provider_at_report is distinct from
-       (case when v_reporter_role='provider' then v_provider else null end)
+       (case when v_reporter_role='provider' then v_provider else null end) or
+   v_existing.assignment_generation_at_report is distinct from
+       (case when v_reporter_role='provider' then v_assignment_generation else null end)
  then raise exception 'Idempotência: caso reutilizado com outro vínculo/autor'; end if;
 
  return jsonb_build_object('mockOnly',true,'caseKey',v_existing.case_key,
@@ -94,6 +123,7 @@ begin
     (c.reporter_role='customer' and r.customer_id=auth.uid())
     or
     (c.reporter_role='provider' and r.provider_id=c.provider_at_report
+      and r.f23_mock_assignment_generation=c.assignment_generation_at_report
       and p.owner_id=auth.uid())
    );
  if not found then raise exception 'Caso não encontrado'; end if;
