@@ -8,6 +8,7 @@ on:
       - "scripts/g1-actions-backup-real.sh"
       - "tests/g1-actions-backup-fake-e2e.sh"
       - "scripts/g1-verify-encrypted-bundle.py"
+      - "scripts/g1-verify-public-dump-coverage.py"
       - "docs/G1_RECUPERACAO_ARQUIVO_PRIVADO.md"
       - "tests/g1-encrypted-restore-pg17-offline.sh"
       - "docs/G1_BACKUP_ACTIONS_MANUAL_PREPARACAO.md"
@@ -140,6 +141,7 @@ jobs:
           set -euo pipefail
           bash -n tests/g1-actions-backup-fake-e2e.sh
           python3 -m py_compile scripts/g1-verify-encrypted-bundle.py
+          python3 -m py_compile scripts/g1-verify-public-dump-coverage.py
           bash tests/g1-actions-backup-fake-e2e.sh
       - name: "Restaurar SQL real de fixture PG17 após backup cifrado, sem Supabase"
         shell: bash
