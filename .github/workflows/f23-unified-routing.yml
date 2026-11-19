@@ -8,6 +8,9 @@ on:
       - "supabase/drafts/f23_incidents_persistence_candidate.sql"
       - "supabase/drafts/f23_incident_intake_candidate.sql"
       - "tests/f23-incident-intake.sql"
+      - "supabase/drafts/f23_incident_historical_access_candidate.sql"
+      - "tests/f23-incidents-historical-access.sql"
+      - "tests/f23-incidents-history-concurrency.sh"
       - "tests/f23-incidents-persistence.sql"
       - "tests/f23-incidents-recovery.sql"
       - ".github/workflows/f23-unified-routing.yml"
@@ -99,6 +102,15 @@ jobs:
           # A fixture inicia e reverte transação, sempre com gate desligado no fim.
           psql -X -v ON_ERROR_STOP=1 -f supabase/drafts/f23_incident_intake_candidate.sql
           psql -X -v ON_ERROR_STOP=1 -f tests/f23-incident-intake.sql
+          # SM-PLAN-005: versão de atribuição + casos A/B/A e duas
+          # sessões concorrentes reais de psql, sem banco hospedado.
+          psql -X -v ON_ERROR_STOP=1 -f supabase/drafts/f23_incident_historical_access_candidate.sql
+          psql -X -v ON_ERROR_STOP=1 -f tests/f23-incidents-historical-access.sql
+          bash tests/f23-incidents-history-concurrency.sh
+          psql -X -Atqc "select not enabled from private.f23_mock_support_gate where singleton" | grep -qx t
+          psql -X -Atqc "select count(*)=0 from public.f23_mock_incidents" | grep -qx t
+          psql -X -Atqc "select count(*)=0 from public.f23_mock_incident_events" | grep -qx t
+          psql -X -Atqc "select count(*)=0 from public.service_requests" | grep -qx t
           psql -X -Atqc "select not enabled from private.f23_mock_support_gate where singleton" | grep -qx t
           psql -X -Atqc "select count(*)=0 from public.f23_mock_incidents" | grep -qx t
           psql -X -Atqc "select count(*)=0 from public.f23_mock_incident_events" | grep -qx t

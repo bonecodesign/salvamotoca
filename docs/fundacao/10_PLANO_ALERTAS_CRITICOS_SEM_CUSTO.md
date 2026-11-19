@@ -105,6 +105,21 @@ Após a persistência e auditoria **SM-PLAN-003**, um novo SQL candidato testa a
 
 **Nenhuma contratação, nenhum Supabase remoto, nenhuma pessoa real ou aparelho conectado. Os testes apenas comprovam a lógica de vínculo no PostgreSQL descartável.**
 
+## SM-PLAN-005 — concorrência real em PG17 e histórico após troca de prestador
+
+**Somente candidato técnico; não é uma decisão comercial de acesso histórico.** A implementação do SM-PLAN-004 usava `FOR KEY SHARE` no pedido enquanto verificava a atribuição do prestador. Uma transação concorrente podia atualizar `provider_id` antes da conclusão do relato, criando uma janela de autorização inconsistente. Além disso, um prestador que deixasse de atender o pedido ainda poderia consultar o status de ocorrências anteriores.
+
+O SQL candidato `supabase/drafts/f23_incident_historical_access_candidate.sql` corrige o ensaio em PostgreSQL descartável:
+- A abertura do relato obtém `FOR UPDATE` no registro do pedido para **serializar a verificação de identidade e a troca de prestador**; usa `FOR SHARE` no cadastro do profissional para evitar troca concorrente de proprietário. A política real deverá avaliar a ordem desses locks e prevenção de deadlocks com F1–F6 antes de qualquer deploy.
+- Atribui a cada pedido uma **versão de atribuição** fictícia, incrementada por gatilho local quando `provider_id` muda. O relato do profissional preserva identificador do prestador e versão da sua atribuição. Mesmo em A → B → A, o prestador A **não retoma automaticamente acesso à ocorrência da atribuição anterior**. Um caso novo da atribuição atual é permitido sem duplicar os antigos.
+- A consulta de status do autor verifica que o motociclista ainda pertence ao pedido ou, no caso de prestador, que **prestador e versão continuam correspondendo à atribuição registrada**. O histórico e a fila administrativa não são apagados por reatribuição; novo profissional não herda relatos anteriores.
+- O índice de deduplicação de casos ativos inclui a versão somente nos casos do prestador, para permitir o relato na atribuição seguinte sem liberar duplicatas no mesmo vínculo.
+- **Política em aberto:** acesso de ex-prestador a denúncias/contestação após reatribuição deve ser definido com mediação, privacidade e direitos de defesa. Este protótipo conserva o histórico para administrador e nega acesso direto ao ex-prestador por precaução; **não constitui regra final de retenção ou contraditório**.
+
+**Testes sem custos adicionais:** `tests/f23-incidents-historical-access.sql` valida cenário A → B → A, revogação, preservação de histórico, novo relato legítimo e rollback. `tests/f23-incidents-history-concurrency.sh` usa duas conexões `psql` realmente simultâneas no **mesmo PostgreSQL17 descartável**: verifica que uma reatribuição fica bloqueada durante o ingresso em andamento e que dois pedidos do mesmo usuário/categoria com IDs diferentes não criam duas ocorrências ativas. Todos os casos são sintéticos e limpos, gate desligado após o ensaio. Não há teste ou ação no banco Supabase hospedado.
+
+**Limitações e bloqueios preservados:** simulação de JWT por claim, não prova real de autenticação, nenhuma mensagem/push, nenhuma evidência pessoal, nenhuma garantia de resposta humana, nenhum PSP ou liberação de repasse; revisão de concorrência em ambientes reais e de direitos do consumidor pendentes. `G1=BLOCKED; RELEASE=NO_GO`.
+
 ## Testes gratuitos antes de qualquer ativação
 
 - Node offline: prioridade crítica versus alta, T+2/T+5, ACK apenas em cenário fictício elegível, falta de cobertura, indisponibilidade sem substituto, no-PII nas mensagens, financeiro F4 sem repasse automático e impossibilidade de enviar alertas reais. Executar via workflow F23 já existente, sem testes duplicados.
