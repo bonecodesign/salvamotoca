@@ -7,6 +7,9 @@ on:
       - ".github/workflows/g1-supabase-backup-manual.yml"
       - "scripts/g1-actions-backup-real.sh"
       - "tests/g1-actions-backup-fake-e2e.sh"
+      - "scripts/g1-verify-encrypted-bundle.py"
+      - "docs/G1_RECUPERACAO_ARQUIVO_PRIVADO.md"
+      - "tests/g1-encrypted-restore-pg17-offline.sh"
       - "docs/G1_BACKUP_ACTIONS_MANUAL_PREPARACAO.md"
 permissions:
   contents: read
@@ -136,5 +139,14 @@ jobs:
         run: |
           set -euo pipefail
           bash -n tests/g1-actions-backup-fake-e2e.sh
+          python3 -m py_compile scripts/g1-verify-encrypted-bundle.py
           bash tests/g1-actions-backup-fake-e2e.sh
+      - name: "Restaurar SQL real de fixture PG17 após backup cifrado, sem Supabase"
+        shell: bash
+        env:
+          PGPASSWORD: fixture_local_only
+        run: |
+          set -euo pipefail
+          bash -n tests/g1-encrypted-restore-pg17-offline.sh
+          bash tests/g1-encrypted-restore-pg17-offline.sh
 
