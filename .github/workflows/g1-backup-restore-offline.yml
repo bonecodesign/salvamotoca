@@ -4,6 +4,10 @@ on:
     paths:
       - ".github/workflows/g1-backup-restore-offline.yml"
       - "docs/G1_GITHUB_ACTIONS_VIABILIDADE.md"
+      - ".github/workflows/g1-supabase-backup-manual.yml"
+      - "scripts/g1-actions-backup-real.sh"
+      - "tests/g1-actions-backup-fake-e2e.sh"
+      - "docs/G1_BACKUP_ACTIONS_MANUAL_PREPARACAO.md"
 permissions:
   contents: read
 jobs:
@@ -25,6 +29,28 @@ jobs:
           --health-timeout 5s
           --health-retries 10
     steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: supabase/setup-cli@v3
+        with:
+          version: 3.2.0
+      - name: "Validar Supabase CLI v3.2.0 e flags de backup SEM conexão"
+        shell: bash
+        run: |
+          set -euo pipefail
+          cli_version="$(supabase --version)"
+          [[ "$cli_version" == "3.2.0" ]] || {
+            echo "::error::Versao CLI diferente da fixada; abortar antes de secrets"; exit 1;
+          }
+          supabase db dump --help > "$RUNNER_TEMP/g1-cli-help.txt"
+          for flag in '--remote' '--role-only' '--data-only' '--schema' '--use-copy' '--exclude' '--file'; do
+            grep -Fq -- "$flag" "$RUNNER_TEMP/g1-cli-help.txt" || {
+              echo "::error::Flag G1 nao encontrada no CLI: $flag"; exit 1;
+            }
+          done
+          echo 'G1_REAL_CLI_DUMP_FLAGS=VERIFIED_OFFLINE'
+          echo 'SUPABASE_HOSTED_ACCESSED=FALSE'
       - name: "Prova local: pg_dump, SHA-256 e pg_restore em banco totalmente descartável"
         shell: bash
         env:
@@ -64,3 +90,51 @@ jobs:
           echo 'ARTIFACTS_UPLOADED=FALSE'
           echo 'G1_REAL_BACKUP_RESTORE=BLOCKED'
           echo 'RELEASE=NO_GO'
+      - name: "Verificar que o workflow real falha fechado e cifrar somente fixture"
+        shell: bash
+        run: |
+          set -euo pipefail
+          bash -n scripts/g1-actions-backup-real.sh
+          test -f .github/workflows/g1-supabase-backup-manual.yml
+          grep -q 'workflow_dispatch:' .github/workflows/g1-supabase-backup-manual.yml
+          if grep -qE '^[[:space:]]*(pull_request|push|schedule|pull_request_target):' .github/workflows/g1-supabase-backup-manual.yml; then
+            echo 'Não permitir gatilhos automáticos com secrets' >&2
+            exit 1
+          fi
+          if grep -Eq 'upload-artifact|contents: write|git push' .github/workflows/g1-supabase-backup-manual.yml; then
+            echo 'Não permitir upload público de dados/permissão de escrita' >&2
+            exit 1
+          fi
+          if env -u G1_SUPABASE_DB_URL -u G1_DROPBOX_ACCESS_TOKEN -u G1_AGE_RECIPIENT \
+             GITHUB_REPOSITORY=bonecodesign/salvamotoca GITHUB_REF=refs/heads/main \
+             GITHUB_EVENT_NAME=workflow_dispatch G1_BACKUP_ENABLED=true \
+             G1_CONFIRM=BACKUP_TESTES_SALVAMOTOCA \
+             bash scripts/g1-actions-backup-real.sh > "$RUNNER_TEMP/rejected.out" 2>&1; then
+             echo 'Fluxo de backup aceitou credenciais ausentes' >&2
+             exit 1
+          fi
+          grep -q 'G1 INTERROMPIDO: sem secret da conexão' "$RUNNER_TEMP/rejected.out"
+          # Provar cifragem/decifragem local com chave descartável e dados falsos;
+          # NÃO gerar chave ou dados reais no GitHub.
+          sudo apt-get update -qq
+          sudo apt-get install -y age
+          umask 077
+          cd "$RUNNER_TEMP"
+          echo 'salva-motoca-fixture-sem-pii' > fake.sql
+          age-keygen -o fake-key.txt 2> /dev/null
+          recipient="$(age-keygen -y fake-key.txt)"
+          age -r "$recipient" -o fake.sql.age fake.sql
+          age -d -i fake-key.txt -o fake-restored.sql fake.sql.age
+          cmp fake.sql fake-restored.sql
+          rm -f fake-key.txt fake.sql fake.sql.age fake-restored.sql rejected.out
+          echo 'G1_CRYPTO_AND_FAIL_CLOSED_FIXTURE=PASS'
+          echo 'SUPABASE_HOSTED_ACCESSED=FALSE'
+          echo 'REAL_BACKUP=NOT_PERFORMED'
+          echo 'G1=BLOCKED'
+      - name: "Executar pipeline completo com Supabase e Dropbox MOCK, sem rede"
+        shell: bash
+        run: |
+          set -euo pipefail
+          bash -n tests/g1-actions-backup-fake-e2e.sh
+          bash tests/g1-actions-backup-fake-e2e.sh
+
