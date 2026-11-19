@@ -27,7 +27,7 @@ SQL_FILES = frozenset((
     "roles.sql", "schema.sql", "data.sql",
     "history_schema.sql", "history_data.sql",
 ))
-HASHED_FILES = SQL_FILES | {"source_inventory_before.json"}
+HASHED_FILES = SQL_FILES | {"source_inventory_before.json", "source_schema_inventory_before.json"}
 REQUIRED_FILES = HASHED_FILES | {"manifest.sha256", "manifest.txt"}
 REQUIRED_INVENTORY = frozenset((
     "auth_users", "service_requests", "registered_providers",
@@ -40,14 +40,7 @@ REQUIRED_COPY = (
 MAX_FILE_BYTES = 150 * 1024 * 1024
 MAX_TOTAL_BYTES = 300 * 1024 * 1024
 MAX_METADATA_BYTES = 64 * 1024
-COPY_REGEXES = {
-    name: re.compile(
-        rb'^COPY\s+(?:"?public"?\.)"?'
-        + name.encode("ascii")
-        + rb'"?\s*\('
-    )
-    for name in REQUIRED_COPY
-}
+PUBLIC_COPY_HEADER = re.compile(rb'^COPY\s+(?:"?public"?\.)"?([a-z][a-z0-9_]*)"?\s*\(')
 
 
 class ValidationError(Exception):
@@ -104,7 +97,8 @@ def read_backup(archive: Path, identity: Path) -> None:
                     if total > MAX_TOTAL_BYTES:
                         raise ValidationError("ARCHIVE_TOO_LARGE")
                     if member.name in {"manifest.txt", "manifest.sha256",
-                                       "source_inventory_before.json"} and (
+                                       "source_inventory_before.json",
+                                       "source_schema_inventory_before.json"} and (
                         member.size > MAX_METADATA_BYTES
                     ):
                         raise ValidationError("METADATA_TOO_LARGE")
@@ -119,9 +113,9 @@ def read_backup(archive: Path, identity: Path) -> None:
                             for line in fileobj:
                                 sha.update(line)
                                 if len(line) <= 8192:
-                                    for name, regex in COPY_REGEXES.items():
-                                        if regex.match(line):
-                                            copy_seen.add(name)
+                                    match = PUBLIC_COPY_HEADER.match(line)
+                                    if match:
+                                        copy_seen.add(match.group(1).decode("ascii"))
                         else:
                             while True:
                                 chunk = fileobj.read(1024 * 1024)
@@ -136,7 +130,7 @@ def read_backup(archive: Path, identity: Path) -> None:
         except (OSError, EOFError, tarfile.TarError) as exc:
             raise ValidationError("ARCHIVE_STRUCTURE_INVALID") from None
 
-        if copy_seen != set(REQUIRED_COPY):
+        if not set(REQUIRED_COPY).issubset(copy_seen):
             raise ValidationError("ESSENTIAL_COPY_COMMANDS_MISSING")
         raw_sha = metadata["manifest.sha256"].decode("ascii")
         entries: dict[str, str] = {}
@@ -182,10 +176,37 @@ def read_backup(archive: Path, identity: Path) -> None:
             raise ValidationError("BACKUP_INVENTORY_VALUES_INVALID")
         if inventory["storage_objects"] != 0:
             raise ValidationError("STORAGE_PHYSICAL_FILES_NOT_INCLUDED")
+        try:
+            schema_inventory = json.loads(
+                metadata["source_schema_inventory_before.json"].decode("utf-8")
+            )
+        except (UnicodeError, json.JSONDecodeError):
+            raise ValidationError("PUBLIC_SCHEMA_INVENTORY_INVALID") from None
+        if not isinstance(schema_inventory, dict) or set(schema_inventory) != {"tables"}:
+            raise ValidationError("PUBLIC_SCHEMA_INVENTORY_INVALID")
+        table_items = schema_inventory["tables"]
+        if not isinstance(table_items, list) or not table_items or len(table_items) > 500:
+            raise ValidationError("PUBLIC_SCHEMA_INVENTORY_INVALID")
+        table_names = set()
+        for item in table_items:
+            if not isinstance(item, dict) or set(item) != {
+                "name", "rls_enabled", "policy_count"
+            }:
+                raise ValidationError("PUBLIC_SCHEMA_INVENTORY_INVALID")
+            name = item["name"]
+            if not isinstance(name, str) or not re.fullmatch(r"[a-z][a-z0-9_]*", name):
+                raise ValidationError("PUBLIC_SCHEMA_INVENTORY_INVALID")
+            if name in table_names or type(item["rls_enabled"]) is not bool or (
+                type(item["policy_count"]) is not int or item["policy_count"] < 0
+            ):
+                raise ValidationError("PUBLIC_SCHEMA_INVENTORY_INVALID")
+            table_names.add(name)
+        if copy_seen != table_names:
+            raise ValidationError("PUBLIC_COPY_COVERAGE_MISMATCH")
 
         print("G1_ENCRYPTED_ARCHIVE_INTEGRITY=PASS")
         print("G1_EXPECTED_PROJECT_AND_INVENTORY=PASS")
-        print("G1_HASHED_MEMBER_COUNT=6")
+        print("G1_HASHED_MEMBER_COUNT=7")
         print("G1_ESSENTIAL_COPY_HEADERS=PASS")
         print("G1_RESTORATION_VERIFIED=FALSE")
         print("G1=BLOCKED")
