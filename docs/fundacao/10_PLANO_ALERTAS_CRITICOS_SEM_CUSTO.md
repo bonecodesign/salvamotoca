@@ -91,6 +91,20 @@ A suíte F23 agora cobre triagem, fila, duplicação de eventos, adulteração, 
 
 **Limitações:** sessão PG bem-sucedida não comprova backup/restore verdadeiro do Supabase (G1 segue bloqueado), E2E Auth/RLS com JWT real, persistência em caso de reinicialização completa de infraestrutura, conflitos de pagamentos, dupla escrituração, gestão de acesso por MFA, push no dispositivo ou recuperação pós-crash em produção. A trilha ainda poderá requerer modelo append-only mais rígido e testes de concorrência com atores distintos antes de qualquer deploy.
 
+## SM-PLAN-004 — ingresso autenticado de relatos de motociclistas e prestadores (OFFLINE)
+
+Após a persistência e auditoria **SM-PLAN-003**, um novo SQL candidato testa a abertura de ocorrência pelo **participante legítimo de uma solicitação**, sem delegar esse poder a outros usuários e sem qualquer notificação real.
+
+- **Arquivo:** `supabase/drafts/f23_incident_intake_candidate.sql`, executado só na CI PostgreSQL 17 descartável, após limpeza dos exemplos anteriores. `tests/f23-incident-intake.sql` cria contas, provedores e pedidos **inteiramente fictícios**, testa o acesso e finaliza com `ROLLBACK` e gate desligado.
+- **RPC candidata de abertura:** `f23_mock_submit_incident(case_key,request_key,category)`. O cliente **não fornece o próprio ID, o papel, a hora, a descrição, o endereço ou um status**. A RPC `SECURITY DEFINER` com `search_path` vazio lê `auth.uid()`, exige que o JWT tenha identidade e confere no pedido existente se ela é a do motociclista (`service_requests.customer_id`) **ou** a da conta proprietária do prestador efetivamente atribuído (`service_requests.provider_id → providers.owner_id`). Se não houver correspondência, retorna erro genérico. Gate permanece desativado por padrão.
+- **RPC de consulta:** `f23_mock_reporter_status(case_key)` retorna somente o status/versão do caso *do próprio autor*, sem número do pedido, contato, localização, dados de outro usuário ou histórico privado. Não aceita consultas por terceiros.
+- **RLS + privilégios:** `anon` não executa as RPCs; nenhuma tabela de ocorrências ou eventos possui grant de leitura/escrita direta para usuários `authenticated`. A fila administrativa continua separada e protegida por lista de administradores fictícios e gate privado.
+- **Repetição/abuso:** `case_key` idempotente exige repetição exatamente do mesmo autor, vínculo e categoria. Um índice de unicidade impede outra ocorrência **ativa da mesma categoria pelo mesmo autor no mesmo pedido** mesmo com UUID novo, inclusive em concorrência. Categorias diferentes continuam possíveis; após revisão pode ser criado outro caso. **Não** foi implementado bloqueio global de relatos críticos ou taxa geral de uso que possa impedir denúncias urgentes; controles de abuso mais sofisticados deverão ser revisados após testes.
+- **Segurança econômica:** abertura/consulta de relato não cria evento de confirmação humana, despacho, liberação financeira, estorno, cobrança, sessão de suporte nem notificação. O estado inicial continua `queued_mock`, e F4 permanece independente.
+- **Limites explícitos:** o teste usa claims JWT **simuladas** em PostgreSQL, não prova assinatura de JWT, gestão real de sessão, propriedade histórica de um prestador que foi reatribuído, moderação de denúncias, privacidade de anexos ou disponibilidade de plantão humano. Não é um canal real de reclamações, e o roteamento seguro de incidentes F1–F7 ainda não foi ligado à fila. É necessário resolver G1 e revisar o backend/PSP antes de qualquer migração.
+
+**Nenhuma contratação, nenhum Supabase remoto, nenhuma pessoa real ou aparelho conectado. Os testes apenas comprovam a lógica de vínculo no PostgreSQL descartável.**
+
 ## Testes gratuitos antes de qualquer ativação
 
 - Node offline: prioridade crítica versus alta, T+2/T+5, ACK apenas em cenário fictício elegível, falta de cobertura, indisponibilidade sem substituto, no-PII nas mensagens, financeiro F4 sem repasse automático e impossibilidade de enviar alertas reais. Executar via workflow F23 já existente, sem testes duplicados.
