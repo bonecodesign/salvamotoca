@@ -114,6 +114,16 @@ Esta etapa **reusa**, em vez de duplicar, os módulos `f23-support-hybrid-offlin
 
 **Situação:** somente CI offline. `G1=BLOCKED`; `RELEASE=NO_GO`.
 
+## SM-PLAN-003 — banco descartável para ocorrências e auditoria
+
+A central em memória SM-PLAN-002 ganhou um **candidato de persistência SQL apenas na CI**, no arquivo `supabase/drafts/f23_incidents_persistence_candidate.sql`. Não é migration de produção, API de atendimento ou autenticação operacional.
+
+O PostgreSQL 17 descartável recebe duas tabelas com RLS e **sem grants diretos ao navegador**, gate privado desligado por padrão e RPCs autenticadas com permissão administrativa verificada por `auth.uid()`. A fila mostra apenas campos não sensíveis de fixtures, ordenados por segurança e prioridade financeira; o evento inclui o ID de auditoria do administrador fictício. Há `FOR UPDATE` para serializar estados, chave idempotente de caso e chave global de evento para detectar reenvio ou alteração.
+
+O workflow F23 reutiliza o **mesmo PostgreSQL17** após os testes F2/F3, fazendo abertura + commit em um processo e releitura em novo processo. Também testa gate desligado, usuário sem autorização, duplicata e colisão, rollback, revogação do titular e destruição de dados artificiais. A transição de `reviewed_mock` nunca altera F4/F5/F6, não libera dinheiro, não notifica ninguém nem confirma atendimento humano.
+
+**Antes de qualquer banco real:** cumprir G1 (backup e restauração de DB/Auth/Storage), revisar Auth/RLS, modelar ingresso seguro de relatos de usuários (atualmente **não implementado**), prevenir abuso e escalada de privilégios, confirmar segurança e retenção de evidências, desenvolver falhas de rede/concorrência, autorização de suporte real e PSP. Nenhuma instrução deste protótipo deve rodar no Supabase hospedado. **G1=BLOCKED; RELEASE=NO_GO.**
+
 ## Dependências restantes
 
 1. Conciliar os PRs empilhados #42 → #44 → ... → #57 → #61 → #62 → #63 → #64 e este PR, sem merge automático e sem integrar o módulo local a um emissor real.
