@@ -66,6 +66,11 @@ mkdir -m 700 "$dir/extracted"
 age --decrypt -i "$dir/fixture-private-key" -o "$dir/recovered.tar.gz" "$dir/bundle.tar.gz.age"
 tar -xzf "$dir/recovered.tar.gz" -C "$dir/extracted"
 (cd "$dir/extracted" && sha256sum -c manifest.sha256 >/dev/null)
+# pg_dump --schema=public inclui CREATE SCHEMA public; esta base FICTICIA
+# recém-criada pelo PostgreSQL já tem public. Excluir APENAS nela,
+# nunca em Supabase hospedado (não usar este script como restore real).
+psql_test -X -v ON_ERROR_STOP=1 -d g1_bundle_restored -c \
+  'drop schema if exists public cascade'
 psql_stdin -X -v ON_ERROR_STOP=1 -d g1_bundle_restored < "$dir/extracted/schema.sql"
 psql_stdin -X -v ON_ERROR_STOP=1 -d g1_bundle_restored < "$dir/extracted/data.sql"
 psql_stdin -X -v ON_ERROR_STOP=1 -d g1_bundle_restored < "$dir/extracted/history_schema.sql"
