@@ -176,10 +176,14 @@ begin
  end;
 end $no_auto_review$;
 
-do $assert$
+do $queue$
 begin
  if (select count(*) from public.f23_mock_admin_queue())<>3
  then raise exception 'A fila administrativa perdeu casos'; end if;
+end $queue$;
+reset role;
+do $assert$
+begin
  if (select count(*) from public.f23_mock_incidents)<>3
  then raise exception 'Casos persistidos divergem'; end if;
  if (select count(*) from public.f23_mock_incident_events)<>4
