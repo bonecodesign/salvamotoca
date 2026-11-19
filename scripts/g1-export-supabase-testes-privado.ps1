@@ -63,13 +63,13 @@ Write-Host 'NAO cole senhas nesta conversa, no GitHub, em logs ou em mensagens.'
 try {
   Push-Location $stage
   try {
-    Run-Supabase @('db','dump',"--remote=$projectRef",'-f','roles.sql','--role-only')
-    Run-Supabase @('db','dump',"--remote=$projectRef",'-f','schema.sql')
-    Run-Supabase @('db','dump',"--remote=$projectRef",'-f','data.sql','--data-only','--use-copy',
+    Run-Supabase -params @('db','dump',"--remote=$projectRef",'-f','roles.sql','--role-only')
+    Run-Supabase -params @('db','dump',"--remote=$projectRef",'-f','schema.sql')
+    Run-Supabase -params @('db','dump',"--remote=$projectRef",'-f','data.sql','--data-only','--use-copy',
       '-x','storage.buckets_vectors','-x','storage.vector_indexes')
-    Run-Supabase @('db','dump',"--remote=$projectRef",'-f','migration_history_schema.sql',
+    Run-Supabase -params @('db','dump',"--remote=$projectRef",'-f','migration_history_schema.sql',
       '--schema','supabase_migrations')
-    Run-Supabase @('db','dump',"--remote=$projectRef",'-f','migration_history_data.sql',
+    Run-Supabase -params @('db','dump',"--remote=$projectRef",'-f','migration_history_data.sql',
       '--schema','supabase_migrations','--data-only','--use-copy')
     foreach ($name in $files) {
       $item = Get-Item -LiteralPath (Join-Path $stage $name) -ErrorAction Stop
