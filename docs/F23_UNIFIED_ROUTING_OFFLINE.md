@@ -132,6 +132,14 @@ O caso nasce como `queued_mock` e não causa pagamento, repasse, despacho, notif
 
 Pendente antes do produto real: JWT verificado pelo gateway, pertencimento histórico após mudança de prestador, ingresso de ocorrências sem pedido, armazenamento de texto/anexos com minimização e antiabuso, teste de concorrência real, notificação confiável, canais para urgência, vínculo auditável ao PSP, proteção financeira transacional e G1 de backup/restore hospedado. **Não executar SQL no Supabase existente**. `G1=BLOCKED; RELEASE=NO_GO`.
 
+## SM-PLAN-005 — proteção contra reatribuição e corrida (PG17 OFFLINE)
+
+O candidato `supabase/drafts/f23_incident_historical_access_candidate.sql` reforça o SM-PLAN-004: `FOR UPDATE` serializa o pedido durante o ingresso de relato, `FOR SHARE` impede alteração simultânea de titularidade do prestador e um contador sintético de atribuição impede recuperar acesso a relato antigo após A → B → A. O autor não recebe dados do atendimento nem de outros incidentes; a fila do fundador mantém o registro auditável. A duplicação de casos ativos se limita a pedido/autor/categoria/**atribuição**.
+
+A suíte F23 no PostgreSQL17 descartável executa (a) caso A → B → A com rollback e (b) sessões de `psql` concorrentes com disputa de lock na reatribuição e duas aberturas do mesmo tipo, comprovando apenas um caso ativo. A execução é obrigatoriamente limitada ao banco local `f23_disposable` pela guarda do script. Os testes não alteram nem reinicializam o Supabase remoto.
+
+**Pendência de governança:** a consulta a relatos de um ex-prestador precisa de política posterior de mediação/acesso a informações necessárias à defesa; a revogação direta aqui é **escolha conservadora de teste, não política jurídica definitiva**. Verificar deadlocks interfuncionais, novos usuários reais, autenticação por JWT real, RLS, escalabilidade e fluxo de disputa antes de considerar esse SQL como migration. `G1=BLOCKED; RELEASE=NO_GO`.
+
 ## Dependências restantes
 
 1. Conciliar os PRs empilhados #42 → #44 → ... → #57 → #61 → #62 → #63 → #64 e este PR, sem merge automático e sem integrar o módulo local a um emissor real.
