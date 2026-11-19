@@ -74,6 +74,23 @@ Foi implementado `f23-founder-incident-desk-offline.js`, **máquina de estados p
 
 A suíte F23 agora cobre triagem, fila, duplicação de eventos, adulteração, confirmação, escalonamento, revisão, bloqueio de decisões financeiras e impossibilidade de ações reais. **Nenhuma migração ou nova ferramenta foi contratada.**
 
+## SM-PLAN-003 — persistência em PostgreSQL 17 descartável
+
+**Objetivo:** avançar o ponto que faltava à central `f23-founder-incident-desk-offline.js` (SM-PLAN-002), que até agora mantinha tudo em memória: provar escrita persistente, reabertura em **outra conexão**, exclusão segura de acesso de usuários e recuperação após rollback, sem alterar o Supabase existente.
+
+**Apenas candidato:** `supabase/drafts/f23_incidents_persistence_candidate.sql` cria, somente no PostgreSQL 17 efêmero de CI, duas tabelas de ocorrências e eventos sintéticos, mais um gate privado **desligado por padrão** e uma tabela privada de administradores **sem identidades reais**. Os campos armazenados são UUIDs artificiais, categoria, estado, vínculo de pedido fictício, motivo padronizado, hora e versão. Não há nome, foto, mensagem, telefone, GPS, valor financeiro, endereço, segredo ou contato.
+
+**Camada de acesso candidata:**
+- `anon` não executa RPCs; `authenticated` não tem `SELECT/INSERT/UPDATE/DELETE` direto nas tabelas, que continuam sob RLS.
+- RPCs `f23_mock_open_case`, `f23_mock_apply_event` e `f23_mock_admin_queue` rodam como `SECURITY DEFINER` com `search_path` explicitamente vazio, sempre exigindo gate habilitado e administrador incluído em lista privada. A identidade do ator vem de `auth.uid()` (simulada por JWT fictício apenas na CI), nunca de argumento livre.
+- `case_key` idempotente e `event_key` global único. Retries com mesmo conteúdo não duplicam versões; o mesmo identificador com categoria, motivo, ator ou ação diferente é rejeitado. Cada ação obtém lock `FOR UPDATE` do caso antes da mutação e grava evento de auditoria na mesma transação.
+- A fila administrativa expõe só identificador, categoria, prioridade, estado, versão e data. Não há leitura direta por terceiros nem por administrador autenticado no navegador.
+- Os estados ainda são **`*_mock`**. Não podem abrir protocolo real, suspender corrida, processar contestação, reembolsar, liberar repasse, operar notificação ou confirmar pessoa de plantão. O backend real exige outra revisão com autenticação e autorização da origem do incidente, antiabuso e integração transacional ao PSP.
+
+**Testes de regressão:** o **mesmo job PostgreSQL 17 já existente** passa a executar `tests/f23-incidents-persistence.sql` (abertura de casos + evento auditável + commit), seguido por `tests/f23-incidents-recovery.sql` em **novo processo psql**, verificando persistência cross-session, RLS/grants, acesso apenas do fundador sintético, falha com gate desligado ou usuário sem permissão, idempotência, colisão, rollback de resolução, revogação/restauração da autorização e **limpeza final de todos os dados + gate desligado**. Não foram criados novos containers, serviços, migrações hospedadas ou jobs de CI.
+
+**Limitações:** sessão PG bem-sucedida não comprova backup/restore verdadeiro do Supabase (G1 segue bloqueado), E2E Auth/RLS com JWT real, persistência em caso de reinicialização completa de infraestrutura, conflitos de pagamentos, dupla escrituração, gestão de acesso por MFA, push no dispositivo ou recuperação pós-crash em produção. A trilha ainda poderá requerer modelo append-only mais rígido e testes de concorrência com atores distintos antes de qualquer deploy.
+
 ## Testes gratuitos antes de qualquer ativação
 
 - Node offline: prioridade crítica versus alta, T+2/T+5, ACK apenas em cenário fictício elegível, falta de cobertura, indisponibilidade sem substituto, no-PII nas mensagens, financeiro F4 sem repasse automático e impossibilidade de enviar alertas reais. Executar via workflow F23 já existente, sem testes duplicados.
