@@ -36,9 +36,9 @@ insert into supabase_migrations.schema_migrations values ('fixture0001');
 "
 printf '%s\n' '-- Synthetic fixture requires no additional SQL roles.' > roles.sql
 pgdump -d g1_bundle_fixture --schema-only --schema=public --no-owner --no-acl > schema.sql
-pgdump -d g1_bundle_fixture --data-only --use-copy --schema=public --no-owner --no-acl > data.sql
+pgdump -d g1_bundle_fixture --data-only --schema=public --no-owner --no-acl > data.sql
 pgdump -d g1_bundle_fixture --schema-only --schema=supabase_migrations --no-owner --no-acl > history_schema.sql
-pgdump -d g1_bundle_fixture --data-only --use-copy --schema=supabase_migrations --no-owner --no-acl > history_data.sql
+pgdump -d g1_bundle_fixture --data-only --schema=supabase_migrations --no-owner --no-acl > history_data.sql
 cat > source_inventory_before.json <<'JSON'
 {"auth_users":0,"service_requests":0,"registered_providers":0,"prospected_providers":2,"prospecting_offers":3,"commercial_config":1,"migration_versions":1,"storage_objects":0}
 JSON
