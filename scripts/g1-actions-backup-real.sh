@@ -103,7 +103,9 @@ cmp -s source_inventory_before.json source_inventory_after.json ||
 # As tabelas com registros de prospecção precisam aparecer no export de
 # dados. Um --schema/flag futuro que as omita deve falhar antes do upload.
 for essential in prestadores_prospeccao ofertas_prospeccao configuracao_comercial; do
-  grep -Fq "$essential" data.sql ||
+  # O nome pode aparecer em valores de linhas; exigir um comando COPY
+  # real e ancorado ao começo da linha, não texto incidental no arquivo.
+  grep -Eq "^COPY [\\\"]?public[\\\"]?\\.[\\\"]?$essential[\\\"]?[[:space:]]*\\(" data.sql ||
     deny "dump de dados não inclui tabela essencial: $essential"
 done
 [[ -s schema.sql && -s data.sql ]] || deny 'arquivo de esquema/dados vazio'
