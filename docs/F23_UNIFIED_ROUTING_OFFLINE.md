@@ -124,6 +124,14 @@ O workflow F23 reutiliza o **mesmo PostgreSQL17** após os testes F2/F3, fazendo
 
 **Antes de qualquer banco real:** cumprir G1 (backup e restauração de DB/Auth/Storage), revisar Auth/RLS, modelar ingresso seguro de relatos de usuários (atualmente **não implementado**), prevenir abuso e escalada de privilégios, confirmar segurança e retenção de evidências, desenvolver falhas de rede/concorrência, autorização de suporte real e PSP. Nenhuma instrução deste protótipo deve rodar no Supabase hospedado. **G1=BLOCKED; RELEASE=NO_GO.**
 
+## SM-PLAN-004 — ingresso de ocorrência limitado ao cliente/prestador do pedido
+
+O candidato `supabase/drafts/f23_incident_intake_candidate.sql` amplia **somente as fixtures da CI**: `f23_mock_submit_incident` identifica o ator a partir de `auth.uid()` e confirma no servidor simulado que ele é o **cliente dono do pedido** ou a conta **proprietária do prestador efetivamente atribuído**. Uma conta sem vínculo ou um prestador não selecionado não pode criar ou consultar relato de terceiros. `f23_mock_reporter_status` devolve somente dados mínimos do próprio autor, nunca endereço, coordenadas, foto ou autor de outra parte.
+
+O caso nasce como `queued_mock` e não causa pagamento, repasse, despacho, notificação ou confirmação humana. Um índice parcial garante um caso ativo por autor/solicitação/categoria para resistir a repetições e concorrência, enquanto a mesma chave com outro pedido/categoria/autor é rejeitada. Leituras e escritas diretas em tabelas continuam proibidas a `authenticated`; `anon` não pode chamar RPCs. A nova fixture `tests/f23-incident-intake.sql` cria pedido e participantes sintéticos, comprova grant/RLS, gate desativado, casos válidos, indevidos e duplicados, e reverte tudo por `ROLLBACK` no **mesmo PG17 descartável** já usado.
+
+Pendente antes do produto real: JWT verificado pelo gateway, pertencimento histórico após mudança de prestador, ingresso de ocorrências sem pedido, armazenamento de texto/anexos com minimização e antiabuso, teste de concorrência real, notificação confiável, canais para urgência, vínculo auditável ao PSP, proteção financeira transacional e G1 de backup/restore hospedado. **Não executar SQL no Supabase existente**. `G1=BLOCKED; RELEASE=NO_GO`.
+
 ## Dependências restantes
 
 1. Conciliar os PRs empilhados #42 → #44 → ... → #57 → #61 → #62 → #63 → #64 e este PR, sem merge automático e sem integrar o módulo local a um emissor real.
