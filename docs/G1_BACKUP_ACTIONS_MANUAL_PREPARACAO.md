@@ -20,6 +20,14 @@
 
 O GitHub conectado a este ChatGPT não disponibiliza criação/leitura de Actions Secrets, configuração de Environments nem disparo manual de workflows. E um workflow_dispatch só aparecerá normalmente na interface quando o workflow fizer parte da branch padrão main. Este candidato permanece **Draft e sem merge automático**.
 
+## Teste adversarial completo com ferramentas simuladas — 19/11/2026
+
+A suíte `tests/g1-actions-backup-fake-e2e.sh` executa o **próprio script de backup candidato** com `psql`, `supabase db dump` e `curl` substituídos por comandos artificiais locais. Não estabelece conexão com banco nem Dropbox. A criptografia `age` é **real** e uma chave temporária de fixture é apagada ao fim do job.
+
+A CI comprova: (a) rejeição de URL de outro projeto; (b) bloqueio quando há objetos do Storage; (c) geração do pacote e dos hashes com dados fictícios, cifragem, envio **simulado**, decifragem e verificação dos arquivos; (d) rejeição de resposta Dropbox com `content_hash` errado; (e) não imprimir senha ou token de fixture nos logs. O teste antigo de `pg_dump` e `pg_restore` em PostgreSQL 17 descartável permanece. Evidência: [GitHub Actions #44586867591](https://github.com/bonecodesign/salvamotoca/actions/runs/44586867591) — **SUCCESS** (1 job).
+
+Esses ensaios **não provam** autenticação no Supabase real, execução real da Supabase CLI com conexão remota, disponibilidade do OAuth Dropbox, backup físico de Storage, restauração do ambiente completo nem franquias do destino privado. A fonte para G1 real continua sendo a exportação efetiva e a restauração isolada, sob autorização do fundador.
+
 ## Por que NÃO é G1 aprovado
 
 1. A exportação não foi feita: faltam credenciais seguras, chave pública, destino privado e aprovação de execução.
