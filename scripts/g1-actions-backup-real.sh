@@ -61,13 +61,53 @@ fi
 [[ "$objects" =~ ^[0-9]+$ ]] || deny 'contagem inválida de Storage'
 [[ "$objects" == '0' ]] || deny 'Storage não está vazio: requer rotina específica de objetos'
 
+# Inventário SEM dados pessoais, cifrado junto com o dump. Se uma tabela
+# essencial estiver ausente, aborta; se contagens mudarem durante as cinco
+# exportações independentes, aborta (não substitui snapshot atômico).
+inventory() {
+  local out="$1"
+  if ! psql "$G1_SUPABASE_DB_URL" -X -tA -v ON_ERROR_STOP=1 \
+    -c "select jsonb_build_object(
+      'auth_users',(select count(*) from auth.users),
+      'service_requests',(select count(*) from public.service_requests),
+      'registered_providers',(select count(*) from public.providers),
+      'prospected_providers',(select count(*) from public.prestadores_prospeccao),
+      'prospecting_offers',(select count(*) from public.ofertas_prospeccao),
+      'commercial_config',(select count(*) from public.configuracao_comercial),
+      'migration_versions',(select count(*) from supabase_migrations.schema_migrations),
+      'storage_objects',(select count(*) from storage.objects))::text;" \
+    > "$out" 2> "$out.stderr"; then
+     deny "não foi possível inventariar as tabelas de origem"
+  fi
+  python3 - "$out" <<'PY' || deny "inventário de origem inválido"
+import json,sys
+try:
+    with open(sys.argv[1],encoding='utf-8') as f: d=json.load(f)
+    names=('auth_users','service_requests','registered_providers',
+      'prospected_providers','prospecting_offers','commercial_config',
+      'migration_versions','storage_objects')
+    valid=all(type(d.get(n)) is int and d[n]>=0 for n in names)
+except (OSError,ValueError): valid=False
+sys.exit(0 if valid else 2)
+PY
+}
+inventory source_inventory_before.json
 dump roles.sql --role-only
 dump schema.sql
 dump data.sql --data-only --use-copy -x storage.buckets_vectors -x storage.vector_indexes
 dump history_schema.sql --schema supabase_migrations
 dump history_data.sql --schema supabase_migrations --data-only --use-copy
+inventory source_inventory_after.json
+cmp -s source_inventory_before.json source_inventory_after.json ||
+  deny 'contagens mudaram durante exportação; sem snapshot coerente'
+# As tabelas com registros de prospecção precisam aparecer no export de
+# dados. Um --schema/flag futuro que as omita deve falhar antes do upload.
+for essential in prestadores_prospeccao ofertas_prospeccao configuracao_comercial; do
+  grep -Fq "$essential" data.sql ||
+    deny "dump de dados não inclui tabela essencial: $essential"
+done
 [[ -s schema.sql && -s data.sql ]] || deny 'arquivo de esquema/dados vazio'
-sha256sum roles.sql schema.sql data.sql history_schema.sql history_data.sql > manifest.sha256
+sha256sum roles.sql schema.sql data.sql history_schema.sql history_data.sql source_inventory_before.json > manifest.sha256
 printf '%s\n' \
  'project_ref=yivkqyjdeouxnwtwfekc' \
  'environment=TESTES' \
@@ -76,7 +116,7 @@ printf '%s\n' \
  'storage_physical_objects_included=false' > manifest.txt
 bundle="$tmp/g1-bundle.tar.gz"
 tar -czf "$bundle" roles.sql schema.sql data.sql history_schema.sql \
-  history_data.sql manifest.sha256 manifest.txt
+  history_data.sql source_inventory_before.json manifest.sha256 manifest.txt
 encrypted="$tmp/g1-bundle.tar.gz.age"
 age -r "$G1_AGE_RECIPIENT" -o "$encrypted" "$bundle"
 [[ -s "$encrypted" ]] || deny 'falha ao cifrar o arquivo'
