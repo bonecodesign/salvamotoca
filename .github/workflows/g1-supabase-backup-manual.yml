@@ -1,0 +1,71 @@
+name: "G1 — backup manual CIFRADO do Supabase de TESTES (aguarda configuração)"
+on:
+  workflow_dispatch:
+    inputs:
+      confirm:
+        description: "Digite BACKUP_TESTES_SALVAMOTOCA; não inicia produção"
+        required: true
+        type: string
+permissions:
+  contents: read
+concurrency:
+  group: g1-test-supabase-private-backup
+  cancel-in-progress: false
+jobs:
+  guard:
+    name: "Verificar acionamento humano sem acessar secrets"
+    runs-on: ubuntu-24.04
+    timeout-minutes: 3
+    env:
+      G1_BACKUP_ENABLED: ${{ vars.G1_BACKUP_ENABLED }}
+      G1_CONFIRM: ${{ inputs.confirm }}
+    steps:
+      - name: "Negar execuções fora do projeto autorizado ou desabilitadas"
+        shell: bash
+        run: |
+          set -euo pipefail
+          [[ "$GITHUB_REPOSITORY" == "bonecodesign/salvamotoca" ]]
+          [[ "$GITHUB_EVENT_NAME" == "workflow_dispatch" ]]
+          [[ "$GITHUB_REF" == "refs/heads/main" ]]
+          [[ "$G1_BACKUP_ENABLED" == "true" ]] || {
+            echo "::error::G1 está desabilitado; configurar repo variable somente depois de revisão"; exit 1;
+          }
+          [[ "$G1_CONFIRM" == "BACKUP_TESTES_SALVAMOTOCA" ]] || {
+            echo "::error::Confirmação do fundador ausente/inválida"; exit 1;
+          }
+          echo "G1_AUTHORIZED_TEST_BACKUP_MANUAL_PRECHECK=PASS"
+
+  encrypted-backup:
+    name: "Exportar SQL e cifrar antes de enviar para Dropbox privado"
+    needs: guard
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    environment: g1-backup-testes
+    env:
+      G1_BACKUP_ENABLED: ${{ vars.G1_BACKUP_ENABLED }}
+      G1_CONFIRM: ${{ inputs.confirm }}
+      G1_AGE_RECIPIENT: ${{ vars.G1_AGE_RECIPIENT }}
+      G1_SUPABASE_DB_URL: ${{ secrets.G1_SUPABASE_DB_URL }}
+      G1_DROPBOX_ACCESS_TOKEN: ${{ secrets.G1_DROPBOX_ACCESS_TOKEN }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: "Instalar Supabase CLI versão fixa, sem migrações"
+        uses: supabase/setup-cli@v3
+        with:
+          version: 3.2.0
+      - name: "Conferir runtime e instalar cliente SQL/criptografia"
+        shell: bash
+        run: |
+          set -euo pipefail
+          supabase --version
+          supabase db dump --help >/dev/null
+          docker info >/dev/null
+          sudo apt-get update -qq
+          sudo apt-get install -y age postgresql-client
+          age --version
+          psql --version
+      - name: "G1 exportação somente de leitura + cifragem e upload"
+        shell: bash
+        run: bash scripts/g1-actions-backup-real.sh
