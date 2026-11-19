@@ -1,0 +1,66 @@
+name: "G1 — ensaio backup/restauração PostgreSQL 17 estritamente OFFLINE"
+on:
+  pull_request:
+    paths:
+      - ".github/workflows/g1-backup-restore-offline.yml"
+      - "docs/G1_GITHUB_ACTIONS_VIABILIDADE.md"
+permissions:
+  contents: read
+jobs:
+  fixture-backup-restore:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: fixture_local_only
+          POSTGRES_DB: g1_fixture
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d g1_fixture"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    steps:
+      - name: "Prova local: pg_dump, SHA-256 e pg_restore em banco totalmente descartável"
+        shell: bash
+        env:
+          PGPASSWORD: fixture_local_only
+        run: |
+          set -euo pipefail
+          # Nunca ler qualquer secret. Nenhuma URL do Supabase, nenhum checkout,
+          # nenhum upload de artifact, nenhuma conexão com banco remoto.
+          test "${{ github.event_name }}" = "pull_request"
+          command -v docker
+          command -v sha256sum
+          dump="$RUNNER_TEMP/g1_fixture.dump"
+          cd "$RUNNER_TEMP"
+          trap 'rm -f "$dump" "$dump.sha256"' EXIT
+          docker run --rm --network host -e PGPASSWORD postgres:17 \
+            psql -h 127.0.0.1 -U postgres -d g1_fixture -v ON_ERROR_STOP=1 \
+            -c "create table public.g1_probe (id integer primary key, state text not null); insert into public.g1_probe values (1,'created'),(2,'verified');"
+          docker run --rm --network host -e PGPASSWORD postgres:17 \
+            pg_dump -h 127.0.0.1 -U postgres -d g1_fixture \
+            --format=custom --no-owner --no-acl > "$dump"
+          test -s "$dump"
+          sha256sum "$dump" > "$dump.sha256"
+          sha256sum -c "$dump.sha256"
+          docker run --rm --network host -e PGPASSWORD postgres:17 \
+            psql -h 127.0.0.1 -U postgres -d postgres -v ON_ERROR_STOP=1 \
+            -c "create database g1_restored"
+          docker run --rm -i --network host -e PGPASSWORD postgres:17 \
+            pg_restore -h 127.0.0.1 -U postgres -d g1_restored \
+            --exit-on-error --no-owner --no-acl < "$dump"
+          actual="$(docker run --rm --network host -e PGPASSWORD postgres:17 \
+            psql -h 127.0.0.1 -U postgres -d g1_restored -Atqc \
+            "select string_agg(id::text||':'||state,',' order by id) from public.g1_probe")"
+          test "$actual" = "1:created,2:verified"
+          echo 'G1_OFFLINE_FIXTURE_BACKUP_RESTORE=PASS'
+          echo 'SUPABASE_HOSTED_ACCESSED=FALSE'
+          echo 'AUTH_SECRETS_USED=FALSE'
+          echo 'ARTIFACTS_UPLOADED=FALSE'
+          echo 'G1_REAL_BACKUP_RESTORE=BLOCKED'
+          echo 'RELEASE=NO_GO'
