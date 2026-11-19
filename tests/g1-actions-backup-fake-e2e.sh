@@ -5,6 +5,7 @@ umask 077
 for c in python3 age age-keygen tar sha256sum bash; do command -v "$c" >/dev/null; done
 tmp="$(mktemp -d)"
 trap 'rm -rf "$tmp"' EXIT
+trap 'echo "G1_MOCK_FAILED_AT_LINE=$LINENO" >&2; grep -hE "G1 INTERROMPIDO:|G1_DUMP_COVERAGE=" "$tmp"/*.log 2>/dev/null | tail -n 4 >&2 || true' ERR
 mkdir -p "$tmp/bin" "$tmp/runner"
 export RUNNER_TEMP="$tmp/runner"
 export GITHUB_REPOSITORY='bonecodesign/salvamotoca'
@@ -18,6 +19,7 @@ export G1_SUPABASE_DB_URL='postgresql://postgres.yivkqyjdeouxnwtwfekc:fictional-
 export G1_DROPBOX_ACCESS_TOKEN='fictional-test-token-only'
 export G1_FAKE_UPLOAD="$tmp/encrypted-received.age"
 export G1_FAKE_INVENTORY_COUNTER="$tmp/inventory-counter"
+export G1_FAKE_SCHEMA_INVENTORY_COUNTER="$tmp/schema-inventory-counter"
 
 age-keygen -o "$tmp/fake-identity.txt" 2>/dev/null
 export G1_AGE_RECIPIENT="$(age-keygen -y "$tmp/fake-identity.txt")"
@@ -28,6 +30,21 @@ set -euo pipefail
 [[ "$1" == "$G1_SUPABASE_DB_URL" ]]
 if [[ "$*" == *'select count(*) from storage.objects;'* ]]; then
  printf '%s\n' "${G1_FAKE_STORAGE_OBJECTS:-0}"
+elif [[ "$*" == *'pg_policies'* ]]; then
+ num=0
+ [[ -f "$G1_FAKE_SCHEMA_INVENTORY_COUNTER" ]] &&
+  num="$(cat "$G1_FAKE_SCHEMA_INVENTORY_COUNTER")"
+ num=$((num + 1))
+ printf '%s' "$num" > "$G1_FAKE_SCHEMA_INVENTORY_COUNTER"
+ count=1
+ if [[ "${G1_FAKE_SCHEMA_DRIFT:-}" == "true" && "$num" -ge 2 ]]; then
+  count=2
+ fi
+ printf '{"tables":[{"name":"prestadores_prospeccao","rls_enabled":true,"policy_count":%d},{"name":"ofertas_prospeccao","rls_enabled":true,"policy_count":1},{"name":"configuracao_comercial","rls_enabled":true,"policy_count":1}' "$count"
+ if [[ "${G1_FAKE_ADDED_TABLE:-}" == "true" ]]; then
+  printf ',{"name":"new_future_table","rls_enabled":true,"policy_count":1}'
+ fi
+ printf ']}\n'
 elif [[ "$*" == *'jsonb_build_object('* ]]; then
  num=0
  if [[ -f "$G1_FAKE_INVENTORY_COUNTER" ]]; then
@@ -59,6 +76,15 @@ case "$out" in
  *) exit 3;;
 esac
 printf '%s\n' "-- mock SQL for $out" 'select 1;' > "$out"
+if [[ "$out" == 'schema.sql' ]]; then
+ for table in prestadores_prospeccao ofertas_prospeccao configuracao_comercial; do
+  printf 'CREATE TABLE public.%s (id integer);\n' "$table" >> "$out"
+  if [[ "${G1_FAKE_DROP_RLS:-}" != "true" || "$table" != "ofertas_prospeccao" ]]; then
+   printf 'ALTER TABLE public.%s ENABLE ROW LEVEL SECURITY;\n' "$table" >> "$out"
+  fi
+  printf 'CREATE POLICY mock_%s ON public.%s FOR SELECT USING (true);\n' "$table" "$table" >> "$out"
+ done
+fi
 if [[ "$out" == 'data.sql' ]]; then
  if [[ "${G1_FAKE_DROP_TABLE:-}" != "true" ]]; then
    printf '%s\n' 'COPY public.prestadores_prospeccao (id) FROM stdin;' >> "$out"
@@ -103,7 +129,12 @@ grep -q 'Storage não está vazio' "$tmp/objects.log"
 [[ ! -e "$tmp/encrypted-received.age" ]]
 
 # Real script runs end-to-end, but mock SQL and mock Dropbox only.
-bash "$script" > "$tmp/ok.log" 2>&1
+if ! bash "$script" > "$tmp/ok.log" 2>&1; then
+  # Apenas etiquetas do mock, nunca SQL real ou credenciais.
+  grep -E 'G1 INTERROMPIDO:|G1_DUMP_COVERAGE=' "$tmp/ok.log" | tail -n 3 >&2 || true
+  echo 'FAIL: synthetic backup pipeline did not pass' >&2
+  exit 1
+fi
 grep -q 'G1_ENCRYPTED_BACKUP_UPLOADED_PRIVATE_DROPBOX=CONFIRMED' "$tmp/ok.log"
 grep -q 'G1=BLOCKED' "$tmp/ok.log"
 test -s "$tmp/encrypted-received.age"
@@ -192,13 +223,33 @@ rm -f "$tmp/inventory-counter"
 if G1_FAKE_DROP_TABLE=true bash "$script" > "$tmp/partial.log" 2>&1; then
  echo 'FAIL: incomplete dump accepted'; exit 1
 fi
-grep -q 'não inclui tabela essencial' "$tmp/partial.log"
+# O controle DINÂMICO pode rejeitar a ausência antes do teste legado.
+grep -Eq 'não inclui tabela essencial|dump não cobre todas as tabelas public/RLS/políticas' "$tmp/partial.log"
 # Do not publish a backup spanning two different source row-count states.
 rm -f "$tmp/inventory-counter"
 if G1_FAKE_INVENTORY_DRIFT=true bash "$script" > "$tmp/drift.log" 2>&1; then
  echo 'FAIL: changed source inventory accepted'; exit 1
 fi
 grep -q 'contagens mudaram' "$tmp/drift.log"
+
+# Missing RLS authorization on one table is never a valid backup.
+if G1_FAKE_DROP_RLS=true bash "$script" > "$tmp/rls-missing.log" 2>&1; then
+ echo 'FAIL: missing public RLS accepted'; exit 1
+fi
+grep -q 'dump não cobre todas as tabelas' "$tmp/rls-missing.log"
+
+# Adding a future table to live database catalog must demand its dump rows.
+if G1_FAKE_ADDED_TABLE=true bash "$script" > "$tmp/future-table.log" 2>&1; then
+ echo 'FAIL: newly added table silently omitted'; exit 1
+fi
+grep -q 'dump não cobre todas as tabelas' "$tmp/future-table.log"
+
+# Policy count changing during dump must not be silently accepted.
+rm -f "$tmp/schema-inventory-counter"
+if G1_FAKE_SCHEMA_DRIFT=true bash "$script" > "$tmp/schema-drift.log" 2>&1; then
+ echo 'FAIL: source policy RLS drift was not rejected'; exit 1
+fi
+grep -q 'estrutura RLS/políticas mudou' "$tmp/schema-drift.log"
 
 # Simulate corrupted remote hash even when uploader returns success.
 if G1_FAKE_BAD_HASH=true bash "$script" > "$tmp/badhash.log" 2>&1; then
@@ -214,6 +265,8 @@ echo 'G1_FOREIGN_PROJECT=REJECTED'
 echo 'G1_STORAGE_WITH_OBJECTS=REJECTED'
 echo 'G1_CORRUPT_REMOTE_HASH=REJECTED'
 echo 'G1_MISSING_ESSENTIAL_TABLE=REJECTED'
+echo 'G1_PUBLIC_SCHEMA_RLS_COVERAGE=PASS'
+echo 'G1_PUBLIC_SCHEMA_FUTURE_TABLE_GUARD=PASS'
 echo 'G1_SOURCE_INVENTORY_DRIFT=REJECTED'
 echo 'REAL_SUPABASE_AND_DROPBOX_ACCESSED=FALSE'
 echo 'G1_PRIVATE_ARCHIVE_VERIFIER=PASS'

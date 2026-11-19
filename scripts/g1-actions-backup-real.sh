@@ -39,6 +39,7 @@ except (ValueError, KeyError): valid=False
 sys.exit(0 if valid else 2)
 PY
 
+script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 tmp="$(mktemp -d "$RUNNER_TEMP/g1-backup.XXXXXXXX")"
 cleanup() { rm -rf -- "$tmp"; }
 trap cleanup EXIT
@@ -91,6 +92,29 @@ except (OSError,ValueError): valid=False
 sys.exit(0 if valid else 2)
 PY
 }
+# Descobrir TODAS as tabelas public e políticas RLS no catálogo ao vivo.
+# Não armazenar nomes pessoais nem conteúdo de registros no manifesto.
+schema_inventory() {
+  local out="$1"
+  if ! psql "$G1_SUPABASE_DB_URL" -X -tA -v ON_ERROR_STOP=1 -c "
+    select jsonb_build_object('tables', (
+      select coalesce(jsonb_agg(jsonb_build_object(
+        'name', c.relname,
+        'rls_enabled', c.relrowsecurity,
+        'policy_count', (
+          select count(*) from pg_policies p
+          where p.schemaname='public' and p.tablename=c.relname
+        )
+      ) order by c.relname),'[]'::jsonb)
+      from pg_class c
+      join pg_namespace n on n.oid=c.relnamespace
+      where n.nspname='public' and c.relkind in ('r','p')
+        and c.relpersistence<>'t'
+    ))::text;" > "$out" 2>"$out.stderr"; then
+    deny 'não foi possível ler inventário de tabelas/RLS'
+  fi
+}
+schema_inventory source_schema_inventory_before.json
 inventory source_inventory_before.json
 dump roles.sql --role-only
 dump schema.sql
@@ -98,6 +122,14 @@ dump data.sql --data-only --use-copy -x storage.buckets_vectors -x storage.vecto
 dump history_schema.sql --schema supabase_migrations
 dump history_data.sql --schema supabase_migrations --data-only --use-copy
 inventory source_inventory_after.json
+schema_inventory source_schema_inventory_after.json
+cmp -s source_schema_inventory_before.json source_schema_inventory_after.json ||
+  deny 'estrutura RLS/políticas mudou durante exportação'
+python3 "$script_dir/g1-verify-public-dump-coverage.py" \
+ --inventory source_schema_inventory_before.json \
+ --schema schema.sql --data data.sql > coverage.check.stdout \
+ 2> coverage.check.stderr || deny 'dump não cobre todas as tabelas public/RLS/políticas'
+
 cmp -s source_inventory_before.json source_inventory_after.json ||
   deny 'contagens mudaram durante exportação; sem snapshot coerente'
 # As tabelas com registros de prospecção precisam aparecer no export de
@@ -109,7 +141,7 @@ for essential in prestadores_prospeccao ofertas_prospeccao configuracao_comercia
     deny "dump de dados não inclui tabela essencial: $essential"
 done
 [[ -s schema.sql && -s data.sql ]] || deny 'arquivo de esquema/dados vazio'
-sha256sum roles.sql schema.sql data.sql history_schema.sql history_data.sql source_inventory_before.json > manifest.sha256
+sha256sum roles.sql schema.sql data.sql history_schema.sql history_data.sql source_inventory_before.json source_schema_inventory_before.json > manifest.sha256
 printf '%s\n' \
  'project_ref=yivkqyjdeouxnwtwfekc' \
  'environment=TESTES' \
@@ -118,7 +150,8 @@ printf '%s\n' \
  'storage_physical_objects_included=false' > manifest.txt
 bundle="$tmp/g1-bundle.tar.gz"
 tar -czf "$bundle" roles.sql schema.sql data.sql history_schema.sql \
-  history_data.sql source_inventory_before.json manifest.sha256 manifest.txt
+  history_data.sql source_inventory_before.json source_schema_inventory_before.json \
+  manifest.sha256 manifest.txt
 encrypted="$tmp/g1-bundle.tar.gz.age"
 age -r "$G1_AGE_RECIPIENT" -o "$encrypted" "$bundle"
 [[ -s "$encrypted" ]] || deny 'falha ao cifrar o arquivo'
