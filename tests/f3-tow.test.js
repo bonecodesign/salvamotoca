@@ -114,8 +114,7 @@ test("F3: recusa recente e duas recusas excluem prestador",()=>{
 });
 test("F3: orçamento exige serviço e deslocamento explícitos",()=>{
  const quote=F.quoteTow({serviceTypes:["reboque_moto"],
-  serviceCents:{reboque_moto:23000},travelCents:4000,
-  parts:[{name:"Fita de segurança",amountCents:1000}]});
+  serviceCents:{reboque_moto:23000},travelCents:4000});
  assert.equal(quote.totalCents,27000);
  assert.equal(quote.serviceTotalCents,23000);
  assert.equal(quote.customerCommissionCents,2300);
@@ -130,7 +129,7 @@ test("F3: orçamento exige serviço e deslocamento explícitos",()=>{
 test("F3: serviço misto aplica 10% + 10% somente sobre serviços",()=>{
  const q=F.quoteTow({serviceTypes:["reboque_moto","troca_camara"],
   serviceCents:{reboque_moto:20000,troca_camara:3500},
-  travelCents:3000,parts:[]});
+  travelCents:3000});
  assert.equal(q.customerCommissionCents,2350);
  assert.equal(q.providerCommissionCents,2350);
  assert.equal(q.customerPayableCents,28850);
