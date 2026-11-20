@@ -8,5 +8,7 @@ window.BJ_CONFIG = {
   f1TestRequestsEnabled: false,
   // F2: backend apenas proposto/testado localmente. Não habilitar antes da F1 e backup.
   f2TestOffersEnabled: false,
+  // F3 depende da F1/F2 e de backup+homologação. Nunca ativar por merge.
+  f3TowEnabled: false,
   supabasePublishableKey: 'sb_publishable_SKToaitJDdgDAYUrwChkbg__ntPtZd3'
 };
