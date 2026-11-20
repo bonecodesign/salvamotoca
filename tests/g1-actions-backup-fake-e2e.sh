@@ -66,7 +66,7 @@ cat > "$tmp/bin/supabase" <<'MOCK'
 #!/usr/bin/env bash
 set -euo pipefail
 [[ "$1" == db && "$2" == dump ]]
-[[ " $* " == *"--remote=$G1_SUPABASE_DB_URL"* ]]
+[[ " $* " == *"--db-url $G1_SUPABASE_DB_URL"* ]]
 out=''
 while (($#)); do
  if [[ "$1" == '-f' ]]; then shift; out="$1"; break; fi
