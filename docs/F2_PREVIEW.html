@@ -1,0 +1,233 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Salva Motoca! — F2: simulador seguro</title>
+  <style>
+    :root{color-scheme:dark;--bg:#111214;--surface:#1d1f23;--line:#34383f;--muted:#a7acb4;--accent:#f2c14e}
+    *{box-sizing:border-box}body{font:16px/1.45 system-ui,Arial,sans-serif;margin:0;background:var(--bg);color:#f8f8f8}
+    main{max-width:1020px;margin:auto;padding:24px 16px 60px}h1{font-size:clamp(26px,4vw,42px);line-height:1.06;margin:12px 0}
+    h2{font-size:19px;margin:0 0 8px}p{margin:7px 0 14px}
+    header{margin:0 0 24px}.eyebrow{font-weight:900;color:var(--accent);text-transform:uppercase;letter-spacing:.08em}
+    .warn{border:1px solid #927726;background:#392f15;padding:12px 16px;border-radius:10px;color:#ffdfa4}
+    .columns{display:grid;grid-template-columns:1.1fr 1fr;gap:16px}.card{border:1px solid var(--line);background:var(--surface);border-radius:12px;padding:18px;margin-bottom:16px}
+    .hint{font-size:14px;color:var(--muted)}.badge{display:inline-block;border:1px solid #786529;border-radius:7px;padding:3px 8px;color:#f2d37f;font-size:12px;font-weight:bold}
+    button{border:0;background:var(--accent);color:#191919;padding:11px 16px;border-radius:9px;font:inherit;font-weight:bold;cursor:pointer}
+    button.secondary{background:#34383f;color:white}button:disabled{opacity:.55;cursor:not-allowed}
+    button:focus-visible,input:focus-visible{outline:3px solid #fff3b0;outline-offset:3px}
+    .buttons{display:flex;gap:8px;flex-wrap:wrap;margin:12px 0}
+    .provider{border:1px solid var(--line);border-radius:9px;padding:12px;margin:9px 0}
+    .provider strong{display:block}.provider p{margin:3px 0;font-size:13px;color:var(--muted)}
+    .line{display:flex;justify-content:space-between;border-bottom:1px solid var(--line);padding:7px 0;gap:15px}
+    .line:last-child{border:0}.list{margin:8px 0;padding-left:20px}.list li{padding:4px}
+    label{display:block;font-size:14px;margin:10px 0}input{width:100%;background:#0f1114;border:1px solid #62666f;border-radius:6px;padding:11px;color:white;font:inherit}
+    #messages{min-height:20px}.notice{padding:10px;border-radius:6px;background:#273344}
+    @media(max-width:720px){.columns{grid-template-columns:1fr}main{padding:18px 12px 44px}}
+  </style>
+</head>
+<body>
+<main>
+  <header>
+    <span class="eyebrow">SALVA MOTOCA! · F2</span>
+    <h1>Distribuição e orçamentos</h1>
+    <p>Protótipo demonstrativo de prestadores elegíveis, busca progressiva, prazos e orçamento discriminado.</p>
+    <div class="warn" role="status"><b>Simulador 100% local.</b> Não usa Supabase, login, GPS real, notificações, pagamentos, pedidos ou prestadores reais. As distâncias 1 / 3 / 10 km são exemplos de teste, não parâmetros aprovados para produção.</div>
+  </header>
+  <section class="columns">
+    <div>
+      <section class="card">
+        <h2>1. Solicitação de exemplo</h2>
+        <p>Motociclista fictício · Honda CG 160 · Pneu furado + troca de câmara</p>
+        <p class="hint">Coordenadas sintéticas de Belo Horizonte, sem endereço residencial.</p>
+        <div class="buttons">
+          <button id="search" type="button">Buscar elegíveis</button>
+          <button id="compare" class="secondary" type="button">Comparar mais opções</button>
+          <button id="reset" class="secondary" type="button">Reiniciar simulação</button>
+        </div>
+        <p id="stage" class="notice" aria-live="polite">Inicie a distribuição para ver a seleção.</p>
+        <div id="candidates"></div>
+      </section>
+      <section class="card">
+        <h2>2. Prazo da oferta</h2>
+        <p class="hint">Prazo de resposta: 5 minutos. Lembretes em 2min e 4min30s; ausência só conta se a entrega da notificação for comprovada.</p>
+        <div class="buttons">
+          <button id="deliver" class="secondary" type="button">Marcar aviso entregue</button>
+          <button id="tick" class="secondary" type="button">Simular 5 minutos</button>
+        </div>
+        <p id="deadline" class="notice" aria-live="polite">Nenhuma oferta ativa.</p>
+      </section>
+    </div>
+    <div>
+      <section class="card">
+        <h2>3. Orçamento itemizado</h2>
+        <p class="hint">Este orçamento demonstrativo pertence apenas à simulação; o banco atual ainda não suporta múltiplos orçamentos simultâneos.</p>
+        <label>Reparo de pneu (R$)
+          <input id="serviceA" type="number" min="0.01" step="0.01" value="80.00"></label>
+        <label>Troca de câmara (R$)
+          <input id="serviceB" type="number" min="0.01" step="0.01" value="35.00"></label>
+        <label>Deslocamento obrigatório (R$)
+          <input id="travel" type="number" min="0" step="0.01" value="15.00"></label>
+        <label>Câmara — material (R$)
+          <input id="part" type="number" min="0.01" step="0.01" value="45.00"></label>
+        <div class="buttons"><button id="quote" type="button">Calcular proposta</button></div>
+        <div id="breakdown" aria-live="polite"></div>
+        <div id="comparison" class="hint" aria-live="polite"></div>
+        <div class="buttons">
+          <button id="accept" disabled type="button">Aceitar proposta</button>
+          <button id="decline" disabled class="secondary" type="button">Recusar / próximo</button>
+        </div>
+        <div id="messages" aria-live="polite"></div>
+      </section>
+      <section class="card">
+        <h2>4. Limites desta fase</h2>
+        <ul class="list hint">
+          <li>Reboque fica na F3.</li>
+          <li>Chat somente após pagamento confirmado — nenhum pagamento aqui.</li>
+          <li>Resposta e expiração exigem verificação no servidor.</li>
+          <li>Suporte, prestadores reais e notificações externas não são acionados.</li>
+        </ul>
+      </section>
+    </div>
+  </section>
+</main>
+<script src="../f2-flow.js"></script>
+<script>
+(function(){
+  "use strict";
+  const F2=window.SMF2Flow, $=id=>document.getElementById(id);
+  const start=Date.parse("2026-11-14T12:00:00Z");
+  const request={city:"Belo Horizonte",stateCode:"MG",serviceTypes:["pneu_furado","troca_camara"],
+    location:{lat:-19.924,lng:-43.938}};
+  const sample=[
+    {id:"alfa",name:"Oficina Alfa",lat:-19.925,lng:-43.939,types:["pneu_furado","troca_camara"],dist:10},
+    {id:"beta",name:"Oficina Beta",lat:-19.940,lng:-43.938,types:["pneu_furado","troca_camara"],dist:10},
+    {id:"gama",name:"Oficina Gama",lat:-19.930,lng:-43.939,types:["pneu_furado"],dist:10},
+    {id:"delta",name:"Oficina Delta",lat:-19.926,lng:-43.939,types:["pneu_furado","troca_camara"],dist:10,online:false},
+    {id:"epsilon",name:"Oficina Épsilon",lat:-19.951,lng:-43.938,types:["pneu_furado","troca_camara"],dist:1}
+  ];
+  let providerId=null,elapsed=0,delivered=false,quote=null,lastDeclined=null,refusals={};
+  let expanded=false, candidateIds=[], quotePool=[];
+  const money=c=>new Intl.NumberFormat("pt-BR",{style:"currency",currency:"BRL"}).format(c/100);
+  const say=(text,error=false)=>{$("messages").textContent=text;$("messages").style.color=error?"#ffb8b8":"#f2d37f"};
+  const cents=id=>{
+    const str=String($(id).value);
+    if(!/^\d{1,4}(?:\.\d{1,2})?$/.test(str))throw new Error("Informe valor monetário positivo válido, com até duas casas decimais.");
+    return Math.round(Number(str)*100);
+  };
+  function offer(){
+    const providers=sample.map(p=>({
+      id:p.id,name:p.name,approved:true,active:true,deliveryEnabled:true,serviceActive:true,
+      onlineRequested:p.online!==false,lastSeenAt:start-10000,city:"Belo Horizonte",stateCode:"MG",
+      serviceTypes:p.types,location:{lat:p.lat,lng:p.lng},coverageKm:p.dist,rejectionCount:refusals[p.id]||0
+    }));
+    return F2.distribute({providers,request:{...request,justDeclinedProviderId:lastDeclined},
+      radiiKm:expanded?[10]:[1,3,10],now:start+Math.min(elapsed,89999),rotationSeed:"F2-DESMONSTRACAO"});
+  }
+  function resetQuote(){
+    quote=null;$("accept").disabled=true;$("decline").disabled=true;
+    $("breakdown").replaceChildren();
+  }
+  function showComparison(){
+    $("comparison").textContent=quotePool.length
+      ? quotePool.map(q=>q.providerId+" · "+money(q.totalCents)+" · "+q.status).join(" | ")
+      : "Nenhuma proposta recebida nesta simulação.";
+  }
+  function chooseProvider(id){
+    if(!candidateIds.includes(id)) return;
+    providerId=id;elapsed=0;delivered=false;resetQuote();
+    $("deadline").textContent="Oferta simulada para "+id+"; aviso ainda não confirmado.";
+    say("Prestador "+id+" selecionado para simular um orçamento.");
+  }
+  function select(){
+    const r=offer(), options=r.candidates;
+    candidateIds=options.map(p=>p.id);
+    quotePool=[]; showComparison();
+    $("stage").textContent=r.stage===null?
+      "Nenhum prestador elegível. Não prometer atendimento.":
+      "Etapa "+r.stage+" — até "+r.radiusKm+" km em linha reta · "+options.length+" opções válidas.";
+    $("candidates").replaceChildren();
+    options.forEach((p,i)=>{
+      const card=document.createElement("div");card.className="provider";
+      const name=document.createElement("strong");name.textContent=p.name;
+      const details=document.createElement("p");details.textContent=p.distanceKm.toFixed(2)+" km · recusas: "+p.rejectionCount;
+      card.append(name,details);
+      if(i===0){const hint=document.createElement("span");hint.className="badge";hint.textContent="Primeiro candidato";card.append(hint)}
+      const choose=document.createElement("button");choose.type="button";choose.className="secondary";
+      choose.textContent="Preparar orçamento deste prestador";
+      choose.addEventListener("click",()=>chooseProvider(p.id));
+      card.append(choose);$("candidates").append(card);
+    });
+    providerId=options[0]?.id||null;elapsed=0;delivered=false;resetQuote();
+    $("deadline").textContent=providerId?"Oferta simulada para "+providerId+"; aviso ainda não confirmado.":"Sem oferta ativa.";
+    say("");
+  }
+  $("search").addEventListener("click",()=>{expanded=false;select()});
+  $("compare").addEventListener("click",()=>{expanded=true;select()});
+  $("reset").addEventListener("click",()=>{
+    expanded=false;candidateIds=[];quotePool=[];
+    refusals={};lastDeclined=null;elapsed=0;delivered=false;providerId=null;resetQuote();showComparison();
+    $("candidates").replaceChildren();$("stage").textContent="Inicie a distribuição para ver a seleção.";
+    $("deadline").textContent="Nenhuma oferta ativa.";say("");
+  });
+  $("deliver").addEventListener("click",()=>{
+    if(!providerId){say("Busque primeiro um prestador.",true);return}
+    delivered=true;$("deadline").textContent="Notificação entregue e registrada (simulação).";
+  });
+  $("tick").addEventListener("click",()=>{
+    if(!providerId){say("Nenhuma oferta ativa.",true);return}
+    elapsed=5*60*1000+1000; // 5min desde a entrega fictícia em +1s
+    const state=F2.notificationDecision({
+      offeredAt:start,now:start+elapsed,deliveredAt:delivered?start+1000:null
+    });
+    $("deadline").textContent=state.status==="timeout"?"Prazo encerrado; ausência contabilizável e próximo candidato.":"Prazo encerrado, mas não há entrega comprovada. Não contar ausência.";
+    if(state.canCountAbsence){
+      lastDeclined=providerId;refusals[providerId]=2;select();
+      say("Tempo esgotado. Próximo prestador disponível, sem disparar notificação real.");
+    }
+  });
+  $("quote").addEventListener("click",()=>{
+    if(!providerId){say("Selecione um prestador antes de calcular.",true);return}
+    try{
+      quote=F2.quoteBreakdown({serviceTypes:request.serviceTypes,
+        services:[{code:"pneu_furado",amountCents:cents("serviceA")},
+          {code:"troca_camara",amountCents:cents("serviceB")}],
+        travelCents:cents("travel"),parts:[{name:"Câmara demonstrativa",amountCents:cents("part")}]});
+      $("breakdown").replaceChildren();
+      for(const row of quote.rows){
+        const line=document.createElement("div");line.className="line";
+        const name=document.createElement("span");name.textContent=row.code.replace(/_/g," ");
+        const value=document.createElement("b");value.textContent=money(row.amountCents);
+        line.append(name,value);$("breakdown").append(line);
+      }
+      const total=document.createElement("p");total.textContent="Total: "+money(quote.totalCents);
+      $("breakdown").append(total);$("accept").disabled=false;$("decline").disabled=false;
+      quotePool=quotePool.filter(x=>x.providerId!==providerId);
+      quotePool.push({id:"quote-"+providerId,providerId,requestId:"pedido-ficticio",
+        status:"proposed",createdAt:start,totalCents:quote.totalCents});
+      showComparison();
+      say("Orçamento pronto. Você pode escolher outro prestador, gerar mais uma proposta e depois selecionar uma.");
+    }catch(e){resetQuote();say(e.message,true)}
+  });
+  $("accept").addEventListener("click",()=>{
+    if(!quote||!providerId)return;
+    try{
+      const out=F2.selectWinningQuote({quotes:quotePool,quoteId:"quote-"+providerId,
+        now:start+elapsed,actingUserId:"cliente",customerId:"cliente"});
+      quotePool=out.quotes;showComparison();
+      say("Orçamento aceito em simulação. Aguardando pagamento; chat e despacho bloqueados.");
+    }catch(e){say(e.message,true)}
+    resetQuote();
+  });
+  $("decline").addEventListener("click",()=>{
+    if(!quote||!providerId)return;
+    const out=F2.quoteDecision({quote:{status:"proposed",createdAt:start},
+      now:start+elapsed,actingUserId:"cliente",customerId:"cliente",accept:false});
+    if(out.status==="expired"){say("Orçamento expirou; nenhuma ação automática real.");resetQuote();return}
+    lastDeclined=providerId;refusals[providerId]=(refusals[providerId]||0)+1;select();
+    say("Recusa simulada. Próximo prestador elegível sem voltar imediatamente ao recusado.");
+  });
+})();
+</script>
+</body>
+</html>
