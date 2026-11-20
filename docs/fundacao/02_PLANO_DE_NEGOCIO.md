@@ -6,7 +6,7 @@
 
 O Salva Motoca! é um marketplace em construção para o segmento de reparos de pneus de motocicletas. O produto combina um mapa gratuito de borracharias verificadas com um fluxo de solicitação delivery no local do problema. O prestador recebe chamado quando está homologado, habilitado e online; define seu próprio orçamento; o cliente aceita ou recusa. A plataforma mantém o histórico de ofertas e tenta o próximo elegível quando há recusa.
 
-**Modelo econômico aprovado internamente:** comissão de **15% sobre o valor dos serviços delivery de borracharia e reboque efetivamente pagos pelo aplicativo**. Decisão comercial aprovada pelo responsável pelo projeto em 12/11/2026 (SM-DEC-014). Sua execução depende de validação jurídica, tributária, contratual e de meios de pagamento. Consulta ao mapa e visita direta ao estabelecimento não geram comissão. O reboque já integra o produto, mas seu pagamento real e sua política comercial permanecem desativados até homologação.
+**Modelo econômico aprovado internamente:** 10% pagos pelo motociclista e 10% descontados do prestador, ambos sobre o valor dos serviços delivery de borracharia e reboque efetivamente pagos pelo aplicativo. Sua execução depende de validação jurídica, tributária, contratual e de meios de pagamento. Consulta ao mapa e visita direta ao estabelecimento não geram comissão. O reboque já integra o produto, mas seu pagamento real e sua política comercial permanecem desativados até homologação.
 
 ## 2. Problema e oportunidade
 
@@ -60,7 +60,7 @@ O Salva Motoca! é um marketplace em construção para o segmento de reparos de 
 
 ## 8. Fontes de receita e custos
 
-**Receita comercial aprovada internamente:** comissão de **15% sobre o valor do serviço delivery efetivamente pago e liquidado pelo aplicativo**, sujeita a reversões em estornos e cancelamentos. **A tarifa de processamento de Pix/cartão será suportada pelo cliente, exibida separadamente e antes da confirmação.** A comissão de 15% incide somente sobre o valor do serviço, não sobre essa tarifa. Antes da operação real, formalizar base de cálculo, condições de devolução, transparência comercial, tributos, liquidação e split com apoio jurídico e contábil.
+**Receita comercial aprovada internamente:** 10% cobrados do motociclista e 10% descontados do prestador sobre o serviço delivery efetivamente pago e liquidado pelo aplicativo, sujeitos a reversões em estornos e cancelamentos. **A tarifa de processamento de Pix/cartão será suportada pelo cliente, exibida separadamente e antes da confirmação.** A divisão de 10% + 10% incide somente sobre o valor do serviço, não sobre essa tarifa ou deslocamento. Antes da operação real, formalizar base de cálculo, condições de devolução, transparência comercial, tributos, liquidação e split com apoio jurídico e contábil.
 
 **Custos a apurar:** processamento de pagamentos, infraestrutura, mapas e mensagens, suporte, chargebacks/fraudes, marketing, formalização jurídica, tributos, contabilidade, seguro e eventuais responsabilidades de atendimento.
 
