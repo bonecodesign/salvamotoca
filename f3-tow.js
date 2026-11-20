@@ -160,8 +160,12 @@
       "Total de teste acima do limite seguro.");
     const serviceTotalCents=rows.filter(r=>r.kind==="service")
       .reduce((s,r)=>s+r.amountCents,0);
-    const commissionCents=Math.floor((serviceTotalCents*COMMISSION_BPS+5000)/10000);
-    return {rows,totalCents,serviceTotalCents,commissionCents,
+    const customerCommissionCents=Math.floor((serviceTotalCents*CUSTOMER_COMMISSION_BPS+5000)/10000);
+    const providerCommissionCents=Math.floor((serviceTotalCents*PROVIDER_COMMISSION_BPS+5000)/10000);
+    const customerPayableCents=totalCents+customerCommissionCents;
+    const providerReceivableCents=serviceTotalCents-providerCommissionCents+travelCents;
+    return {rows,totalCents,serviceTotalCents,customerCommissionCents,providerCommissionCents,
+      customerPayableCents,providerReceivableCents,
       travelTotalCents:travelCents,paymentAllowed:false,
       chatAllowed:false,dispatchAllowed:false};
   }
