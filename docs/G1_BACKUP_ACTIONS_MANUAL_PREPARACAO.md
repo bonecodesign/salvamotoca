@@ -15,7 +15,8 @@
 | G1_BACKUP_ENABLED | GitHub Settings > Secrets and variables > Actions > **Variables**, iniciar como false | Só mudar para true depois de revisar/autorizar execução |
 | G1_AGE_RECIPIENT | GitHub Actions **Variables** | Chave PÚBLICA age1...; chave PRIVADA permanece exclusivamente com o fundador, fora do GitHub e desta conversa |
 | G1_SUPABASE_DB_URL | GitHub **Environment Secret** do ambiente g1-backup-testes | URL PostgreSQL do **Session Pooler** do projeto de testes, usuário postgres.yivkqyjdeouxnwtwfekc; NÃO é a URL HTTP |
-| G1_DROPBOX_ACCESS_TOKEN | Mesmo Environment Secret | Token Dropbox API de curta duração com escopo mínimo files.content.write e acesso a App Folder privado, **não é o acesso ao Dropbox do ChatGPT** |
+| G1_DROPBOX_ACCESS_TOKEN | Mesmo Environment Secret | Token Dropbox API de curta duração com escopo mínimo files.content.write e acesso ao App Folder privado, **não é o acesso ao Dropbox do ChatGPT** |
+| G1_DROPBOX_PATH | Workflow versionado | Valor fixo `/backup-testes`; o script recusa qualquer outro destino e envia somente ciphertext para esse cofre |
 | g1-backup-testes | GitHub Settings > Environments | Restringir à branch main; configurar aprovação humana/proteções disponíveis |
 
 O GitHub conectado a este ChatGPT não disponibiliza criação/leitura de Actions Secrets, configuração de Environments nem disparo manual de workflows. E um workflow_dispatch só aparecerá normalmente na interface quando o workflow fizer parte da branch padrão main. Este candidato permanece **Draft e sem merge automático**.
@@ -30,7 +31,7 @@ Esses ensaios **não provam** autenticação no Supabase real, execução real d
 
 ## SM-G1-ROBUSTEZ — pré-checagens reais e novos testes, 19/11/2026
 
-**Supabase CLI v3.2.0:** instalado no runner GitHub Actions, não apenas consultado na documentação. Foram verificadas via `supabase db dump --help` as opções de `--remote`, `--role-only`, `--data-only`, `--schema`, `--use-copy`, `--exclude` e `--file`, todas presentes. Evidência: [CI #44589540823](https://github.com/bonecodesign/salvamotoca/actions/runs/44589540823) — SUCCESS. A verificação do CLI **não se conectou ao Supabase hospedado**.
+**Supabase CLI v3.2.0:** instalado no runner GitHub Actions, não apenas consultado na documentação. A sintaxe de exportação foi conferida contra a documentação atual: ao receber URL explícita de conexão, o CLI usa `--db-url` (não `--remote`); as opções `--role-only`, `--data-only`, `--schema`, `--use-copy`, `--exclude` e `--file` também são exigidas pelo fluxo. Evidência: [CI #44589540823](https://github.com/bonecodesign/salvamotoca/actions/runs/44589540823) — SUCCESS. A verificação do CLI **não se conectou ao Supabase hospedado**.
 
 **Inventário de origem:** o script de backup real candidato agora lê contagens de 8 conjuntos essenciais **antes e depois das cinco exportações**, cifra o inventário inicial e seu SHA-256 junto com o pacote e **interrompe o backup se alguma contagem mudar**. Além disso, só aceita `data.sql` contendo comandos **`COPY public.<tabela>` genuínos** para as três tabelas essenciais de prospecção/configuração (não basta o nome aparecer em texto ou comentários). Isso diminui o risco de backup incompleto ou inconsistente, mas **não detecta atualização de conteúdo sem alteração de contagens**, nem equivale a snapshot transacional único.
 
