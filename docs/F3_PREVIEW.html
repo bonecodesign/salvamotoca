@@ -1,0 +1,143 @@
+<!doctype html>
+<html lang="pt-BR"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Salva Motoca! | F3 reboque — simulação local</title>
+<style>
+:root{color-scheme:dark;--bg:#121418;--card:#22262d;--line:#444c55;--muted:#adb8c6;--yellow:#f4c34d}
+*{box-sizing:border-box}body{font:16px/1.5 system-ui,Arial;margin:0;background:var(--bg);color:#fafafa}
+main{max-width:1020px;margin:auto;padding:22px 16px 60px}h1{font-size:clamp(27px,4vw,40px);line-height:1.1;margin:.3rem 0}h2{font-size:1.22rem;margin:.2rem 0 1rem}
+small,.hint{color:var(--muted)}.brand{color:var(--yellow);font-weight:900;letter-spacing:.07em}
+.warning{background:#3e3216;color:#ffe2a0;padding:12px 15px;border:1px solid #9a7d33;border-radius:10px;margin:18px 0}
+.grid{display:grid;grid-template-columns:1.1fr 1fr;gap:16px}.card{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:18px;margin-bottom:16px}
+label{display:block;margin:12px 0;font-weight:600;font-size:14px}
+input,select{display:block;width:100%;font:inherit;color:#fff;padding:10px;border-radius:7px;border:1px solid #727f8a;background:#101216;margin-top:5px}
+input:focus-visible,select:focus-visible,button:focus-visible{outline:3px solid var(--yellow);outline-offset:2px}
+button{font:inherit;font-weight:750;color:#171717;background:var(--yellow);padding:10px 15px;border-radius:9px;border:0;cursor:pointer}
+button.secondary{background:#39414a;color:#fff}button:disabled{opacity:.5;cursor:not-allowed}
+.actions{display:flex;flex-wrap:wrap;gap:8px;margin:12px 0}.row{display:flex;justify-content:space-between;gap:12px;border-bottom:1px solid var(--line);padding:7px 0}
+.result{border:1px solid var(--line);border-radius:8px;padding:12px;margin:9px 0}
+.status{padding:10px;border-radius:8px;background:#2d3540;min-height:42px}
+@media(max-width:700px){.grid{grid-template-columns:1fr}main{padding:16px 12px 42px}}
+</style>
+</head><body><main>
+<header><div class="brand">SALVA MOTOCA! · F3</div>
+<h1>Reboque de motocicletas</h1>
+<p>Prévia de cadastro, compatibilidade dos equipamentos, orçamento e privacidade do destino.</p>
+<div class="warning" role="status"><b>Somente simulação local.</b> Não usa GPS real, mapas, dados pessoais, Supabase, rede, pagamentos, prestadores ou despachos. Os raios e preços são exemplos, não uma oferta comercial.</div></header>
+<div class="grid"><div>
+<section class="card"><h2>1. Motocicleta e destino</h2>
+<label>Peso estimado da motocicleta (kg)<input id="weight" type="number" min="40" max="650" step="1" value="140"></label>
+<label>Marca<input id="brand" value="Honda" maxlength="70"></label>
+<label>Modelo<input id="model" value="CG 160" maxlength="90"></label>
+<label>Ano<input id="year" type="number" min="1950" max="2100" step="1" value="2024"></label>
+<label>Destino — município<input id="destination" value="Contagem" maxlength="80"></label>
+<label>Endereço exato (restrito ao cliente)<input id="privateAddress" value="Rua Fictícia, 123 — somente simulação" maxlength="240"></label>
+<label>Distância estimada da rota (km)<input id="routeKm" type="number" min="1" max="500" value="20"></label>
+<div class="actions"><button id="search" type="button">Buscar reboques compatíveis</button>
+<button id="reset" class="secondary" type="button">Recomeçar</button></div>
+<p class="status" id="requestState" aria-live="polite">Preencha os dados e inicie a busca.</p>
+</section>
+<section class="card"><h2>2. Equipamentos homologados</h2>
+<div id="providers" aria-live="polite"></div><small>Somente equipamento verificado e com carga suficiente é elegível. Aprovação não é feita pelo próprio prestador.</small></section>
+</div>
+<div>
+<section class="card"><h2>3. Resumo permitido ao prestador</h2>
+<div class="status" id="publicSummary">O destino exato não aparecerá aqui.</div>
+<small>Endereço e coordenadas exatos permanecem privados até uma operação legítima após pagamento confirmado.</small>
+</section>
+<section class="card"><h2>4. Orçamento discriminado</h2>
+<label>Serviço de reboque (R$)<input id="towPrice" type="number" min="0.01" step="0.01" value="230.00"></label>
+<label>Deslocamento (R$)<input id="travelPrice" type="number" min="0" step="0.01" value="40.00"></label>
+<div class="actions"><button id="calculate" type="button" disabled>Calcular orçamento</button><button id="choose" type="button" disabled>Escolher proposta</button></div>
+<div id="prices" aria-live="polite"></div>
+<p id="finalState" class="status" aria-live="polite">Sem orçamento.</p>
+</section>
+<section class="card"><h2>5. Regras de segurança</h2><small>Pagamento, chat, rastreamento, confirmação de chegada e despacho permanecem bloqueados neste protótipo. Comissão simulada de 10% do motociclista + 10% do prestador incide somente sobre o serviço, com materiais inclusos; deslocamento fica fora da base. Extras exigem novo orçamento.</small></section>
+</div></div></main>
+<script src="../f3-tow.js"></script>
+<script>
+(function(){
+ "use strict";
+ const F=window.SMF3Tow,el=id=>document.getElementById(id);
+ const now=Date.parse("2026-11-14T21:00:00Z");
+ const money=v=>new Intl.NumberFormat("pt-BR",{style:"currency",currency:"BRL"}).format(v/100);
+ function cents(id){const s=el(id).value.trim();if(!/^\d{1,4}(\.\d{1,2})?$/.test(s))throw new Error("Valor inválido.");const [a,b=""]=s.split(".");return Number(a)*100+Number((b+"00").slice(0,2))}
+ const baseCapacity={equipment:"plataforma",maxMotoKg:250,coverageKm:25,
+   tieDownPoints:4,hasRamp:true,hasWheelChock:true,verifiedByAdmin:true};
+ const providers=[
+  {id:"alpha",label:"Reboque Alfa (fictício)",approved:true,active:true,towServiceActive:true,
+   onlineRequested:true,lastSeenAt:now-1000,city:"Belo Horizonte",stateCode:"MG",
+   location:{lat:-19.926,lng:-43.938},capacity:baseCapacity},
+  {id:"beta",label:"Reboque Beta (carga leve)",approved:true,active:true,towServiceActive:true,
+   onlineRequested:true,lastSeenAt:now-1000,city:"Belo Horizonte",stateCode:"MG",
+   location:{lat:-19.927,lng:-43.939},capacity:{...baseCapacity,maxMotoKg:110}},
+  {id:"gamma",label:"Reboque Gama (não homologado)",approved:true,active:true,towServiceActive:true,
+   onlineRequested:true,lastSeenAt:now-1000,city:"Belo Horizonte",stateCode:"MG",
+   location:{lat:-19.925,lng:-43.939},capacity:{...baseCapacity,verifiedByAdmin:false}}
+ ];
+ let chosen=null,quote=null,request=null;
+ const txt=(id,value)=>{el(id).textContent=value};
+ function reset(){chosen=null;quote=null;request=null;
+  el("providers").replaceChildren();el("calculate").disabled=true;el("choose").disabled=true;
+  el("prices").replaceChildren();txt("requestState","Preencha os dados e inicie a busca.");
+  txt("publicSummary","O destino exato não aparecerá aqui.");txt("finalState","Sem orçamento.");
+ }
+ function collect(){return F.validateTowRequest({
+  serviceTypes:["reboque_moto"],motorcycleBrand:el("brand").value,motorcycleModel:el("model").value,
+  motorcycleYear:Number(el("year").value),motorcycleWeightKg:Number(el("weight").value),
+  pickupCity:"Belo Horizonte",pickupStateCode:"MG",
+  pickupLocation:{lat:-19.924,lng:-43.938},
+  destinationCity:el("destination").value,destinationStateCode:"MG",
+  destinationAddress:el("privateAddress").value,
+  estimatedRouteKm:Number(el("routeKm").value)
+ })}
+ el("search").addEventListener("click",()=>{
+  reset();
+  try{
+   request=collect();
+   const summary=F.publicSummary(request);
+   txt("publicSummary",summary.motorcycle.brand+" "+summary.motorcycle.model+
+     " · "+summary.motorcycle.weightKg+" kg · "+summary.pickup.city+
+     " → "+summary.destination.city+" · ~"+summary.estimatedRouteKm+" km");
+   const result=F.findTowProviders({providers,request,radiiKm:[1,3,10],now});
+   txt("requestState",result.status==="no_provider"?"Nenhum reboque homologado compatível.":
+     "Etapa "+result.stage+" · "+result.candidates.length+" prestador(es) elegível(is).");
+   for(const p of result.candidates){
+    const box=document.createElement("div");box.className="result";
+    const title=document.createElement("strong");title.textContent=p.label;
+    const desc=document.createElement("p");desc.textContent=p.distanceKm.toFixed(2)+" km em linha reta";
+    const btn=document.createElement("button");btn.type="button";btn.textContent="Simular proposta";
+    btn.addEventListener("click",()=>{chosen=p.id;quote=null;el("choose").disabled=true;
+      el("calculate").disabled=false;txt("finalState","Prestador "+p.label+" selecionado para simulação.")});
+    box.append(title,desc,btn);el("providers").append(box);
+   }
+  }catch(e){txt("requestState",e.message)}
+ });
+ el("calculate").addEventListener("click",()=>{
+  if(!chosen||!request)return;
+  try{
+   const part=cents("partPrice");
+   quote=F.quoteTow({serviceTypes:request.serviceTypes,
+    serviceCents:{reboque_moto:cents("towPrice")},travelCents:cents("travelPrice"),
+    parts:part?[{name:"Material de apoio fictício",amountCents:part}]:[]});
+   el("prices").replaceChildren();
+   for(const row of quote.rows){
+    const line=document.createElement("div");line.className="row";
+    const label=document.createElement("span");label.textContent=row.code.replaceAll("_"," ");
+    const val=document.createElement("b");val.textContent=money(row.amountCents);
+    line.append(label,val);el("prices").append(line);
+   }
+   const total=document.createElement("p");
+   total.textContent="Total: "+money(quote.totalCents)+". Comissão simulada (serviço): "+money(quote.commissionCents);
+   el("prices").append(total);el("choose").disabled=false;
+   txt("finalState","Orçamento de demonstração pronto; sem cobrança.");
+  }catch(e){quote=null;el("choose").disabled=true;txt("finalState",e.message)}
+ });
+ el("choose").addEventListener("click",()=>{
+  if(!quote)return;
+  txt("finalState","Proposta escolhida em simulação: aguardando pagamento. Chat e despacho bloqueados.");
+  el("choose").disabled=true;
+ });
+ el("reset").addEventListener("click",reset);
+})();
+</script></body></html>
