@@ -69,8 +69,9 @@ test("F3 Chrome: orçamento discrimina e aceite não libera pagamento",async()=>
   await page.locator("#providers button").first().click();
   await page.locator("#calculate").click();
   const prices=await page.locator("#prices").innerText();
-  assert.match(prices,/R\$\s*280,00/);
-  assert.match(prices,/R\$\s*34,50/);
+  assert.match(prices,/R\$\s*293,00/);
+  assert.match(prices,/R\$\s*23,00/);
+  assert.match(prices,/Repasse estimado ao prestador/);
   await page.locator("#choose").click();
   assert.match(await page.locator("#finalState").innerText(),/aguardando pagamento/i);
   assert.match(await page.locator("#finalState").innerText(),/chat e despacho bloqueados/i);
