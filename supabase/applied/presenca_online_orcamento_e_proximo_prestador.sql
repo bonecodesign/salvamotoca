@@ -1,6 +1,6 @@
--- Aplicado no Supabase BorrachaJa; consultar list_migrations para a versão remota.
--- BorrachaJá! — Presença online, orçamento pelo prestador e próxima opção ao recusar.
--- PILOTO: somente projeto Supabase BorrachaJa; pagamentos reais NÃO estão ativos.
+-- Aplicado no Supabase de testes; consultar list_migrations para a versão remota.
+-- Salva Motoca! — Presença online, orçamento pelo prestador e próxima opção ao recusar.
+-- PILOTO: somente projeto Supabase de testes; pagamentos reais NÃO estão ativos.
 -- Status homologado/ativo é administrativo e nunca é alterado pelo toggle online.
 
 create table public.bj_provider_presence (
