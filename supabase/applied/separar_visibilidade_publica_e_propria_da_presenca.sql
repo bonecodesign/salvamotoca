@@ -1,4 +1,4 @@
--- Correção já aplicada ao Supabase BorrachaJa.
+-- Correção já aplicada ao Supabase de testes.
 drop policy if exists bj_presence_visible on public.bj_provider_presence;
 create policy bj_presence_public_read on public.bj_provider_presence
 for select to anon,authenticated
