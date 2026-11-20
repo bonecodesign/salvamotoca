@@ -17,6 +17,7 @@ export G1_CONFIRM='BACKUP_TESTES_SALVAMOTOCA'
 # All credentials and hosts are explicitly FICTIONAL, sent only to mocks.
 export G1_SUPABASE_DB_URL='postgresql://postgres.yivkqyjdeouxnwtwfekc:fictional-password@fake-sandbox.pooler.supabase.com:5432/postgres?sslmode=require'
 export G1_DROPBOX_ACCESS_TOKEN='fictional-test-token-only'
+export G1_DROPBOX_PATH='/backup-testes'
 export G1_FAKE_UPLOAD="$tmp/encrypted-received.age"
 export G1_FAKE_INVENTORY_COUNTER="$tmp/inventory-counter"
 export G1_FAKE_SCHEMA_INVENTORY_COUNTER="$tmp/schema-inventory-counter"
@@ -103,6 +104,9 @@ path=args[args.index('--data-binary')+1]
 assert path.startswith('@')
 path=path[1:]
 assert os.environ['G1_DROPBOX_ACCESS_TOKEN'] in ' '.join(args)
+arg=next(a for a in args if a.startswith('Dropbox-API-Arg: '))
+metadata=json.loads(arg.split(': ',1)[1])
+assert metadata['path']==os.environ['G1_DROPBOX_PATH']+'/'+os.environ['G1_BACKUP_FILE_NAME']
 with open(path,'rb') as fp: data=fp.read()
 assert data.startswith(b'age-encryption.org/v1\n'), 'only ciphertext may be uploaded'
 shutil.copyfile(path,os.environ['G1_FAKE_UPLOAD'])
