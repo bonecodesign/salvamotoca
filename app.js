@@ -1,7 +1,7 @@
 /* Salva Motoca! — piloto local, dados simulados. Não processa dinheiro. */
 (()=>{
 'use strict';
-const KEY='borrachaja_mvp_local_v1';
+const KEY='salva_motoca_mvp_local_v1';
 const SEEDS=[
  {id:'p1',name:'Oficina Piloto Centro (exemplo)',area:'Centro / região central',lat:-19.9212,lng:-43.9388,available:true,delivery:true,approved:true},
  {id:'p2',name:'Borracheiro Piloto Sul (exemplo)',area:'Região Centro-Sul',lat:-19.9444,lng:-43.9351,available:true,delivery:true,approved:true},
