@@ -1,9 +1,9 @@
-# Integração real do BorrachaJá! com Supabase
+# Integração de testes do Salva Motoca! com Supabase
 
 ## Projetos autorizados
 
-- GitHub: `bonecodesign/BorrachaJa`
-- Supabase: `BorrachaJa`, projeto `yivkqyjdeouxnwtwfekc`, região `sa-east-1`
+- GitHub: `bonecodesign/salvamotoca`
+- Supabase de testes: ref `yivkqyjdeouxnwtwfekc`, região `sa-east-1`
 - O projeto não atende emergências nem processa dinheiro nesta fase.
 
 ## Estrutura REAL do banco (auditada em 12–13/11/2026)
