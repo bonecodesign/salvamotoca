@@ -5,8 +5,8 @@
 ## Hipóteses aprovadas ou registradas
 
 - **Mapa e consulta:** gratuitos, sem cobrança pela ida direta à oficina.
-- **Borracharia delivery intermediada:** comissão de **15% aprovada internamente em 12/11/2026** sobre o valor do serviço efetivamente pago e liquidado pelo aplicativo (SM-DEC-014). A aplicação prática permanece condicionada a contratos, regras de estorno, tributação e integração financeira homologada.
-- **Reboque:** já está implementado no produto, mas não possui checkout nem cobrança real habilitados; sua ativação comercial depende de homologação. A comissão aprovada é de **15% sobre o valor do serviço de reboque**, sem incluir deslocamento, tarifa de processamento ou extras.
+- **Borracharia delivery intermediada:** 10% pagos pelo motociclista e 10% descontados do prestador sobre o valor do serviço efetivamente pago e liquidado pelo aplicativo. A aplicação prática permanece condicionada a contratos, regras de estorno, tributação e integração financeira homologada.
+- **Reboque:** já está implementado no produto, mas não possui checkout nem cobrança real habilitados; sua ativação comercial depende de homologação. A divisão aprovada é de **10% + 10% sobre o valor do serviço de reboque**, sem incluir deslocamento, tarifa de processamento ou extras.
 - **Preço de serviço:** definido pelo prestador em orçamento discriminado; serviços, deslocamento obrigatório e peças/materiais aparecem separadamente. Cliente aceita ou recusa o total. No piloto não há tabela fixa: valores potencialmente abusivos ou incoerentes podem ser encaminhados para revisão humana, sem ajuste automático.
 - **Pagamento:** Pix/cartões e split ainda não conectados nem homologados.
 - **Cancelamento pós-pagamento:** se o prestador cancelar, reembolso integral ao cliente, inclusive tarifa de processamento; se o cliente cancelar antes de o prestador marcar “em deslocamento”, reembolso integral; depois disso, valor retido até mediação, sem repasse automático.
@@ -32,7 +32,7 @@ O valor financeiro líquido do prestador parte do valor do serviço menos a comi
 
 ### Exemplo meramente ilustrativo — NÃO é preço de mercado
 
-| Valor aceito hipotético | Comissão de 15% | Parcela antes de outras taxas e tributos |
+| Valor aceito hipotético | Divisão 10% + 10% | Parcelas antes de outras taxas e tributos |
 | ---: | ---: | ---: |
 | R$ 80,00 | R$ 12,00 | R$ 68,00 |
 | R$ 100,00 | R$ 15,00 | R$ 85,00 |
@@ -50,7 +50,7 @@ O valor financeiro líquido do prestador parte do valor do serviço menos a comi
 | Pedidos que recebem orçamento | % | Teste real pendente |
 | Taxa de aceite | % | Teste real pendente |
 | Ticket médio efetivamente pago | R$ | Pesquisa e piloto pendentes |
-| Comissão nominal | % | **15% aprovada internamente**; implementação pendente |
+| Comissão nominal | % | **10% do motociclista + 10% do prestador**; implementação pendente |
 | Taxa de processamento | R$/pedido e % | Negociar com provedor |
 | Custo variável de atendimento | R$/pedido | Medir |
 | Impostos e obrigações | % e R$ | Contador/jurídico definir |
@@ -62,7 +62,7 @@ O valor financeiro líquido do prestador parte do valor do serviço menos a comi
 
 **Pedidos liquidados mensais = pedidos iniciados × % com orçamento × % de aceite × % liquidados.**
 
-**Comissão bruta mensal = pedidos liquidados × ticket médio pago dos serviços × 15%.**
+**Receita bruta mensal = pedidos liquidados × ticket médio dos serviços × 20%, composta por 10% do motociclista e 10% do prestador.**
 
 **Margem de contribuição mensal = comissão bruta − custos variáveis da plataforma − devoluções e ajustes associados.**
 
@@ -92,7 +92,7 @@ O valor financeiro líquido do prestador parte do valor do serviço menos a comi
 
 ## Decisões comerciais pendentes
 
-**A comissão de 15%, a tarifa de processamento como encargo do cliente e a composição transparente do orçamento já estão aprovadas.** Ainda é necessário decidir: preço mínimo de serviço; política de deslocamento por área; eventuais condições promocionais; split automático; calendário de repasses; reserva financeira para contingências; estornos parciais e tratamento de fraudes.
+**A divisão de 10% + 10%, a tarifa de processamento como encargo do cliente e a composição transparente do orçamento já estão aprovadas.** Ainda é necessário decidir: preço mínimo de serviço; política de deslocamento por área; eventuais condições promocionais; split automático; calendário de repasses; reserva financeira para contingências; estornos parciais e tratamento de fraudes.
 
 ## Cenários propostos para análise futura
 
