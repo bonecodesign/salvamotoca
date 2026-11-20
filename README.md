@@ -10,13 +10,13 @@ Marketplace de borracharias, borracharia delivery e reboque de motos para motoci
 - Atendimento de borracheiro no local e reboque de motos mediante orçamento e pagamento na plataforma.
 - Escolha do profissional ou busca automática por proximidade/disponibilidade.
 - Comunicação dentro do aplicativo, sem divulgação pública de telefone/WhatsApp.
-- Comissão de **15%** da plataforma sobre serviços delivery e reboque pagos. Consultar o mapa e ir diretamente à borracharia é gratuito, sem comissão.
+- Comissão de **15%** da plataforma sobre o valor do serviço delivery ou de reboque pago. A taxa de processamento é apresentada separadamente e é encargo do cliente; deslocamento não integra a comissão. Consultar o mapa e ir diretamente à borracharia é gratuito, sem comissão.
 - Cadastro e verificação dos prestadores antes de aparecerem no mapa.
 - Desenvolvimento priorizando ferramentas gratuitas e custos iniciais mínimos.
 
-## Estado do piloto conectado
+## Estado do ambiente de testes conectado
 
-O Supabase **Salva Motoca** possui o banco real e o MVP usa as tabelas atuais para autenticação, cadastros pendentes, pedidos e orçamentos de **teste**.
+O Supabase **Salva Motoca!** possui a base de testes e o MVP usa as tabelas atuais para autenticação, cadastros pendentes, pedidos e orçamentos de **teste**. Ele não é produção.
 
 - Consulte [docs/INTEGRACAO_SUPABASE.md](docs/INTEGRACAO_SUPABASE.md) antes de qualquer mudança no banco.
 - O endereço do pedido permanece protegido até a confirmação de pagamento real, que ainda não existe neste MVP.
@@ -31,9 +31,11 @@ Na mesma solicitação, a primeira recusa mantém o prestador elegível para uma
 
 Aceitar o orçamento **não realiza pagamento**. A integração financeira permanece futura.
 
-## Organização
+## Organização e estado de liberação
 
-O banco está criado no Supabase `Salva Motoca`, com tabelas operacionais, prospecção privada, RLS e migrações versionadas. O código do aplicativo e os testes de MVP estão nesta base; pagamentos e operação comercial ainda exigem homologação.
+O banco está criado no Supabase de testes `yivkqyjdeouxnwtwfekc`, com tabelas operacionais, prospecção privada, RLS e migrações versionadas. O código do aplicativo e os testes de MVP estão nesta base; pagamentos e operação comercial ainda exigem homologação.
+
+O estado atual de liberação é **NO-GO**: antes de qualquer piloto com pessoas reais, é obrigatório comprovar backup e restauração isolada, consolidar as mudanças em revisão, validar Auth/RLS com contas separadas e homologar a integração financeira.
 
 Consulte [supabase/README.md](supabase/README.md) para regras de versionamento e [docs/PRODUTO_OFICIAL.md](docs/PRODUTO_OFICIAL.md) para a especificação vigente.
 
