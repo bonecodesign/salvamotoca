@@ -10,7 +10,7 @@ Marketplace de borracharias, borracharia delivery e reboque de motos para motoci
 - Atendimento de borracheiro no local e reboque de motos mediante orçamento e pagamento na plataforma.
 - Escolha do profissional ou busca automática por proximidade/disponibilidade.
 - Comunicação dentro do aplicativo, sem divulgação pública de telefone/WhatsApp.
-- Comissão de **15%** da plataforma sobre o valor do serviço delivery ou de reboque pago. A taxa de processamento é apresentada separadamente e é encargo do cliente; deslocamento não integra a comissão. Consultar o mapa e ir diretamente à borracharia é gratuito, sem comissão.
+- Comissão de **10% paga pelo motociclista e 10% descontada do prestador**, ambas somente sobre o valor do serviço delivery ou de reboque. A taxa de processamento é apresentada separadamente e é encargo do cliente; deslocamento não integra essa base. Consultar o mapa e ir diretamente à borracharia é gratuito, sem comissão.
 - Cadastro e verificação dos prestadores antes de aparecerem no mapa.
 - Desenvolvimento priorizando ferramentas gratuitas e custos iniciais mínimos.
 
