@@ -7,7 +7,7 @@ Aprovado significa **definido pelo responsável do produto**, não necessariamen
 
 | ID | Decisão | Estado |
 | --- | --- | --- |
-| SM-DEC-001 | Nome público atual: **Salva Motoca!**; identidade anterior BorrachaJá! é legado técnico | Aprovada; migração de marca parcial |
+| SM-DEC-001 | Nome oficial do produto: **Salva Motoca!** | Aprovada |
 | SM-DEC-002 | Repositório de trabalho autorizado: **bonecodesign/salvamotoca**, sem tocar outros projetos | Aprovada |
 | SM-DEC-003 | Praça piloto inicial: **Belo Horizonte, MG** | Aprovada |
 | SM-DEC-004 | Consulta ao mapa de borracharias: **gratuita**, sem comissão por visita direta | Aprovada |
