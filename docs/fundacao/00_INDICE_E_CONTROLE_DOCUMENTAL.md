@@ -43,7 +43,7 @@ Dar identidade, consistência e governança ao projeto: o mesmo serviço descrit
 3. Especificação técnica e comportamento implementado e testado; divergências devem virar tarefa, nunca ser ocultadas.
 4. Minutas jurídicas **não são** política publicada enquanto houver campos indefinidos ou pendências legais.
 
-A identidade anterior BorrachaJá! aparece em arquivos históricos, migrações e no nome técnico do Supabase. A mudança de marca não autoriza renomear tabelas, apagar histórico ou mudar credenciais sem migração planejada.
+A marca oficial do projeto é **Salva Motoca!**. Alterações futuras de identificadores técnicos exigem migração planejada, revisão de dependências e validação no ambiente de testes.
 
 ## Controle de mudanças
 
