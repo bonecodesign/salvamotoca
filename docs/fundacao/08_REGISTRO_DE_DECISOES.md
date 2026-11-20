@@ -95,11 +95,11 @@ Aprovado significa **definido pelo responsável do produto**, não necessariamen
 - **13/11/2026 — SM-DEC-027:** avaliações bilaterais após conclusão; ocultas até ambas enviarem ou 7 dias; comentários moderados e contestáveis; média pública após 3 serviços concluídos.
 - **13/11/2026 — SM-DEC-028:** ordem de oferta por elegibilidade, proximidade e alternância em empate prático; avaliações não mudam a ordem automática no piloto.
 - **13/11/2026 — SM-DEC-029:** piloto fechado em Belo Horizonte com até 15 prestadores, 50 motociclistas e 30 solicitações; meta interna de 80% de orçamento em até 15min e nenhum incidente crítico sem tratamento.
-- **13/11/2026 — SM-DEC-030:** orçamento vale por 5 minutos; sem aceite, expira e o pedido pode avançar. Alteração de preço exige novo orçamento e novo aceite.
+- **20/11/2026 — SM-DEC-030 atualizada:** convite ao prestador vale 5 minutos após entrega confirmada; o orçamento fica disponível por 15 minutos para escolha do motociclista. Sem aceite, expira e o pedido pode avançar. Alteração de preço exige novo orçamento e novo aceite.
 - **13/11/2026 — SM-DEC-031 atualizada:** chat interno só após pagamento confirmado; sem exposição de telefone/WhatsApp; permanece indisponível até homologação dos pagamentos reais.
 - **13/11/2026 — SM-DEC-032:** pedido exige foto do problema e identificação da moto por marca, modelo e ano.
 - **13/11/2026 — SM-DEC-033:** fluxo obrigatório: solicitação com foto/dados → orçamentos → aceite → pagamento confirmado → chat interno.
-- **13/11/2026 — SM-DEC-034:** valor fica retido pelo intermediador após pagamento e é repassado ao prestador após confirmação bilateral; 15% incidem somente sobre o serviço. Pendências seguem para suporte/mediação, sem liberação automática.
+- **20/11/2026 — SM-DEC-034 atualizada:** após confirmação bilateral, a intermediação aplica 10% pagos pelo motociclista e 10% descontados do prestador, ambos somente sobre o serviço (materiais inclusos). Deslocamento fica fora da base; a taxa de processamento é separada e paga pelo cliente. Pendências seguem para suporte/mediação, sem liberação automática.
 - **13/11/2026 — SM-DEC-035:** prestador que cancela gera reembolso integral inclusive tarifa; cliente que cancela antes de “em deslocamento” também. Depois desse marco, o valor fica retido para mediação.
 - **13/11/2026 — SM-DEC-036:** depois de marcar “em deslocamento”, o prestador tem o deslocamento informado em tempo real ao motociclista até a chegada, limitado à solicitação ativa.
 - **13/11/2026 — SM-DEC-037:** prestador marca “cheguei”; motociclista é avisado e o rastreamento é encerrado. Divergências vão para suporte.
@@ -108,7 +108,7 @@ Aprovado significa **definido pelo responsável do produto**, não necessariamen
 - **13/11/2026 — SM-DEC-040:** motociclista seleciona uma ou mais opções de serviço; o prestador só recebe pedidos compatíveis com o que declarou atender.
 - **13/11/2026 — SM-DEC-041:** orçamento itemiza serviços, deslocamento obrigatório e peças/materiais, com total antes do pagamento. Alterações exigem novo orçamento e aceite.
 - **13/11/2026 — SM-DEC-042:** sem tabela fixa no piloto; prestador define valores discriminados e motociclista escolhe. Possíveis abusos/incoerências vão para revisão humana, sem ajuste automático.
-- **13/11/2026 — SM-DEC-043:** reboque também tem comissão de 15% apenas sobre o serviço; deslocamento, tarifa e extras ficam fora da base.
+- **20/11/2026 — SM-DEC-043 atualizada:** reboque segue a comissão de 10% do motociclista + 10% do prestador somente sobre o serviço; deslocamento fica fora da base e a taxa de processamento é paga separadamente pelo cliente.
 - **13/11/2026 — SM-DEC-044:** reboque segue o mesmo fluxo da borracharia, com requisito adicional de capacidade/equipamento compatível declarado pelo prestador.
 
 ## Controle de alteração
