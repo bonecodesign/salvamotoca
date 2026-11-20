@@ -1,4 +1,4 @@
--- Migração aplicada apenas no Supabase BorrachaJa; RLS histórico de orçamentos.
+-- Migração aplicada apenas no Supabase de testes; RLS histórico de orçamentos.
 drop policy if exists quotes_participants_read on public.service_quotes;
 create policy quotes_participants_read on public.service_quotes
 for select to authenticated using (

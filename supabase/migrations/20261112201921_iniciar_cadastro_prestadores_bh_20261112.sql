@@ -1,4 +1,4 @@
--- BorrachaJá! Oficial — cadastro inicial BH/RMBH, 12/11/2026
+-- Salva Motoca! — cadastro inicial BH/RMBH, 12/11/2026
 -- Dados de prospecção NÃO são parceiros homologados.
 -- RLS sem políticas públicas: somente acesso administrativo/privilegiado até homologação.
 

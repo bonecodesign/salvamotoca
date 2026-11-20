@@ -1,14 +1,13 @@
-# Supabase — BorrachaJá! Oficial
+# Supabase de testes — Salva Motoca!
 
 ## Projeto exclusivo
 
-- **Organização:** BorrachaJá!
-- **Projeto:** BorrachaJa-Oficial
+- **Projeto de testes:** Salva Motoca!
 - **Project ref:** `yivkqyjdeouxnwtwfekc`
 - **Região do banco:** `sa-east-1` (servidores em São Paulo)
 - **Operação inicial do produto:** Belo Horizonte e região metropolitana, Minas Gerais
 
-A região do servidor não define a área de atendimento do aplicativo.
+A região do servidor não define a área de atendimento do aplicativo. A marca pública e operacional é **Salva Motoca!**.
 
 ## Esquema inicial
 
@@ -25,8 +24,8 @@ A região do servidor não define a área de atendimento do aplicativo.
 
 Categorias oficiais:
 - `map_borracharia` — gratuita, sem comissão;
-- `borracharia_delivery` — comissão de **15%**;
-- `reboque_moto` — comissão de **15%**.
+- `borracharia_delivery` — 10% para o motociclista e 10% para o prestador, somente sobre o serviço;
+- `reboque_moto` — 10% para o motociclista e 10% para o prestador, somente sobre o serviço.
 
 Todas as oito tabelas têm Row Level Security (RLS) ativado. Aprovação de prestadores, alterações de pedidos e escrita financeira ficam reservadas ao backend com permissões adequadas; nenhuma chave secreta deve ser publicada.
 
@@ -45,14 +44,14 @@ As três tabelas têm RLS ativado e **não possuem políticas de acesso público
 A pasta `supabase/migrations/` contém as migrações aplicadas neste projeto. O histórico no GitHub serve como referência de código para reproduzir o esquema. **Não existe sincronização automática ou implantação contínua configurada** neste momento.
 
 Migrações aplicadas:
-1. `20261112201752_initial_borrachaja_mvp_bh.sql`
+1. `20261112201752_initial_salva_motoca_mvp_bh.sql`
 2. `20261112201920_indexar_chaves_de_atendimentos.sql`
 3. `20261112201921_iniciar_cadastro_prestadores_bh_20261112.sql`
 
 Procedimento para alterações futuras:
 1. Revisar SQL e impacto em autenticação/RLS.
-2. Aplicar e verificar a migração **somente** no projeto Supabase BorrachaJa-Oficial.
-3. Versionar o SQL correspondente **somente** no repositório `bonecodesign/BorrachaJa`.
+2. Aplicar e verificar a migração **somente** no projeto Supabase de testes Salva Motoca!.
+3. Versionar o SQL correspondente **somente** no repositório `bonecodesign/salvamotoca`.
 4. Rodar consultas de validação e Supabase Advisors após a mudança.
 
 **Segurança:** jamais versionar dados reais de clientes, dados privados de fornecedores, chaves `service_role`, tokens ou segredos. Chats não impedem por si sós que usuários digitem telefones; controles antifraude e moderação serão desenvolvidos separadamente.

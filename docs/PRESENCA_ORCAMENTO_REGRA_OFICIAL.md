@@ -1,7 +1,7 @@
-# BorrachaJá! — Presença online e rodadas de orçamento
+# Salva Motoca! — Presença online e rodadas de orçamento
 
 **Regra oficial do produto**, definida em 12/11/2026.  
-**Ambiente:** Supabase `BorrachaJa` e repositório `bonecodesign/BorrachaJa`.
+**Ambiente de testes:** Supabase `yivkqyjdeouxnwtwfekc` e repositório `bonecodesign/salvamotoca`.
 
 ## 1. Disponibilidade controlada pelo borracheiro
 

@@ -38,7 +38,7 @@ Motociclistas e motoboys de Belo Horizonte, além de borracharias físicas e pro
 
 ## Modelo de sustentabilidade
 
-A consulta ao mapa não gera cobrança. Para reparos delivery pagos pela plataforma, existe **referência de comissão de 15%**. Viabilidade, alocação de taxas financeiras, impostos e repasses ainda serão calculados e pactuados com fornecedores e especialistas.
+A consulta ao mapa não gera cobrança. Para reparos delivery pagos pela plataforma, a referência vigente é **10% pagos pelo motociclista e 10% descontados do prestador**, somente sobre o serviço. Viabilidade, alocação de taxas financeiras, impostos e repasses ainda serão calculados e pactuados com fornecedores e especialistas.
 
 ## Estágio do projeto
 

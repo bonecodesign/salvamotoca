@@ -1,8 +1,8 @@
--- ⚠️ ESQUEMA LEGADO / DEMONSTRAÇÃO: NÃO EXECUTAR NO PROJETO SUPABASE BorrachaJa EXISTENTE.
+-- ⚠️ ESQUEMA LEGADO / DEMONSTRAÇÃO: NÃO EXECUTAR NO PROJETO SUPABASE DE TESTES EXISTENTE.
 -- O esquema real está documentado em docs/INTEGRACAO_SUPABASE.md.
 -- Este arquivo bj_* é incompatível com as tabelas reais (providers, service_requests etc.).
 
--- BorrachaJá! Oficial — Etapa 3: backend multiusuário seguro (piloto).
+-- Salva Motoca! — Etapa 3: backend multiusuário seguro (piloto).
 -- Executar SOMENTE em um projeto Supabase novo, pelo SQL Editor.
 -- Não migra o esquema de referência anterior. Não configura pagamentos reais.
 -- Revisão de segurança e testes em projeto de homologação são obrigatórios antes da produção.

@@ -47,7 +47,7 @@ Os critérios de tempo de resposta, cancelamento de chamados, não compareciment
 
 ## 7. Pagamento, comissão e repasse — A DEFINIR
 
-A **decisão comercial interna SM-DEC-014**, aprovada em 12/11/2026, estabelece comissão de **15% sobre o valor dos serviços de borracharia delivery efetivamente pagos pelo aplicativo**. A presente minuta **não transforma essa decisão em obrigação contratual vigente** antes da aprovação final e formalização pelas partes. A base de cálculo, natureza do serviço da plataforma, tarifas de pagamento, impostos, recibos, mecanismo de split, prazo de repasse, estornos e responsabilidade por chargeback deverão ser detalhados em anexo econômico revisado antes de cobranças reais.
+A política comercial vigente estabelece **10% pagos pelo motociclista e 10% descontados do prestador**, ambos somente sobre o valor dos serviços de borracharia delivery ou reboque. A presente minuta **não transforma essa decisão em obrigação contratual vigente** antes da aprovação final e formalização pelas partes. A base de cálculo, natureza do serviço da plataforma, tarifas de pagamento, impostos, recibos, mecanismo de split, prazo de repasse, estornos e responsabilidade por chargeback deverão ser detalhados em anexo econômico revisado antes de cobranças reais.
 
 Nenhuma taxa é devida por mera consulta ao mapa ou visita direta à oficina. O sistema de testes não recebe valores e não gera direito a recebimentos reais.
 

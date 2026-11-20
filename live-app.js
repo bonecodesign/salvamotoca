@@ -49,7 +49,7 @@
   const isUnavailable = !st.session;
 
   function home(){
-    return `${alertBox()}<div class="hero"><div><span class="eyebrow" style="color:#f6bf35">BORRACHAJÁ! OFICIAL</span><h2>Pneu furou? Encontre ajuda por perto.</h2><p>Consulte borracharias gratuitamente ou solicite atendimento no local.</p><button class="btn" data-page="request">Pedir borracheiro delivery</button></div><div class="decoration">🛵</div></div>
+    return `${alertBox()}<div class="hero"><div><span class="eyebrow" style="color:#f6bf35">SALVA MOTOCA!</span><h2>Pneu furou? Encontre ajuda por perto.</h2><p>Consulte borracharias gratuitamente ou solicite atendimento no local.</p><button class="btn" data-page="request">Pedir borracheiro delivery</button></div><div class="decoration">🛵</div></div>
       <div class="section"><h2>O que você precisa?</h2></div>
       <button class="menu-card" data-page="map"><span class="emoji">📍</span><span><b>Ver borracharias no mapa</b><small>Busca grátis, sem telefone externo</small></span><span class="arrow">›</span></button>
       <button class="menu-card" data-page="request"><span class="emoji">🧰</span><span><b>Solicitar atendimento no local</b><small>Escolha manual ou busca automática</small></span><span class="arrow">›</span></button>

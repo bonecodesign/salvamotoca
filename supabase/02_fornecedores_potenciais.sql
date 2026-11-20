@@ -1,4 +1,4 @@
--- BorrachaJá! Oficial — Etapa 4: lista PRIVADA de fornecedores potenciais.
+-- Salva Motoca! — Etapa 4: lista PRIVADA de fornecedores potenciais.
 -- Execute UMA vez, DEPOIS de supabase/schema.sql, no SQL Editor de um projeto de testes.
 -- Cadastro de prospecção NÃO equivale a prestador ativo nem aparece no mapa.
 

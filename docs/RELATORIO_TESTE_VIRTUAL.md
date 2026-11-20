@@ -1,8 +1,8 @@
-# BorrachaJá! — Relatório do teste virtual
+# Salva Motoca! — Relatório do teste virtual
 
 **Data da execução:** 12/11/2026 (horário de Brasília)  
-**Repositório autorizado:** `bonecodesign/BorrachaJa`, branch `feat/importar-mvp`  
-**Projeto Supabase autorizado:** `BorrachaJa`, ref `yivkqyjdeouxnwtwfekc`
+**Repositório autorizado:** `bonecodesign/salvamotoca`
+**Projeto Supabase de testes autorizado:** ref `yivkqyjdeouxnwtwfekc`
 
 ## Objetivo
 

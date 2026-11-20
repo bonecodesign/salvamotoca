@@ -1,4 +1,4 @@
--- MIGRAÇÃO JÁ APLICADA no Supabase BorrachaJa (yivkqyjdeouxnwtwfekc)
+-- MIGRAÇÃO JÁ APLICADA no Supabase de testes (yivkqyjdeouxnwtwfekc)
 -- Versão remota: 20261112235714
 -- O reboque não é serviço cobrado no MVP. Só borracharia delivery terá cobrança futura.
 -- NÃO aplicar novamente sem checar o histórico de migrations.

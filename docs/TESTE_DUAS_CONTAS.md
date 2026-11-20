@@ -1,7 +1,7 @@
-# BorrachaJá! — Plano de homologação com duas contas
+# Salva Motoca! — Plano de homologação com duas contas
 
 **Data:** 12/11/2026 (continuação UTC 13/11)  
-**Ambiente:** Supabase `BorrachaJa` • GitHub `bonecodesign/BorrachaJa` (branch `feat/importar-mvp`)
+**Ambiente de testes:** Supabase `yivkqyjdeouxnwtwfekc` • GitHub `bonecodesign/salvamotoca`
 
 ## O que já foi validado automaticamente
 

@@ -1,4 +1,4 @@
--- Histórico de migração aplicada no projeto Supabase BorrachaJa (yivkqyjdeouxnwtwfekc).
+-- Histórico de migração aplicada no projeto Supabase de testes (yivkqyjdeouxnwtwfekc).
 -- Migração remota: 20261112214828_restringir_localizacao_pedidos_antes_pagamento
 -- NÃO executar novamente no painel sem verificar o estado do banco.
 revoke select on public.service_requests from authenticated;

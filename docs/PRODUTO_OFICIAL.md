@@ -12,9 +12,9 @@ O aplicativo e a consulta ao mapa de borracharias são gratuitos. O usuário pod
 
 ## Serviços intermediados
 
-A contratação dentro da plataforma cobre **borracharia no local do problema** e **reboque de motos**, ambos sujeitos à comissão de **15%** sobre o valor do serviço pago. Um mesmo fornecedor pode atender às duas modalidades.
+A contratação dentro da plataforma cobre **borracharia no local do problema** e **reboque de motos**, ambos sujeitos a **10% pagos pelo motociclista e 10% descontados do prestador**, somente sobre o valor do serviço. Um mesmo fornecedor pode atender às duas modalidades.
 
-O cliente pode escolher um profissional ou solicitar busca automática. O profissional informa orçamento discriminado entre serviço e deslocamento, quando aplicável; o cliente vê o total antes de aceitar. Qualquer extra posterior exige novo orçamento e novo aceite. A divisão financeira e os repasses dependem de integração homologada com um provedor de pagamentos. Quando ativada, a tarifa de processamento será um encargo do cliente, mostrada separadamente antes da confirmação; a comissão de 15% incidirá somente sobre o valor do serviço. Nesta fase, os pagamentos reais estão desativados.
+O cliente pode escolher um profissional ou solicitar busca automática. O profissional informa orçamento discriminado entre serviço e deslocamento, quando aplicável; o cliente vê o total antes de aceitar. Qualquer extra posterior exige novo orçamento e novo aceite. A divisão financeira e os repasses dependem de integração homologada com um provedor de pagamentos. Quando ativada, a tarifa de processamento será um encargo do cliente, mostrada separadamente antes da confirmação; os 10% do motociclista e os 10% do prestador incidirão somente sobre o valor do serviço. Nesta fase, os pagamentos reais estão desativados.
 
 ## Comunicação
 
@@ -35,8 +35,8 @@ O prestador homologado escolhe **ficar online** ou **ficar offline**. Apenas que
 ## Serviços oficiais e regras comerciais
 
 1. **📍🛞 Mapa de borracharias físicas:** download, consulta e rotas gratuitos, sem comissão pela simples consulta.
-2. **🛞 Delivery de borracharia:** atendimento para reparo de pneu no local, com solicitação, comunicação, orçamento e pagamento dentro da plataforma; comissão de **15%** sobre o valor do serviço efetivamente pago. Deslocamento e tarifa de processamento não compõem essa comissão.
-3. **🚚 Reboque de motos:** remoção ou transporte com solicitação, comunicação, orçamento e pagamento dentro da plataforma; **a mesma comissão de 15%**.
+2. **🛞 Delivery de borracharia:** atendimento para reparo de pneu no local, com solicitação, comunicação, orçamento e pagamento dentro da plataforma; 10% pagos pelo motociclista e 10% descontados do prestador sobre o serviço. Deslocamento e tarifa de processamento não compõem essa base.
+3. **🚚 Reboque de motos:** remoção ou transporte com solicitação, comunicação, orçamento e pagamento dentro da plataforma; **a mesma divisão de 10% + 10%**.
 
 O prestador pode oferecer uma ou ambas as modalidades pagas em um único cadastro, com oferta, preço, disponibilidade e cobertura independentes.
 
@@ -86,7 +86,7 @@ O pedido só é oferecido a prestadores que declararam atender os serviços sele
 
 ## Comissão de reboque
 
-- Sobre o valor do serviço de reboque incide comissão de **15%** para a plataforma.
+- Sobre o valor do serviço de reboque incidem 10% para o motociclista e 10% para o prestador.
 - Deslocamento, tarifa de processamento e extras não integram essa base de cálculo.
 - A regra só será ativada junto com pagamentos reais homologados.
 
@@ -135,7 +135,7 @@ O pedido só é oferecido a prestadores que declararam atender os serviços sele
 
 - Depois do pagamento, o valor fica retido pelo intermediador de pagamentos.
 - Com a confirmação de conclusão pelas duas partes, o repasse ao prestador é liberado.
-- A comissão de 15% incide somente sobre o serviço.
+- A divisão de 10% + 10% incide somente sobre o serviço.
 - Sem confirmação bilateral, não há liberação automática: o caso vai para suporte e mediação.
 - A regra só será ativada com intermediador compatível e validações jurídica, tributária e contratual.
 

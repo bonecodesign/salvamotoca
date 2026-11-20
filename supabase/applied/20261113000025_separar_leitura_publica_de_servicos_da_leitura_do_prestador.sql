@@ -1,4 +1,4 @@
--- Migração JÁ APLICADA em Supabase BorrachaJa em 2026-11-13 (UTC).
+-- Migração JÁ APLICADA no Supabase de testes em 2026-11-13 (UTC).
 -- Versão remota 20261113000025_separar_leitura_publica_de_servicos_da_leitura_do_prestador.
 -- Ela corrigiu a negação de acesso para usuários anon ao consultar provider_services.
 
