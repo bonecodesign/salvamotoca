@@ -49,7 +49,7 @@ cd "$tmp"
 dump() {
   local name="$1"
   shift
-  if ! supabase db dump "--remote=$G1_SUPABASE_DB_URL" -f "$name" "$@" \
+  if ! supabase db dump --db-url "$G1_SUPABASE_DB_URL" -f "$name" "$@" \
        > "$name.stdout" 2> "$name.stderr"; then
     deny "falha na exportação $name; nada foi publicado"
   fi
