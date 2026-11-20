@@ -1,5 +1,5 @@
--- Migração aplicada ao projeto Supabase BorrachaJa; consulte list_migrations para versão remota.
--- BorrachaJá! — até duas recusas do mesmo cliente por prestador em CADA pedido.
+-- Migração aplicada ao projeto Supabase de testes; consulte list_migrations para versão remota.
+-- Salva Motoca! — até duas recusas do mesmo cliente por prestador em CADA pedido.
 -- "Rodada" = um service_requests.id. Novo pedido inicia contagens zeradas.
 alter table public.bj_request_attempts
   add column if not exists rejection_count integer not null default 0,
