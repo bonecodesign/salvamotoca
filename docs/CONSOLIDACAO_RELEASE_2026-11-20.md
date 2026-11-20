@@ -13,20 +13,20 @@ Identificadores técnicos devem ser alterados somente com migração planejada, 
 
 | Item | Regra vigente |
 | --- | --- |
-| Comissão da plataforma | 15% somente sobre o valor do serviço delivery ou de reboque |
+| Comissão da plataforma | 10% pago pelo motociclista + 10% descontado do prestador, somente sobre o serviço delivery ou de reboque |
 | Deslocamento | obrigatório quando aplicável e fora da base de comissão |
 | Taxa de processamento | encargo do cliente, exibida separadamente antes da confirmação |
 | Mapa e ida direta ao estabelecimento | gratuitos e sem comissão |
 | Repasse | somente depois de pagamento homologado e confirmação bilateral; pendências seguem para suporte |
 
-Propostas offline que mencionam divisão **10% + 10%** são experimentais e não substituem as decisões SM-DEC-014, SM-DEC-017, SM-DEC-034 e SM-DEC-043 sem nova decisão explícita do fundador.
+A divisão **10% + 10%** é a política comercial vigente e substitui referências anteriores de 15%.
 
 ## Regra de integração de PRs
 
 1. O código incorporado à `main` é a única base contada como entregue.
 2. PRs em rascunho são evidência de pesquisa/teste; não representam funcionalidade liberada.
 3. A cadeia de backup G1 deve ser revisada e integrada do PR mais recente para a base correta, evitando mesclar PRs empilhados em ordem errada.
-4. Antes de integrar F2–F6, consolidar as regras de produto e os testes em uma única cadeia com uma política financeira canônica de 15%.
+4. Antes de integrar F2–F6, consolidar as regras de produto e os testes em uma única cadeia com a política financeira canônica de 10% + 10%.
 5. Nenhuma fixture PostgreSQL offline pode ser aplicada ao Supabase hospedado sem migration revisada, backup/restauração comprovados e autorização específica.
 
 ## Metas de consolidação
@@ -34,7 +34,7 @@ Propostas offline que mencionam divisão **10% + 10%** são experimentais e não
 | Prioridade | Critério de aceite | Situação |
 | --- | --- | --- |
 | P1 — documentação e marca | referências públicas usam Salva Motoca!, com legado técnico explicitado | em execução neste PR |
-| P2 — regra comercial | 15%, deslocamento e taxa do cliente sem contradições | em execução neste PR |
+| P2 — regra comercial | 10% + 10%, deslocamento e taxa do cliente sem contradições | em execução neste PR |
 | P3 — G1 backup | backup cifrado real do ambiente de testes e restauração isolada comprovada | bloqueada por configuração privada e execução controlada |
 | P4 — Auth/RLS | testes A/B/C autenticados no Supabase de testes, sem dados pessoais | bloqueada por G1 |
 | P5 — F2–F6 | pedidos, ofertas, pagamento sandbox, deslocamento, confirmação e suporte integrados | não iniciar antes de P3 e P4 |
