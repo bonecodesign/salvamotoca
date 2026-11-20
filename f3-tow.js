@@ -14,7 +14,8 @@
   const BASIC=Object.freeze(["pneu_furado","troca_camara","troca_pneu","calibragem_valvula","outro"]);
   const ALL=Object.freeze([...BASIC,REBOQUE]);
   const MAX_QUOTE_CENTS=500000;
-  const CUSTOMER_COMMISSION_BPS=1000; // 10% pago pelo motociclista, somente sobre o serviço.\n  const PROVIDER_COMMISSION_BPS=1000; // 10% descontado do prestador, somente sobre o serviço.
+  const CUSTOMER_COMMISSION_BPS=1000; // 10% pago pelo motociclista, somente sobre o serviço.
+  const PROVIDER_COMMISSION_BPS=1000; // 10% descontado do prestador, somente sobre o serviço.
   const PRESENCE_MS=90000;
   function ensure(ok,message){if(!ok)throw new Error(message)}
   function string(v){return typeof v==="string"?v.trim():""}
