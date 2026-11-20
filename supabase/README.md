@@ -24,8 +24,8 @@ A região do servidor não define a área de atendimento do aplicativo. A marca 
 
 Categorias oficiais:
 - `map_borracharia` — gratuita, sem comissão;
-- `borracharia_delivery` — comissão de **15%**;
-- `reboque_moto` — comissão de **15%**.
+- `borracharia_delivery` — 10% para o motociclista e 10% para o prestador, somente sobre o serviço;
+- `reboque_moto` — 10% para o motociclista e 10% para o prestador, somente sobre o serviço.
 
 Todas as oito tabelas têm Row Level Security (RLS) ativado. Aprovação de prestadores, alterações de pedidos e escrita financeira ficam reservadas ao backend com permissões adequadas; nenhuma chave secreta deve ser publicada.
 
