@@ -1,7 +1,7 @@
-const CACHE = 'salva-motoca-static-f1-v2';
-const ASSETS = ['./', './index.html', './config.js', './app.js', './bootstrap.js', './request-f1.js', './live-app-current.js', './styles.css', './manifest.webmanifest', './assets/icon-192.png', './assets/icon.svg'];
+const CACHE = 'salva-motoca-static-f2-draft-v1';
+const ASSETS = ['./', './index.html', './config.js', './app.js', './bootstrap.js', './request-f1.js', './f2-flow.js', './live-app-current.js', './styles.css', './manifest.webmanifest', './assets/icon-192.png', './assets/icon.svg'];
 self.addEventListener('install', event => event.waitUntil(caches.open(CACHE).then(cache => cache.addAll(ASSETS)).then(() => self.skipWaiting())));
-self.addEventListener('activate', event => event.waitUntil(caches.keys().then(keys => Promise.all(keys.filter(key => (key.startsWith('borrachaja-') || key.startsWith('salva-motoca-')) && key !== CACHE).map(key => caches.delete(key)))).then(() => self.clients.claim())));
+self.addEventListener('activate', event => event.waitUntil(caches.keys().then(keys => Promise.all(keys.filter(key => key.startsWith('salva-motoca-') && key !== CACHE).map(key => caches.delete(key)))).then(() => self.clients.claim())));
 self.addEventListener('fetch', event => {
   if (event.request.method !== 'GET' || new URL(event.request.url).origin !== self.location.origin) return;
   event.respondWith(fetch(event.request).then(res => {
