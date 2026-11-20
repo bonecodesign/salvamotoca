@@ -116,10 +116,8 @@ button.secondary{background:#39414a;color:#fff}button:disabled{opacity:.5;cursor
  el("calculate").addEventListener("click",()=>{
   if(!chosen||!request)return;
   try{
-   const part=cents("partPrice");
    quote=F.quoteTow({serviceTypes:request.serviceTypes,
-    serviceCents:{reboque_moto:cents("towPrice")},travelCents:cents("travelPrice"),
-    parts:part?[{name:"Material de apoio fictício",amountCents:part}]:[]});
+    serviceCents:{reboque_moto:cents("towPrice")},travelCents:cents("travelPrice")});
    el("prices").replaceChildren();
    for(const row of quote.rows){
     const line=document.createElement("div");line.className="row";
@@ -128,7 +126,7 @@ button.secondary{background:#39414a;color:#fff}button:disabled{opacity:.5;cursor
     line.append(label,val);el("prices").append(line);
    }
    const total=document.createElement("p");
-   total.textContent="Total: "+money(quote.totalCents)+". Comissão simulada (serviço): "+money(quote.commissionCents);
+   total.textContent="Serviço + deslocamento: "+money(quote.totalCents)+". Taxa da plataforma do motociclista: "+money(quote.customerCommissionCents)+". Valor do cliente antes da taxa de processamento: "+money(quote.customerPayableCents)+". Repasse estimado ao prestador: "+money(quote.providerReceivableCents);
    el("prices").append(total);el("choose").disabled=false;
    txt("finalState","Orçamento de demonstração pronto; sem cobrança.");
   }catch(e){quote=null;el("choose").disabled=true;txt("finalState",e.message)}
