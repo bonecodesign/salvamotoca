@@ -3,7 +3,7 @@
 -- Para o teste atualizado, use supabase/tests/presenca_orcamentos_rollback.sql.
 -- Conservado apenas como documentação da evolução das regras de segurança.
 
--- BorrachaJá! — teste de RLS com identidades fictícias.
+-- Salva Motoca! — teste de RLS com identidades fictícias.
 -- Executar apenas como admin no SQL Editor de banco autorizado.
 -- Todos os INSERTs abaixo são revertidos via ROLLBACK.
 -- Não gera e-mails. Não habilita pagamentos nem atendimento real.
