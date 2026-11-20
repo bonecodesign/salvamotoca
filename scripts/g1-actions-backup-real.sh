@@ -16,6 +16,7 @@ deny() { printf '%s\n' "G1 INTERROMPIDO: $1" >&2; exit 23; }
 [[ -n "${G1_DROPBOX_ACCESS_TOKEN:-}" ]] || deny 'sem secret Dropbox'
 [[ -n "${G1_AGE_RECIPIENT:-}" ]] || deny 'sem recipient age'
 [[ "$G1_AGE_RECIPIENT" =~ ^age1[0-9a-z]{58}$ ]] || deny 'recipient age inválido'
+[[ "${G1_DROPBOX_PATH:-}" == '/backup-testes' ]] || deny 'destino Dropbox inesperado'
 for executable in python3 supabase docker psql age tar curl sha256sum mktemp; do
   command -v "$executable" >/dev/null 2>&1 || deny "falta ferramenta: $executable"
 done
@@ -162,7 +163,7 @@ filename="SalvaMotoca-Supabase-TESTES-$stamp-run$GITHUB_RUN_ID.tar.gz.age"
 export G1_BACKUP_FILE_NAME="$filename"
 arg="$(python3 - <<'PY'
 import json, os
-print(json.dumps({'path':'/'+os.environ['G1_BACKUP_FILE_NAME'],
+print(json.dumps({'path':os.environ['G1_DROPBOX_PATH']+'/'+os.environ['G1_BACKUP_FILE_NAME'],
                   'mode':'add','autorename':False,'mute':True},
                  separators=(',',':')))
 PY
