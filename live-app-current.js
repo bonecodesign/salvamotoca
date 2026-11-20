@@ -125,7 +125,7 @@
         esc(p.id) + '">Solicitar orçamento delivery</button>' : "") + "</div></article>";
   }
   function renderHome() {
-    return '<div class="hero"><div><span class="eyebrow" style="color:#f6bf35">BORRACHAJÁ!</span>' +
+    return '<div class="hero"><div><span class="eyebrow" style="color:#f6bf35">SALVA MOTOCA!</span>' +
       '<h2>Sua borracharia a um toque de distância.</h2>' +
       '<p>Encontre uma borracharia gratuitamente ou solicite um orçamento de atendimento no local.</p>' +
       '<button class="btn" data-page="map">Explorar borracharias</button></div><div class="decoration">🛵</div></div>' +
