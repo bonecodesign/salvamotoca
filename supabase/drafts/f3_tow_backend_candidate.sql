@@ -444,10 +444,7 @@ begin
      then raise exception 'Deslocamento inválido.'; end if;
      v_travel:=v_travel+1;
    elsif v_kind='part' then
-     v_parts:=v_parts+1;
-     if v_parts>10 or v_amount=0 or v_code ~*
-       '(https?://|www[.]|wa[.]me|whats[[:space:]]*app|chave[[:space:]]*pix|@[-_[:alnum:].]+|([0-9][[:space:]().-]*){9,})'
-     then raise exception 'Material inválido ou contém contato externo.'; end if;
+     raise exception 'Materiais devem estar inclusos no valor do serviço.';
    else raise exception 'Tipo de linha inválido.'; end if;
    v_total:=v_total+v_amount;
  end loop;
