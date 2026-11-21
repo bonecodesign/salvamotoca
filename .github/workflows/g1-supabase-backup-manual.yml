@@ -45,7 +45,7 @@ jobs:
       G1_BACKUP_ENABLED: ${{ vars.G1_BACKUP_ENABLED }}
       G1_CONFIRM: ${{ inputs.confirm }}
       G1_AGE_RECIPIENT: ${{ vars.G1_AGE_RECIPIENT }}
-      G1_DROPBOX_PATH: /Apps/Salva Motoca/backup-testes
+      G1_DROPBOX_PATH: /backup-testes
     steps:
       - uses: actions/checkout@v4
         with:
