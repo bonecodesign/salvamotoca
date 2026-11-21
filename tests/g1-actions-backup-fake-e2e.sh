@@ -17,7 +17,7 @@ export G1_CONFIRM='BACKUP_TESTES_SALVAMOTOCA'
 # All credentials and hosts are explicitly FICTIONAL, sent only to mocks.
 export G1_SUPABASE_DB_URL='postgresql://postgres.yivkqyjdeouxnwtwfekc:fictional-password@fake-sandbox.pooler.supabase.com:5432/postgres?sslmode=require'
 export G1_DROPBOX_ACCESS_TOKEN='fictional-test-token-only'
-export G1_DROPBOX_PATH='/Apps/Salva Motoca/backup-testes'
+export G1_DROPBOX_PATH='/backup-testes'
 export G1_FAKE_UPLOAD="$tmp/encrypted-received.age"
 export G1_FAKE_INVENTORY_COUNTER="$tmp/inventory-counter"
 export G1_FAKE_SCHEMA_INVENTORY_COUNTER="$tmp/schema-inventory-counter"

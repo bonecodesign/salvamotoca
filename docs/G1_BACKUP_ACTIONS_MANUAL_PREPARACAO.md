@@ -16,7 +16,7 @@
 | G1_AGE_RECIPIENT | GitHub Actions **Variables** | Chave PÚBLICA age1...; chave PRIVADA permanece exclusivamente com o fundador, fora do GitHub e desta conversa |
 | G1_SUPABASE_DB_URL | GitHub **Environment Secret** do ambiente g1-backup-testes | URL PostgreSQL do **Session Pooler** do projeto de testes, usuário postgres.yivkqyjdeouxnwtwfekc; NÃO é a URL HTTP |
 | G1_DROPBOX_ACCESS_TOKEN | Mesmo Environment Secret | Token Dropbox API de curta duração com escopo mínimo files.content.write e acesso ao App Folder privado, **não é o acesso ao Dropbox do ChatGPT** |
-| G1_DROPBOX_PATH | Workflow versionado | Valor fixo `/Apps/Salva Motoca/backup-testes`; o script recusa qualquer outro destino e envia somente ciphertext para esse cofre |
+| G1_DROPBOX_PATH | Workflow versionado | Valor fixo `/backup-testes` na raiz do token Dropbox App Folder; no Dropbox conectado ele corresponde a `/Apps/Salva Motoca/backup-testes`. O script recusa qualquer outro destino e envia somente ciphertext para esse cofre |
 | g1-backup-testes | GitHub Settings > Environments | Restringir à branch main; configurar aprovação humana/proteções disponíveis |
 
 O GitHub conectado a este ChatGPT não disponibiliza criação/leitura de Actions Secrets, configuração de Environments nem disparo manual de workflows. E um workflow_dispatch só aparecerá normalmente na interface quando o workflow fizer parte da branch padrão main. Este candidato permanece **Draft e sem merge automático**.
