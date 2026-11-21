@@ -1,0 +1,66 @@
+name: F5 - banco RLS mock isolado (sem Supabase hospedado)
+on:
+  pull_request:
+    paths:
+      - 'supabase/drafts/f5_backend_rls_mock_candidate.sql'
+      - 'tests/f5-backend-rls-mock.sql'
+      - 'docs/F5_BACKEND_CANDIDATE.md'
+      - '.github/workflows/f5-backend-rls-mock.yml'
+      - 'f456-financial-bridge-offline.js'
+      - 'tests/f456-financial-bridge-offline.test.js'
+  push:
+    branches:
+      - 'feat/f5-consolidated-operations-offline'
+    paths:
+      - 'supabase/drafts/f5_backend_rls_mock_candidate.sql'
+      - 'tests/f5-backend-rls-mock.sql'
+      - 'docs/F5_BACKEND_CANDIDATE.md'
+      - '.github/workflows/f5-backend-rls-mock.yml'
+      - 'f456-financial-bridge-offline.js'
+      - 'tests/f456-financial-bridge-offline.test.js'
+permissions:
+  contents: read
+jobs:
+  postgres-rls-f5:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: f5_disposable
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d f5_disposable"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      PGHOST: localhost
+      PGPORT: 5432
+      PGUSER: postgres
+      PGPASSWORD: postgres
+      PGDATABASE: f5_disposable
+    steps:
+      - uses: actions/checkout@v4
+      - name: Instalar cliente PostgreSQL se necessario
+        run: command -v psql || (sudo apt-get update -qq && sudo apt-get install -y postgresql-client)
+      - name: Criar SO banco descartavel local, sem credenciais do Supabase
+        run: psql -X -v ON_ERROR_STOP=1 -f tests/f2-stage-setup.sql
+      - name: Instalar somente candidato SQL mock em Postgres descartavel
+        run: psql -X -v ON_ERROR_STOP=1 -f supabase/drafts/f5_backend_rls_mock_candidate.sql
+      - name: Testes adversariais com roles Auth ficticias e transacoes reversiveis
+        run: psql -X -v ON_ERROR_STOP=1 -f tests/f5-backend-rls-mock.sql
+      - name: Garantir gate desabilitado e nenhuma sessao ficticia persistida
+        run: |
+          psql -X -v ON_ERROR_STOP=1 -Atqc "select not enabled from private.f5_mock_release_gate where singleton" | grep -qx t
+          psql -X -v ON_ERROR_STOP=1 -Atqc "select count(*) from public.f5_mock_sessions" | grep -qx 0
+          psql -X -v ON_ERROR_STOP=1 -Atqc "select count(*) from public.service_requests" | grep -qx 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Revalidar motor F5 offline (sem rede)
+        run: node --test tests/f5-offline-flow.test.js tests/f5-release-guard.test.js

@@ -1,0 +1,68 @@
+name: F5 - chat e deslocamento somente offline
+on:
+  pull_request:
+    paths:
+      - 'f5-offline-flow.js'
+      - 'config.js'
+      - 'tests/f5-*.js'
+      - 'docs/F5_*.md'
+      - 'docs/F5_PREVIEW.html'
+      - '.github/workflows/f5-tests.yml'
+      - 'f456-financial-bridge-offline.js'
+      - 'tests/f456-financial-bridge-offline.test.js'
+  push:
+    branches:
+      - 'feat/f5-consolidated-operations-offline'
+    paths:
+      - 'f5-offline-flow.js'
+      - 'config.js'
+      - 'tests/f5-*.js'
+      - 'docs/F5_*.md'
+      - 'docs/F5_PREVIEW.html'
+      - '.github/workflows/f5-tests.yml'
+      - 'f456-financial-bridge-offline.js'
+      - 'tests/f456-financial-bridge-offline.test.js'
+permissions:
+  contents: read
+jobs:
+  node-f5:
+    runs-on: ubuntu-latest
+    timeout-minutes: 6
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Sintaxe
+        run: |
+          node --check f5-offline-flow.js
+          node --check f4-finance.js
+          node --check live-app-current.js
+      - name: Máquina de estados F5, privacidade e guardas
+        run: node --test tests/f5-offline-flow.test.js tests/f5-release-guard.test.js
+      - name: Regressão F1, F2, F3 e F4
+        run: |
+          node --test tests/f4-finance.test.js tests/f4-release-guard.test.js tests/f4-mock-webhook.test.js
+          node --test tests/f2-flow.test.js tests/f3-tow.test.js
+          node --test tests/f1-release-guard.test.js tests/f2-release-guard.test.js tests/f3-release-guard.test.js
+  chrome-f5:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Localizar navegador do runner
+        run: |
+          if command -v google-chrome >/dev/null; then
+            echo "CHROME_BIN=$(command -v google-chrome)" >> "$GITHUB_ENV"
+          elif command -v chromium >/dev/null; then
+            echo "CHROME_BIN=$(command -v chromium)" >> "$GITHUB_ENV"
+          else
+            echo "Chrome ausente" >&2; exit 1
+          fi
+      - name: Instalar somente Playwright Core para Chrome pré-instalado
+        run: npm install --no-save --no-package-lock --ignore-scripts --no-audit --no-fund playwright-core@1.56.1
+      - name: Simulação responsiva sem acesso à rede externa
+        run: node --test tests/f5-browser.test.js
