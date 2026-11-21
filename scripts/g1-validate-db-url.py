@@ -17,6 +17,7 @@ EXPECTED_USER = "postgres." + PROJECT_REF
 POOLER_HOST = re.compile(r"aws-[0-9]+-[a-z0-9-]+\.pooler\.supabase\.com\Z")
 BAD_ESCAPE = re.compile(r"%(?![0-9a-fA-F]{2})")
 BAD_CHAR = re.compile(r"[\x00-\x20\x7f]")
+BAD_DECODED_CONTROL = re.compile(r"[\x00-\x1f\x7f]")
 # These characters inside a URI password need %XX encoding. A raw colon
 # creates a second userinfo colon; raw @ can change the hostname.
 BAD_PASSWORD_CHAR = re.compile(r"[:@/?#\[\]\\]")
@@ -53,7 +54,7 @@ def check(uri: str) -> None:
             raise UnsafeDBUrl("PASSWORD_REQUIRES_PERCENT_ENCODING")
         # Check URI encoding without ever emitting the decoded value.
         decoded_password = unquote_to_bytes(raw_password).decode("utf-8")
-        if not decoded_password or BAD_CHAR.search(decoded_password):
+        if not decoded_password or BAD_DECODED_CONTROL.search(decoded_password):
             raise UnsafeDBUrl("PASSWORD_PLACEHOLDER_OR_MISSING")
         if decoded_password.upper() in (
             "YOUR-PASSWORD", "[YOUR-PASSWORD]", "PASSWORD",
