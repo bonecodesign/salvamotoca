@@ -10,7 +10,7 @@ on:
       - 'tests/f456-financial-bridge-offline.test.js'
   push:
     branches:
-      - 'feat/f5-backend-rls-mock-candidate'
+      - 'feat/f5-consolidated-operations-offline'
     paths:
       - 'supabase/drafts/f5_backend_rls_mock_candidate.sql'
       - 'tests/f5-backend-rls-mock.sql'
