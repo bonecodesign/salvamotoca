@@ -6,6 +6,9 @@ on:
       - "docs/G1_GITHUB_ACTIONS_VIABILIDADE.md"
       - ".github/workflows/g1-supabase-backup-manual.yml"
       - "scripts/g1-actions-backup-real.sh"
+      - "scripts/g1-validate-db-url.py"
+      - "tests/test_g1_db_url_validation.py"
+      - "docs/G1_AUTH_FAILURE_DIAGNOSTICO_2026-11-21.md"
       - "tests/g1-actions-backup-fake-e2e.sh"
       - "scripts/g1-verify-encrypted-bundle.py"
       - "scripts/g1-verify-public-dump-coverage.py"
@@ -39,6 +42,14 @@ jobs:
       - uses: supabase/setup-cli@v3
         with:
           version: 3.2.0
+      - name: "Validar URI Session Pooler, projeto e percent-encoding sem rede"
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 -m py_compile scripts/g1-validate-db-url.py
+          python3 -m unittest discover -s tests -p 'test_g1_db_url_validation.py' -v
+          echo 'G1_URI_VALIDATOR_OFFLINE_TESTS=PASS'
+          echo 'SUPABASE_REAL_CREDENTIALS_ACCESSED=FALSE'
       - name: "Validar Supabase CLI v3.2.0 e flags de backup SEM conexão"
         shell: bash
         run: |
