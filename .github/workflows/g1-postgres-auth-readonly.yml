@@ -1,0 +1,38 @@
+name: "G1 — diagnosticar SOMENTE login PostgreSQL (sem backup)"
+on:
+  workflow_dispatch:
+    inputs:
+      confirm:
+        description: "Digite DIAGNOSTICAR_POSTGRES_TESTES (não faz backup)"
+        required: true
+        type: string
+permissions:
+  contents: read
+concurrency:
+  group: g1-readonly-auth-probe
+  cancel-in-progress: false
+jobs:
+  read-only-connection-check:
+    name: "Testar SELECT 1 sem revelar segredo ou criar backup"
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    environment: g1-backup-testes
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: "Preparar cliente PostgreSQL"
+        shell: bash
+        run: |
+          set -euo pipefail
+          sudo apt-get update -qq
+          sudo apt-get install -y postgresql-client
+          psql --version
+      - name: "Executar autenticação SOMENTE LEITURA no projeto de TESTES"
+        shell: bash
+        env:
+          G1_SUPABASE_DB_URL: ${{ secrets.G1_SUPABASE_DB_URL }}
+          G1_DIAGNOSE_CONFIRM: ${{ inputs.confirm }}
+        run: |
+          set -euo pipefail
+          python3 scripts/g1-auth-readonly-probe.py
