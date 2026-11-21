@@ -26,6 +26,24 @@ Não é possível identificar qual hipótese ocorreu sem acesso seguro ao Secret
 - O exportador G1 chama a verificação antes do primeiro acesso ao banco: formato inválido causa falha fechada. URI com sintaxe válida **NÃO prova senha correta**.
 - tests/test_g1_db_url_validation.py e CI G1: testes offline com valores completamente fictícios; nenhum Secret acessado. O mock de conexão foi ajustado para o formato do Session Pooler.
 
+## Nova alternativa: teste de autenticação isolado, sem backup
+
+A partir desta revisão, `.github/workflows/g1-postgres-auth-readonly.yml` oferece um **novo workflow manual de diagnóstico**. Ele utiliza **o Environment protegido já existente** `g1-backup-testes`, mas não exige token Dropbox, chave age ou ativação do mecanismo de backup. O resultado é exclusivamente a capacidade de autenticar a conexão existente com **`SELECT 1`**, sem consultar dados de negócios.
+
+**Segurança:** disparo apenas em `main` via `workflow_dispatch`, confirmação exata `DIAGNOSTICAR_POSTGRES_TESTES`, `contents: read`, sem secrets em checkout/setup, sem uploads ou artifacts e sem alterações no banco. O runner valida a URI antes de conectar; o cliente `psql` recebe a senha por variável de ambiente `PGPASSWORD`, não na linha de comando. Não imprime connection string, usuário, senha ou mensagens brutas do driver.
+
+Resultados possíveis (sem incluir detalhes privados):
+- `G1_AUTH_PROBE=PASS:READ_ONLY_CONNECTION_OK`: o Secret atual permite conectar; **não significa backup realizado**;
+- `FAIL:URI_INVALID`: URL/usuário/host/porta/senha mal formatados, revisar o Secret;
+- `FAIL:PASSWORD_REJECTED`: PostgreSQL recusou a credencial; revisar a senha atual do banco e o percent-encoding;
+- `FAIL:POOLER_TENANT_REJECTED` ou `ROLE_UNKNOWN`: conferir no painel Supabase o pooler e o nome de usuário;
+- `FAIL:NETWORK_OR_DNS_FAILURE`: verificar rede, DNS e disponibilidade;
+- `FAIL:ACCESS_DENIED`, `CONNECT_TIMEOUT`, `CONNECTION_FAILED_UNCLASSIFIED`: examinar configuração de acesso, sem publicar logs brutos.
+
+**Como acionar após a revisão e integração na `main`:** GitHub > Actions > `G1 — diagnosticar SOMENTE login PostgreSQL (sem backup)` > Run workflow > branch `main` > informar `DIAGNOSTICAR_POSTGRES_TESTES` > executar. Esse teste **não corrige automaticamente** a senha do banco. A atualização de `G1_SUPABASE_DB_URL` continua restrita ao painel administrativo do GitHub, sem expor valores nesta conversa.
+
+O novo código possui testes unitários inteiramente fictícios (`tests/test_g1_auth_readonly_probe.py`) e é exercitado pela CI offline. `G1=BLOCKED; RELEASE=NO_GO` permanece verdadeiro independentemente de `SELECT 1` passar.
+
 ## Passos administrativos, sem compartilhar segredos
 
 1. Abrir o projeto de TESTES no Supabase > **Connect > Session Pooler**; conferir nome de usuário postgres.yivkqyjdeouxnwtwfekc, hostname real indicado no painel, banco postgres e porta 5432. Não escolher Transaction Pooler (6543) nem Direct no runner IPv4.
