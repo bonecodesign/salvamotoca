@@ -16,6 +16,9 @@ jobs:
     name: "Verificar acionamento humano sem acessar secrets"
     runs-on: ubuntu-24.04
     timeout-minutes: 3
+    # O interruptor G1_BACKUP_ENABLED fica no ambiente protegido.
+    # Sem este vínculo, vars.* fica vazio no job de pré-validação.
+    environment: g1-backup-testes
     env:
       G1_BACKUP_ENABLED: ${{ vars.G1_BACKUP_ENABLED }}
       G1_CONFIRM: ${{ inputs.confirm }}
