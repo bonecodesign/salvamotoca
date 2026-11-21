@@ -1,0 +1,43 @@
+name: F6 - conclusao e avaliacao apenas offline
+on:
+  pull_request:
+    paths:
+      - 'f6-offline-completion.js'
+      - 'config.js'
+      - 'tests/f6-*.js'
+      - 'docs/F6_*.md'
+      - '.github/workflows/f6-tests.yml'
+      - 'f456-financial-bridge-offline.js'
+      - 'tests/f456-financial-bridge-offline.test.js'
+  push:
+    branches:
+      - 'feat/f6-consolidated-completion-offline'
+    paths:
+      - 'f6-offline-completion.js'
+      - 'config.js'
+      - 'tests/f6-*.js'
+      - 'docs/F6_*.md'
+      - '.github/workflows/f6-tests.yml'
+      - 'f456-financial-bridge-offline.js'
+      - 'tests/f456-financial-bridge-offline.test.js'
+permissions:
+  contents: read
+jobs:
+  regras-f6:
+    runs-on: ubuntu-latest
+    timeout-minutes: 7
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Validar sintaxe
+        run: |
+          node --check f6-offline-completion.js
+          node --check f5-offline-flow.js
+      - name: F6 - cinco minutos, dupla confirmacao, suporte e avaliacao
+        run: node --test tests/f6-offline-completion.test.js tests/f6-release-guard.test.js
+      - name: Regressao F5 e F4
+        run: |
+          node --test tests/f5-offline-flow.test.js tests/f5-release-guard.test.js
+          node --test tests/f4-finance.test.js tests/f4-release-guard.test.js tests/f4-mock-webhook.test.js
