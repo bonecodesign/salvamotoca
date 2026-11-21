@@ -58,6 +58,16 @@ dump() {
 # pg_dump não copia bytes físicos de Storage. Abortamos se houver arquivos.
 if ! objects="$(psql "$G1_SUPABASE_DB_URL" -X -tA -v ON_ERROR_STOP=1 \
   -c 'select count(*) from storage.objects;' 2> storage-check.stderr)"; then
+  # O arquivo de diagnóstico nunca é publicado. Classificamos somente causas
+  # operacionais, para distinguir credencial desatualizada de uma regra de
+  # acesso/indisponibilidade sem revelar URL, senha ou dados de tabelas.
+  if grep -qiE 'password authentication failed|authentication failed' storage-check.stderr; then
+    deny 'credencial do banco recusada antes de verificar Storage'
+  elif grep -qiE 'permission denied|must be owner' storage-check.stderr; then
+    deny 'permissão insuficiente para verificar Storage'
+  elif grep -qiE 'could not connect|connection .* failed|timeout' storage-check.stderr; then
+    deny 'conexão ao banco indisponível antes de verificar Storage'
+  fi
   deny 'não foi possível verificar Storage'
 fi
 [[ "$objects" =~ ^[0-9]+$ ]] || deny 'contagem inválida de Storage'
