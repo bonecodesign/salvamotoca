@@ -124,7 +124,8 @@ bad_url="$(printf '%s' "$G1_SUPABASE_DB_URL" | sed 's/yivkqyjdeouxnwtwfekc/diffe
 if G1_SUPABASE_DB_URL="$bad_url" bash "$script" > "$tmp/invalid.log" 2>&1; then
  echo 'FAIL: unexpected DB URL accepted'; exit 1
 fi
-grep -q 'conexão não corresponde' "$tmp/invalid.log"
+# Novo validador pode bloquear antes da checagem legada no exportador.
+grep -Eq 'WRONG_SUPABASE_PROJECT_USER|conexão não corresponde' "$tmp/invalid.log"
 
 if G1_FAKE_STORAGE_OBJECTS=2 bash "$script" > "$tmp/objects.log" 2>&1; then
  echo 'FAIL: object storage data silently excluded'; exit 1
