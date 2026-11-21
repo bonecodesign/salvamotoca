@@ -12,7 +12,7 @@ on:
       - 'tests/f456-financial-bridge-offline.test.js'
   push:
     branches:
-      - 'feat/f5-atendimento-chat-deslocamento-offline'
+      - 'feat/f5-consolidated-operations-offline'
     paths:
       - 'f5-offline-flow.js'
       - 'config.js'
