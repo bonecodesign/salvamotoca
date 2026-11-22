@@ -134,10 +134,8 @@ jobs:
             echo 'Não permitir upload público de dados/permissão de escrita' >&2
             exit 1
           fi
-          # Static guard: do not lose the administrative enablement precondition
-          # when refactoring immutable manual authorization outputs.
-          grep -Fq 'G1_BACKUP_ENABLED: ${{ vars.G1_BACKUP_ENABLED }}' .github/workflows/g1-supabase-backup-manual.yml
-          grep -Fq '[[ "$G1_BACKUP_ENABLED" == "true" ]]' .github/workflows/g1-supabase-backup-manual.yml
+          # Static guard: the exporter must consume only the immutable result
+          # of the manual authorization job, never a mutable environment variable.
           grep -Fq 'G1_BACKUP_AUTHORIZED: ${{ needs.guard.outputs.authorized }}' .github/workflows/g1-supabase-backup-manual.yml
           # A legacy/mutable true variable alone can NEVER invoke the exporter.
           if env -u G1_BACKUP_AUTHORIZED -u G1_SUPABASE_DB_URL -u G1_DROPBOX_ACCESS_TOKEN -u G1_AGE_RECIPIENT \
