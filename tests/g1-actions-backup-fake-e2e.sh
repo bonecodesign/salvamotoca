@@ -222,7 +222,7 @@ with tarfile.open(src,'r:gz') as origin:
  managed=json.loads(data['source_managed_scope_before.json'])
  if scenario=='auth_users': managed['auth_users']=1
  elif scenario=='public_bucket': managed['storage_buckets'][0]['private']=False
-  elif scenario=='policy_hash': managed['storage_policy_sha256']='ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff'
+ elif scenario=='policy_hash': managed['storage_policy_sha256']='ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff'
  else: raise AssertionError('unknown synthetic scenario')
  fresh=json.dumps(managed,sort_keys=True,separators=(',',':')).encode()
  data['source_managed_scope_before.json']=fresh
