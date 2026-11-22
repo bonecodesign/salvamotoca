@@ -21,7 +21,7 @@ A trava existente abortava em `storage.objects > 0`, mas não bloqueava nem torn
 | storage.objects | 0 |
 | storage.buckets | 1 |
 | Bucket | `request-photos` (privado, JPEG, 5 MiB) |
-| Políticas `storage.objects` | 3 |
+| Políticas `storage.objects` | 3; hash SHA-256 de metadados verificado em 22/11/2026 |
 | Edge Functions implantadas | 0 |
 
 **Inventário é uma fotografia; não prova nenhuma restauração, nem cobre todas as configurações externas de Auth, Storage e ambientes.**
@@ -40,8 +40,11 @@ A trava existente abortava em `storage.objects > 0`, mas não bloqueava nem torn
 - Uma série de dumps SQL independentes + comparações de inventário não é um snapshot transacional atômico; a versão atual ainda precisa de prova de consistência real após restaurar.
 - A guarda **recusa** registros Auth em vez de inventar uma rotina de restauração do serviço Auth. Isso preserva o escopo de testes, mas precisa ser ampliado futuramente antes de uma operação real com clientes.
 - Guardar JSON contendo definição do bucket não é o mesmo que **recriar e homologar** políticas, bytes, permissões, URLs assinadas ou configurações externas.
-- A igualdade da *quantidade* de políticas Storage não prova que o **conteúdo** de cada política é igual; comparar seu catálogo e comportamento na restauração (usar comparador planejado no PR #69 após revisão).
+- Além da contagem, um **SHA-256 do catálogo completo de `pg_policies` de `storage.objects`** agora protege a exportação contra mudanças de textos, papéis, permissividade, comandos e predicados, mesmo que a quantidade de políticas permaneça igual. O hash é calculado por `SELECT`, sem exportar textos de policies nem linhas pessoais, lido antes/depois e guardado apenas no arquivo cifrado. A referência é específica da base de TESTES de 22/11/2026; alterações intencionais exigem atualização revisada dessa referência.
+- Este teste detecta *drift* estrutural, **não comprova isolamento funcional, autenticidade de origem, transferência de objetos ou restauração**. O comparador geral de catálogo já desenvolvido no PR #69 continua separado, sem duplicação.
 - Não há backup verdadeiro porque o segredo `G1_SUPABASE_DB_URL` ainda é rejeitado (`PASSWORD_REJECTED` na [execução #44964994102](https://github.com/bonecodesign/salvamotoca/actions/runs/44964994102)). Não repetir com o mesmo segredo.
 - Não acessar nem movimentar chaves privadas AGE guardadas no Dropbox. Nunca copiar dados confidenciais para GitHub Actions ou PRs.
+
+**Complemento 22/11/2026:** auditoria SQL de somente leitura confirmou três políticas e assinatura SHA-256 `c75f54c93a080d4552558ce59539c2e8813a645b5dfdfe44ebd328839aad2254` sobre o JSONB ordenado de `pg_policies`. Os testes fictícios passam a rejeitar mudança sem alteração na contagem, drift entre pré/pós-exportação e pacote cifrado recriado com novo manifesto de checksums. Nenhum dado de cliente, objeto de Storage ou senha foi exportado nesta verificação.
 
 **Resultado correto desta etapa:** uma proteção adicional de integridade e escopo. Não é recuperação real nem liberação comercial. `G1=BLOCKED`; `RELEASE=NO_GO`.
