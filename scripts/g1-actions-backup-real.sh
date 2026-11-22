@@ -89,6 +89,35 @@ except (OSError,ValueError): valid=False
 sys.exit(0 if valid else 2)
 PY
 }
+# O SQL do G1 exporta tabelas public e histórico; NÃO restaura os schemas
+# gerenciados Auth/Storage nem a configuração externa desses serviços.
+# Guardar só metadados e FALHAR se houver dados gerenciados ou bucket alterado.
+managed_scope() {
+  local out="$1"
+  if ! psql "$G1_SUPABASE_DB_URL" -X -tA -v ON_ERROR_STOP=1 -c "
+    select jsonb_build_object(
+      'auth_users',(select count(*) from auth.users),
+      'auth_identities',(select count(*) from auth.identities),
+      'auth_sessions',(select count(*) from auth.sessions),
+      'auth_refresh_tokens',(select count(*) from auth.refresh_tokens),
+      'auth_mfa_factors',(select count(*) from auth.mfa_factors),
+      'auth_flow_state',(select count(*) from auth.flow_state),
+      'storage_objects',(select count(*) from storage.objects),
+      'storage_policy_count',(select count(*) from pg_policies
+         where schemaname='storage' and tablename='objects'),
+      'storage_buckets',(select coalesce(jsonb_agg(jsonb_build_object(
+        'name',b.id,
+        'private',not b.public,
+        'file_size_limit',b.file_size_limit,
+        'allowed_mime_types',b.allowed_mime_types
+      ) order by b.id),'[]'::jsonb) from storage.buckets b)
+    )::text;" > "$out" 2>"$out.stderr"; then
+    deny 'não foi possível inventariar Auth/Storage gerenciados'
+  fi
+  python3 "$script_dir/g1-verify-managed-scope.py" --input "$out" \
+      > "$out.check.stdout" 2>"$out.check.stderr" ||
+    deny 'Auth/Storage fora do escopo do backup SQL; revisar inventário protegido'
+}
 # Descobrir TODAS as tabelas public e políticas RLS no catálogo ao vivo.
 # Não armazenar nomes pessoais nem conteúdo de registros no manifesto.
 schema_inventory() {
@@ -111,6 +140,7 @@ schema_inventory() {
     deny 'não foi possível ler inventário de tabelas/RLS'
   fi
 }
+managed_scope source_managed_scope_before.json
 schema_inventory source_schema_inventory_before.json
 inventory source_inventory_before.json
 dump roles.sql --role-only
@@ -120,6 +150,9 @@ dump history_schema.sql --schema supabase_migrations
 dump history_data.sql --schema supabase_migrations --data-only --use-copy
 inventory source_inventory_after.json
 schema_inventory source_schema_inventory_after.json
+managed_scope source_managed_scope_after.json
+cmp -s source_managed_scope_before.json source_managed_scope_after.json ||
+  deny 'Auth/Storage mudaram durante a exportação; backup SQL bloqueado'
 cmp -s source_schema_inventory_before.json source_schema_inventory_after.json ||
   deny 'estrutura RLS/políticas mudou durante exportação'
 python3 "$script_dir/g1-verify-public-dump-coverage.py" \
@@ -138,17 +171,19 @@ for essential in prestadores_prospeccao ofertas_prospeccao configuracao_comercia
     deny "dump de dados não inclui tabela essencial: $essential"
 done
 [[ -s schema.sql && -s data.sql ]] || deny 'arquivo de esquema/dados vazio'
-sha256sum roles.sql schema.sql data.sql history_schema.sql history_data.sql source_inventory_before.json source_schema_inventory_before.json > manifest.sha256
+sha256sum roles.sql schema.sql data.sql history_schema.sql history_data.sql source_inventory_before.json source_schema_inventory_before.json source_managed_scope_before.json > manifest.sha256
 printf '%s\n' \
  'project_ref=yivkqyjdeouxnwtwfekc' \
  'environment=TESTES' \
  'backup_kind=logical_sql' \
  'g1_restoration_verified=false' \
- 'storage_physical_objects_included=false' > manifest.txt
+ 'storage_physical_objects_included=false' \
+ 'auth_managed_schema_recovery_proven=false' \
+ 'storage_bucket_configuration_recovery_proven=false' > manifest.txt
 bundle="$tmp/g1-bundle.tar.gz"
 tar -czf "$bundle" roles.sql schema.sql data.sql history_schema.sql \
   history_data.sql source_inventory_before.json source_schema_inventory_before.json \
-  manifest.sha256 manifest.txt
+  source_managed_scope_before.json manifest.sha256 manifest.txt
 encrypted="$tmp/g1-bundle.tar.gz.age"
 age -r "$G1_AGE_RECIPIENT" -o "$encrypted" "$bundle"
 [[ -s "$encrypted" ]] || deny 'falha ao cifrar o arquivo'
