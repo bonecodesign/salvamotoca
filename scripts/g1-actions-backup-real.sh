@@ -58,6 +58,8 @@ if ! objects="$(psql "$G1_SUPABASE_DB_URL" -X -tA -v ON_ERROR_STOP=1 \
 fi
 [[ "$objects" =~ ^[0-9]+$ ]] || deny 'contagem inválida de Storage'
 [[ "$objects" == '0' ]] || deny 'Storage não está vazio: requer rotina específica de objetos'
+echo 'G1_DB_CONNECTION_AUTHENTICATED=PASS'
+echo 'G1_STORAGE_OBJECTS_EMPTY=PASS'
 
 # Inventário SEM dados pessoais, cifrado junto com o dump. Se uma tabela
 # essencial estiver ausente, aborta; se contagens mudarem durante as cinco

@@ -79,7 +79,9 @@ esac
 printf '%s\n' "-- mock SQL for $out" 'select 1;' > "$out"
 if [[ "$out" == 'schema.sql' ]]; then
  for table in prestadores_prospeccao ofertas_prospeccao configuracao_comercial; do
-  printf 'CREATE TABLE public.%s (id integer);\n' "$table" >> "$out"
+  # Supabase CLI schema dumps use idempotent CREATE TABLE IF NOT EXISTS.
+  # Keep this mock aligned so the parser regression is exercised.
+  printf 'CREATE TABLE IF NOT EXISTS public.%s (id integer);\n' "$table" >> "$out"
   if [[ "${G1_FAKE_DROP_RLS:-}" != "true" || "$table" != "ofertas_prospeccao" ]]; then
    printf 'ALTER TABLE public.%s ENABLE ROW LEVEL SECURITY;\n' "$table" >> "$out"
   fi
