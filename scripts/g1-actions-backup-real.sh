@@ -21,26 +21,12 @@ for executable in python3 supabase docker psql age tar curl sha256sum mktemp; do
   command -v "$executable" >/dev/null 2>&1 || deny "falta ferramenta: $executable"
 done
 
-# Python não imprime a URL; valida host pooler IPv4 + usuário de projeto.
-python3 - <<'PY' || deny 'conexão não corresponde ao Supabase de testes'
-import os, sys, urllib.parse
-try:
-    u=urllib.parse.urlsplit(os.environ['G1_SUPABASE_DB_URL'])
-    host=(u.hostname or '').lower()
-    user=urllib.parse.unquote(u.username or '')
-    tls=urllib.parse.parse_qs(u.query).get('sslmode',['require'])[0]
-    valid=(u.scheme in ('postgres','postgresql')
-       and user=='postgres.yivkqyjdeouxnwtwfekc'
-       and host.endswith('.pooler.supabase.com')
-       and host!='.pooler.supabase.com'
-       and u.port==5432 and u.path=='/postgres'
-       and bool(u.password) and not u.fragment
-       and tls in ('require','verify-ca','verify-full'))
-except (ValueError, KeyError): valid=False
-sys.exit(0 if valid else 2)
-PY
-
+# Validação estritamente LOCAL: formato, tenant, porta e encoding da URL.
+# A validação NÃO prova que a senha é correta; apenas a consulta SQL prova.
 script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+python3 "$script_dir/g1-validate-db-url.py" ||
+  deny 'URL do Session Pooler inválida; conferir sem revelar a credencial'
+
 tmp="$(mktemp -d "$RUNNER_TEMP/g1-backup.XXXXXXXX")"
 cleanup() { rm -rf -- "$tmp"; }
 trap cleanup EXIT
