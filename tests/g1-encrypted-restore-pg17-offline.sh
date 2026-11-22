@@ -54,6 +54,12 @@ JSON
 cat > source_schema_inventory_before.json <<'SCHEMA_JSON'
 {"tables":[{"name":"prestadores_prospeccao","rls_enabled":true,"policy_count":1},{"name":"ofertas_prospeccao","rls_enabled":true,"policy_count":1},{"name":"configuracao_comercial","rls_enabled":true,"policy_count":1}]}
 SCHEMA_JSON
+cat > source_managed_scope_before.json <<'MANAGED_JSON'
+{"auth_users":0,"auth_identities":0,"auth_sessions":0,"auth_refresh_tokens":0,"auth_mfa_factors":0,"auth_flow_state":0,"storage_objects":0,"storage_policy_count":3,"storage_buckets":[{"name":"request-photos","private":true,"file_size_limit":5242880,"allowed_mime_types":["image/jpeg"]}]}
+MANAGED_JSON
+python3 "$GITHUB_WORKSPACE/scripts/g1-verify-managed-scope.py" \
+ --input source_managed_scope_before.json > "$dir/managed-scope.log"
+grep -q 'G1_MANAGED_SCOPE=SAFE_FOR_SQL_ONLY' "$dir/managed-scope.log"
 python3 "$GITHUB_WORKSPACE/scripts/g1-verify-public-dump-coverage.py" \
  --inventory source_schema_inventory_before.json \
  --schema schema.sql --data data.sql > "$dir/coverage.log"
@@ -64,9 +70,11 @@ environment=TESTES
 backup_kind=logical_sql
 g1_restoration_verified=false
 storage_physical_objects_included=false
+auth_managed_schema_recovery_proven=false
+storage_bucket_configuration_recovery_proven=false
 MANIFEST
-sha256sum roles.sql schema.sql data.sql history_schema.sql history_data.sql source_inventory_before.json source_schema_inventory_before.json > manifest.sha256
-tar -czf "$dir/bundle.tar.gz" roles.sql schema.sql data.sql history_schema.sql history_data.sql source_inventory_before.json source_schema_inventory_before.json manifest.sha256 manifest.txt
+sha256sum roles.sql schema.sql data.sql history_schema.sql history_data.sql source_inventory_before.json source_schema_inventory_before.json source_managed_scope_before.json > manifest.sha256
+tar -czf "$dir/bundle.tar.gz" roles.sql schema.sql data.sql history_schema.sql history_data.sql source_inventory_before.json source_schema_inventory_before.json source_managed_scope_before.json manifest.sha256 manifest.txt
 age-keygen -o "$dir/fixture-private-key" 2>/dev/null
 recipient="$(age-keygen -y "$dir/fixture-private-key")"
 age -r "$recipient" -o "$dir/bundle.tar.gz.age" "$dir/bundle.tar.gz"
