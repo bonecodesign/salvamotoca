@@ -15,7 +15,9 @@ import sys
 
 IDENT = r'(?:"?public"?\.)"?([a-z][a-z0-9_]*)"?'
 NAME = re.compile(r"^[a-z][a-z0-9_]*$")
-CREATE = re.compile(rf"^CREATE TABLE {IDENT}\s*\(", re.M | re.I)
+# Supabase CLI makes schema dumps idempotent, while raw pg_dump does not.
+# Both representations are valid and must satisfy identical coverage checks.
+CREATE = re.compile(rf"^CREATE TABLE(?:\s+IF\s+NOT\s+EXISTS)?\s+{IDENT}\s*\(", re.M | re.I)
 COPY = re.compile(rf"^COPY {IDENT}\s*\(", re.M | re.I)
 RLS = re.compile(rf"^ALTER TABLE (?:ONLY )?{IDENT}\s+ENABLE ROW LEVEL SECURITY\s*;", re.M | re.I)
 POLICY = re.compile(
