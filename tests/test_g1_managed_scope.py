@@ -32,6 +32,7 @@ def baseline():
             "allowed_mime_types": ["image/jpeg"],
         }],
         "storage_policy_count": 3,
+        "storage_policy_sha256": scope.EXPECTED_STORAGE_POLICY_SHA256,
     }
 
 
@@ -90,6 +91,22 @@ class ManagedScopeTests(unittest.TestCase):
                 v = baseline()
                 v["storage_policy_count"] = count
                 self.blocked(v, "STORAGE_POLICIES_REQUIRE_REVIEW")
+
+    def test_policy_changed_with_same_count_is_rejected(self):
+        v = baseline()
+        v["storage_policy_sha256"] = "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff"
+        self.blocked(v, "STORAGE_POLICY_DEFINITION_CHANGED")
+        self.assertEqual(v["storage_policy_count"], 3)
+
+    def test_policy_hash_wrong_type_or_missing(self):
+        for wrong in (None, True, "not-sha256", "A" * 64):
+            with self.subTest(wrong=wrong):
+                v = baseline()
+                v["storage_policy_sha256"] = wrong
+                self.blocked(v, "STORAGE_POLICY_DEFINITION_CHANGED")
+        v = baseline()
+        del v["storage_policy_sha256"]
+        self.blocked(v, "MANAGED_SCOPE_KEYS_CHANGED")
 
     def test_wrong_types_malformed_fields_rejected(self):
         v = baseline()
