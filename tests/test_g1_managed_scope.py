@@ -68,6 +68,14 @@ class ManagedScopeTests(unittest.TestCase):
                 v["storage_buckets"][0][key] = value
                 self.blocked(v, "STORAGE_BUCKET_CONFIGURATION_CHANGED")
 
+    def test_boolean_is_not_integer(self):
+        v = baseline()
+        v["storage_buckets"][0]["private"] = 1
+        self.blocked(v, "STORAGE_BUCKET_CONFIGURATION_CHANGED")
+        v = baseline()
+        v["storage_buckets"][0]["file_size_limit"] = True
+        self.blocked(v, "STORAGE_BUCKET_CONFIGURATION_CHANGED")
+
     def test_bucket_removed_or_extra_bucket(self):
         v = baseline()
         v["storage_buckets"] = []
