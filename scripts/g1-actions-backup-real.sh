@@ -105,6 +105,10 @@ managed_scope() {
       'storage_objects',(select count(*) from storage.objects),
       'storage_policy_count',(select count(*) from pg_policies
          where schemaname='storage' and tablename='objects'),
+      'storage_policy_sha256',(select encode(sha256(convert_to(
+         coalesce(jsonb_agg(to_jsonb(p) order by p.policyname),'[]'::jsonb)::text,
+         'UTF8')),'hex') from pg_policies p
+         where p.schemaname='storage' and p.tablename='objects'),
       'storage_buckets',(select coalesce(jsonb_agg(jsonb_build_object(
         'name',b.id,
         'private',not b.public,
