@@ -21,6 +21,7 @@ export G1_DROPBOX_PATH='/backup-testes'
 export G1_FAKE_UPLOAD="$tmp/encrypted-received.age"
 export G1_FAKE_INVENTORY_COUNTER="$tmp/inventory-counter"
 export G1_FAKE_SCHEMA_INVENTORY_COUNTER="$tmp/schema-inventory-counter"
+export G1_FAKE_MANAGED_SCOPE_COUNTER="$tmp/managed-scope-counter"
 
 age-keygen -o "$tmp/fake-identity.txt" 2>/dev/null
 export G1_AGE_RECIPIENT="$(age-keygen -y "$tmp/fake-identity.txt")"
@@ -31,6 +32,23 @@ set -euo pipefail
 [[ "$1" == "$G1_SUPABASE_DB_URL" ]]
 if [[ "$*" == *'select count(*) from storage.objects;'* ]]; then
  printf '%s\n' "${G1_FAKE_STORAGE_OBJECTS:-0}"
+elif [[ "$*" == *'auth.flow_state'* ]]; then
+ auth_users="${G1_FAKE_AUTH_USERS:-0}"
+ auth_identities="${G1_FAKE_AUTH_IDENTITIES:-0}"
+ objects="${G1_FAKE_STORAGE_OBJECTS:-0}"
+ policies="${G1_FAKE_STORAGE_POLICY_COUNT:-3}"
+ policy_sha256="c75f54c93a080d4552558ce59539c2e8813a645b5dfdfe44ebd328839aad2254"
+ calls=0
+ [[ -f "$G1_FAKE_MANAGED_SCOPE_COUNTER" ]] && calls="$(cat "$G1_FAKE_MANAGED_SCOPE_COUNTER")"
+ calls=$((calls + 1))
+ printf "%s" "$calls" > "$G1_FAKE_MANAGED_SCOPE_COUNTER"
+ if [[ "${G1_FAKE_STORAGE_POLICY_CHANGED:-}" == true ||
+       ( "${G1_FAKE_STORAGE_POLICY_DRIFT:-}" == true && "$calls" -ge 2 ) ]]; then
+  policy_sha256="ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff"
+ fi
+ private=true
+ if [[ "${G1_FAKE_BUCKET_PUBLIC:-}" == "true" ]]; then private=false; fi
+ printf '{"auth_users":%s,"auth_identities":%s,"auth_sessions":0,"auth_refresh_tokens":0,"auth_mfa_factors":0,"auth_flow_state":0,"storage_objects":%s,"storage_policy_count":%s,"storage_policy_sha256":"%s","storage_buckets":[{"name":"request-photos","private":%s,"file_size_limit":5242880,"allowed_mime_types":["image/jpeg"]}]}\n' "$auth_users" "$auth_identities" "$objects" "$policies" "$policy_sha256" "$private"
 elif [[ "$*" == *'pg_policies'* ]]; then
  num=0
  [[ -f "$G1_FAKE_SCHEMA_INVENTORY_COUNTER" ]] &&
@@ -133,6 +151,36 @@ fi
 grep -q 'Storage não está vazio' "$tmp/objects.log"
 [[ ! -e "$tmp/encrypted-received.age" ]]
 
+# Auth managed records are NOT recoverable from this SQL-only bundle.
+if G1_FAKE_AUTH_USERS=1 bash "$script" > "$tmp/auth-users.log" 2>&1; then
+ echo 'FAIL: Auth users silently excluded'; exit 1
+fi
+grep -q 'Auth/Storage fora do escopo' "$tmp/auth-users.log"
+if G1_FAKE_AUTH_IDENTITIES=1 bash "$script" > "$tmp/auth-identities.log" 2>&1; then
+ echo 'FAIL: Auth identities silently excluded'; exit 1
+fi
+grep -q 'Auth/Storage fora do escopo' "$tmp/auth-identities.log"
+if G1_FAKE_BUCKET_PUBLIC=true bash "$script" > "$tmp/bucket-public.log" 2>&1; then
+ echo 'FAIL: public Storage bucket accepted'; exit 1
+fi
+grep -q 'Auth/Storage fora do escopo' "$tmp/bucket-public.log"
+if G1_FAKE_STORAGE_POLICY_COUNT=2 bash "$script" > "$tmp/storage-policy.log" 2>&1; then
+ echo 'FAIL: altered Storage policy baseline accepted'; exit 1
+fi
+grep -q 'Auth/Storage fora do escopo' "$tmp/storage-policy.log"
+# Detect same-count policy changes and drift between reads.
+if G1_FAKE_STORAGE_POLICY_CHANGED=true bash "$script" > "$tmp/policy-content.log" 2>&1; then
+ echo 'FAIL: changed Storage policy digest accepted'; exit 1
+fi
+grep -q 'Auth/Storage fora do escopo' "$tmp/policy-content.log"
+rm -f "$G1_FAKE_MANAGED_SCOPE_COUNTER"
+if G1_FAKE_STORAGE_POLICY_DRIFT=true bash "$script" > "$tmp/policy-drift.log" 2>&1; then
+ echo 'FAIL: changed policy during export accepted'; exit 1
+fi
+grep -q 'Auth/Storage fora do escopo' "$tmp/policy-drift.log"
+rm -f "$G1_FAKE_MANAGED_SCOPE_COUNTER"
+
+
 # Real script runs end-to-end, but mock SQL and mock Dropbox only.
 if ! bash "$script" > "$tmp/ok.log" 2>&1; then
   # Apenas etiquetas do mock, nunca SQL real ou credenciais.
@@ -151,6 +199,9 @@ for f in roles.sql schema.sql data.sql history_schema.sql history_data.sql; do
  test -s "$tmp/unpacked/$f"
 done
 grep -q 'g1_restoration_verified=false' "$tmp/unpacked/manifest.txt"
+grep -q 'auth_managed_schema_recovery_proven=false' "$tmp/unpacked/manifest.txt"
+grep -q 'storage_bucket_configuration_recovery_proven=false' "$tmp/unpacked/manifest.txt"
+test -s "$tmp/unpacked/source_managed_scope_before.json"
 
 # Verificador rigoroso: decrypt sem extrair SQL, allowlist tar, SHA256,
 # metadados, inventário e cabeçalhos COPY. Só chaves FICTÍCIAS em CI.
@@ -159,6 +210,50 @@ G1_SYNTHETIC_CI_ONLY=true python3 scripts/g1-verify-encrypted-bundle.py \
   --identity "$tmp/fake-identity.txt" > "$tmp/integrity-ok.log"
 grep -q 'G1_ENCRYPTED_ARCHIVE_INTEGRITY=PASS' "$tmp/integrity-ok.log"
 grep -q 'G1_RESTORATION_VERIFIED=FALSE' "$tmp/integrity-ok.log"
+
+# Even when a forged archive has a freshly recalculated SHA256 manifest,
+# semantic scope violations MUST fail (signature only proves integrity).
+for scenario in auth_users public_bucket policy_hash; do
+ python3 - "$tmp/restored.tar.gz" "$tmp/managed-$scenario.tar.gz" "$scenario" <<'PY'
+import hashlib, io, json, sys, tarfile
+src,dst,scenario=sys.argv[1:]
+with tarfile.open(src,'r:gz') as origin:
+ data={m.name:origin.extractfile(m).read() for m in origin.getmembers()}
+ managed=json.loads(data['source_managed_scope_before.json'])
+ if scenario=='auth_users': managed['auth_users']=1
+ elif scenario=='public_bucket': managed['storage_buckets'][0]['private']=False
+ elif scenario=='policy_hash': managed['storage_policy_sha256']='ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff'
+ else: raise AssertionError('unknown synthetic scenario')
+ fresh=json.dumps(managed,sort_keys=True,separators=(',',':')).encode()
+ data['source_managed_scope_before.json']=fresh
+ digest=hashlib.sha256(fresh).hexdigest()
+ lines=data['manifest.sha256'].decode().splitlines()
+ lines=[digest+'  source_managed_scope_before.json'
+        if line.endswith('  source_managed_scope_before.json') else line
+        for line in lines]
+ data['manifest.sha256']=('\n'.join(lines)+'\n').encode()
+ with tarfile.open(dst,'w:gz') as target:
+  for name,raw in data.items():
+   info=tarfile.TarInfo(name)
+   info.size=len(raw)
+   info.mode=0o600
+   target.addfile(info,io.BytesIO(raw))
+PY
+ age -r "$G1_AGE_RECIPIENT" -o "$tmp/managed-$scenario.age" \
+  "$tmp/managed-$scenario.tar.gz"
+ if G1_SYNTHETIC_CI_ONLY=true python3 scripts/g1-verify-encrypted-bundle.py \
+  --archive "$tmp/managed-$scenario.age" --identity "$tmp/fake-identity.txt" \
+  > "$tmp/managed-$scenario.log" 2>&1; then
+  echo "FAIL: semantic Auth/Storage failure accepted despite valid SHA256"; exit 1
+ fi
+ if [[ "$scenario" == auth_users ]]; then
+  grep -q 'AUTH_MANAGED_DATA_NOT_INCLUDED' "$tmp/managed-$scenario.log"
+ elif [[ "$scenario" == policy_hash ]]; then
+  grep -q 'STORAGE_POLICY_DEFINITION_CHANGED' "$tmp/managed-$scenario.log"
+ else
+  grep -q 'STORAGE_MANAGED_CONFIGURATION_CHANGED' "$tmp/managed-$scenario.log"
+ fi
+done
 
 # Arquivo age adulterado: a autenticação criptográfica deve rejeitar.
 python3 - "$tmp/encrypted-received.age" "$tmp/corrupt.age" <<'PY'
@@ -268,6 +363,9 @@ fi
 echo 'G1_MOCK_FULL_PIPELINE=PASS'
 echo 'G1_FOREIGN_PROJECT=REJECTED'
 echo 'G1_STORAGE_WITH_OBJECTS=REJECTED'
+echo 'G1_AUTH_USERS_AND_IDENTITIES=REJECTED'
+echo 'G1_STORAGE_BUCKET_POLICY_DRIFT=REJECTED'
+echo 'G1_FORGED_MANIFEST_AUTH_STORAGE=REJECTED'
 echo 'G1_CORRUPT_REMOTE_HASH=REJECTED'
 echo 'G1_MISSING_ESSENTIAL_TABLE=REJECTED'
 echo 'G1_PUBLIC_SCHEMA_RLS_COVERAGE=PASS'

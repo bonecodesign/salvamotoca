@@ -14,9 +14,17 @@ on:
       - "docs/G1_AUTH_FAILURE_DIAGNOSTICO_2026-11-21.md"
       - "tests/g1-actions-backup-fake-e2e.sh"
       - "scripts/g1-verify-encrypted-bundle.py"
+      - "scripts/g1-verify-managed-scope.py"
+      - "tests/test_g1_managed_scope.py"
+      - "docs/G1_AUTH_STORAGE_SAFE_SCOPE_2026-11-21.md"
       - "scripts/g1-verify-public-dump-coverage.py"
       - "docs/G1_RECUPERACAO_ARQUIVO_PRIVADO.md"
       - "tests/g1-encrypted-restore-pg17-offline.sh"
+      - "tests/g1-functional-relational-recovery-pg17-offline.sh"
+      - "docs/G1_INTEGRAL_AUDITORIA_RESTAURACAO_2026-11-21.md"
+      - "docs/G1_RPC_PRIVILEGES_READONLY.sql"
+      - "scripts/g1-verify-rpc-privileges-offline.py"
+      - "tests/test_g1_rpc_privilege_audit.py"
       - "docs/G1_BACKUP_ACTIONS_MANUAL_PREPARACAO.md"
 permissions:
   contents: read
@@ -52,6 +60,21 @@ jobs:
           python3 -m py_compile scripts/g1-validate-db-url.py
           python3 -m unittest discover -s tests -p 'test_g1_db_url_validation.py' -v
           python3 -m unittest discover -s tests -p 'test_g1_auth_readonly_probe.py' -v
+          python3 -m py_compile scripts/g1-verify-rpc-privileges-offline.py
+          python3 -m unittest discover -s tests -p 'test_g1_rpc_privilege_audit.py' -v
+          python3 -m py_compile scripts/g1-verify-managed-scope.py
+          python3 -m unittest discover -s tests -p 'test_g1_managed_scope.py' -v
+          python3 - <<'PY'
+          from pathlib import Path
+          sql = Path('docs/G1_RPC_PRIVILEGES_READONLY.sql').read_text()
+          # The catalog query is strictly read-only: no DML/DDL/procedures.
+          import re
+          for keyword in ('INSERT','UPDATE','DELETE','DROP','ALTER','CREATE','GRANT','REVOKE','CALL','DO'):
+              assert not re.search(r'^\s*'+keyword+r'\b', sql, re.I|re.M), keyword
+          assert "pg_get_functiondef" in sql and "aclexplode" in sql
+          assert "jsonb_build_object" in sql
+          print('G1_RPC_METADATA_QUERY_READONLY=PASS')
+          PY
           test -f .github/workflows/g1-postgres-auth-readonly.yml
           grep -q 'workflow_dispatch:' .github/workflows/g1-postgres-auth-readonly.yml
           if grep -qE '^[[:space:]]*(pull_request|push|schedule|pull_request_target):' .github/workflows/g1-postgres-auth-readonly.yml; then
@@ -168,6 +191,14 @@ jobs:
           python3 -m py_compile scripts/g1-verify-encrypted-bundle.py
           python3 -m py_compile scripts/g1-verify-public-dump-coverage.py
           bash tests/g1-actions-backup-fake-e2e.sh
+      - name: "Provar restauracao funcional ficticia: FK, trigger, RLS, ACL e funcao restrita"
+        shell: bash
+        env:
+          PGPASSWORD: fixture_local_only
+        run: |
+          set -euo pipefail
+          bash -n tests/g1-functional-relational-recovery-pg17-offline.sh
+          bash tests/g1-functional-relational-recovery-pg17-offline.sh
       - name: "Restaurar SQL real de fixture PG17 após backup cifrado, sem Supabase"
         shell: bash
         env:
