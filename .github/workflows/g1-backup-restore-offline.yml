@@ -17,6 +17,8 @@ on:
       - "scripts/g1-verify-public-dump-coverage.py"
       - "docs/G1_RECUPERACAO_ARQUIVO_PRIVADO.md"
       - "tests/g1-encrypted-restore-pg17-offline.sh"
+      - "tests/g1-functional-relational-recovery-pg17-offline.sh"
+      - "docs/G1_INTEGRAL_AUDITORIA_RESTAURACAO_2026-11-21.md"
       - "docs/G1_BACKUP_ACTIONS_MANUAL_PREPARACAO.md"
 permissions:
   contents: read
@@ -168,6 +170,14 @@ jobs:
           python3 -m py_compile scripts/g1-verify-encrypted-bundle.py
           python3 -m py_compile scripts/g1-verify-public-dump-coverage.py
           bash tests/g1-actions-backup-fake-e2e.sh
+      - name: "Provar restauracao funcional ficticia: FK, trigger, RLS, ACL e funcao restrita"
+        shell: bash
+        env:
+          PGPASSWORD: fixture_local_only
+        run: |
+          set -euo pipefail
+          bash -n tests/g1-functional-relational-recovery-pg17-offline.sh
+          bash tests/g1-functional-relational-recovery-pg17-offline.sh
       - name: "Restaurar SQL real de fixture PG17 após backup cifrado, sem Supabase"
         shell: bash
         env:
