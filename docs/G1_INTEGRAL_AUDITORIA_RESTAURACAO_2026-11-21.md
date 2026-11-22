@@ -30,6 +30,36 @@ O [PR #69](https://github.com/bonecodesign/salvamotoca/pull/69), ainda aberto em
 - [RLS sem política](https://supabase.com/docs/guides/database/database-linter?lint=0008_rls_enabled_no_policy).
 - [Função SECURITY DEFINER acessível](https://supabase.com/docs/guides/database/database-linter?lint=0029_authenticated_security_definer_function_executable).
 
+## Complemento de auditoria: as seis funções privilegiadas existentes
+
+A consulta **somente leitura** de `pg_proc`, `pg_namespace`, ACLs e `pg_get_functiondef` confirmou na instância hospedada:
+
+- Exatamente **seis** funções `public` `SECURITY DEFINER`, todas de propriedade do role `postgres` (capaz de ignorar RLS em determinados contextos);
+- Todas com `search_path` explicitamente vazio, `EXECUTE` negado a `PUBLIC` e `anon`, e concedido a `authenticated`;
+- Todas fazem referência a `auth.uid()`. **Essa última é uma verificação sintática, não prova de autorização correta**.
+
+A leitura do corpo das funções mostrou os seguintes **controles aparentes**, que precisam de teste comportamental real após G1:
+
+| RPC | Condições visíveis na definição | Cenários de teste ainda necessários |
+|---|---|---|
+| `bj_answer_quote` | `auth.uid()` é o solicitante; orçamento `proposed` pertence ao pedido `quoted` e ao prestador designado; locks em oferta/pedido | Cliente estranho nunca aceita ou rejeita; respostas concorrentes; recusa e redistribuição |
+| `bj_finish_request` | Somente o cliente dono; impede cancelamento se existir pagamento `authorized` ou `paid` | Outro usuário não cancela; corrida pagamento vs. cancelamento; função atual **cancela** (não substitui a confirmação bilateral F6) |
+| `bj_get_request_location` | Cliente dono **ou** proprietário do prestador atribuído **após** pagamento `paid` | Prestador não atribuído e prestador antes do pagamento recebem zero localização; avaliar acesso após reassociação/cancelamento |
+| `bj_ping_presence` | Só modifica presença do prestador de propriedade de `auth.uid()` e ainda homologado/ativo | Outro prestador não altera o heartbeat; online/offline e sessão expirada |
+| `bj_set_presence` | Titular do prestador; entrada online exige homologação, atividade e serviço delivery | Titular não aprovado não entra online; nunca alterar presença de terceiros |
+| `bj_submit_quote` | Só o prestador atribuído, homologado/ativo, com solicitação `requested`; valida preço e texto | Prestador estranho não oferta; pedido cancelado não recebe proposta; concorrência e tentativas de contato externo |
+
+Os controles **parecem intencionais**; não houve evidência, nesta inspeção estática, de acesso anônimo a essas RPCs. Isso **não é aprovação de segurança**, porque `SECURITY DEFINER` executa com privilégios de quem criou a função e pode superar a RLS. Não revogar direitos nem trocar o modo de execução sem testes e revisão de negócio, pois isso quebraria fluxos operacionais.
+
+### Regressão de metadados preparada
+
+- `docs/G1_RPC_PRIVILEGES_READONLY.sql` retorna **somente um JSON de metadados**, sem linhas de usuários, corpo de funções, passwords ou localização. A consulta já foi executada com sucesso no Supabase de TESTES nesta rodada.
+- `scripts/g1-verify-rpc-privileges-offline.py` exige as seis RPCs e assinaturas atuais e bloqueia mudanças inesperadas de owner, `search_path`, concessões anônimas, modo SECURITY DEFINER e referência textual a `auth.uid()`.
+- `tests/test_g1_rpc_privilege_audit.py` cobre casos fictícios negativos: RPC sumida/nova, privilégios públicos/anônimos, mudança de role/assinatura, `search_path` aberto e saída sem vazamento de valores.
+- **PASS é somente conformidade de metadados**, NÃO prova de que A/B/C estejam isolados, de que não existam falhas no corpo da função ou de que os dados privados possam ser restaurados. `G1=BLOCKED` e `RELEASE=NO_GO` continuam obrigatórios.
+
+Referência para revisão das seis RPCs: [Supabase Security Advisor — SECURITY DEFINER acessível a autenticados](https://supabase.com/docs/guides/database/database-linter?lint=0029_authenticated_security_definer_function_executable).
+
 ## O que foi acrescentado neste pacote
 
 `tests/g1-functional-relational-recovery-pg17-offline.sh` exerce uma prova **real** dentro de **dois bancos PostgreSQL 17 descartáveis, com registros totalmente fictícios**:
