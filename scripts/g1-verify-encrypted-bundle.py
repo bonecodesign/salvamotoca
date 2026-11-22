@@ -204,11 +204,23 @@ def read_backup(archive: Path, identity: Path) -> None:
             raise ValidationError("AUTH_MANAGED_DATA_NOT_INCLUDED")
         if managed["storage_objects"] != 0:
             raise ValidationError("STORAGE_PHYSICAL_FILES_NOT_INCLUDED")
-        if managed["storage_policy_count"] != 3 or managed["storage_buckets"] != [{
+        buckets = managed["storage_buckets"]
+        if not isinstance(buckets, list) or len(buckets) != 1:
+            raise ValidationError("STORAGE_MANAGED_CONFIGURATION_CHANGED")
+        bucket = buckets[0]
+        if (not isinstance(bucket, dict)
+            or set(bucket) != {"name", "private", "file_size_limit", "allowed_mime_types"}
+            or type(bucket["name"]) is not str
+            or type(bucket["private"]) is not bool
+            or type(bucket["file_size_limit"]) is not int
+            or not isinstance(bucket["allowed_mime_types"], list)
+            or any(type(m) is not str for m in bucket["allowed_mime_types"])):
+            raise ValidationError("STORAGE_MANAGED_CONFIGURATION_CHANGED")
+        if managed["storage_policy_count"] != 3 or bucket != {
             "name": "request-photos", "private": True,
             "file_size_limit": 5242880,
             "allowed_mime_types": ["image/jpeg"],
-        }]:
+        }:
             raise ValidationError("STORAGE_MANAGED_CONFIGURATION_CHANGED")
 
         try:
