@@ -193,13 +193,19 @@ def read_backup(archive: Path, identity: Path) -> None:
             "auth_refresh_tokens", "auth_mfa_factors", "auth_flow_state",
         }
         managed_keys = auth_fields | {
-            "storage_objects", "storage_buckets", "storage_policy_count"
+            "storage_objects", "storage_buckets", "storage_policy_count",
+            "storage_policy_sha256"
         }
         if not isinstance(managed, dict) or set(managed) != managed_keys:
             raise ValidationError("MANAGED_SCOPE_INVENTORY_INVALID")
         if any(type(managed[k]) is not int or managed[k] < 0
                for k in auth_fields | {"storage_objects", "storage_policy_count"}):
             raise ValidationError("MANAGED_SCOPE_COUNTS_INVALID")
+        policy_hash = managed["storage_policy_sha256"]
+        if (type(policy_hash) is not str
+            or re.fullmatch(r"[0-9a-f]{64}", policy_hash) is None
+            or policy_hash != "c75f54c93a080d4552558ce59539c2e8813a645b5dfdfe44ebd328839aad2254"):
+            raise ValidationError("STORAGE_POLICY_DEFINITION_CHANGED")
         if any(managed[k] != 0 for k in auth_fields):
             raise ValidationError("AUTH_MANAGED_DATA_NOT_INCLUDED")
         if managed["storage_objects"] != 0:
