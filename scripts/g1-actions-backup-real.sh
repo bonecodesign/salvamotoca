@@ -10,7 +10,10 @@ deny() { printf '%s\n' "G1 INTERROMPIDO: $1" >&2; exit 23; }
 [[ "${GITHUB_REPOSITORY:-}" == 'bonecodesign/salvamotoca' ]] || deny 'repositório inesperado'
 [[ "${GITHUB_REF:-}" == 'refs/heads/main' ]] || deny 'somente main'
 [[ "${GITHUB_EVENT_NAME:-}" == 'workflow_dispatch' ]] || deny 'somente disparo manual'
-[[ "${G1_BACKUP_ENABLED:-}" == 'true' ]] || deny 'não habilitado pelo fundador'
+# O job guard gera este valor como output imutável do disparo manual.
+# Não usar uma variável administrativa mutável aqui: ela pode mudar entre
+# a fila e o runner, invalidando um disparo que já passou pela autorização.
+[[ "${G1_BACKUP_AUTHORIZED:-}" == 'true' ]] || deny 'disparo manual não autorizado'
 [[ "${G1_CONFIRM:-}" == 'BACKUP_TESTES_SALVAMOTOCA' ]] || deny 'confirmação incorreta'
 [[ -n "${G1_SUPABASE_DB_URL:-}" ]] || deny 'sem secret da conexão'
 [[ -n "${G1_DROPBOX_ACCESS_TOKEN:-}" ]] || deny 'sem secret Dropbox'

@@ -134,9 +134,23 @@ jobs:
             echo 'Não permitir upload público de dados/permissão de escrita' >&2
             exit 1
           fi
-          if env -u G1_SUPABASE_DB_URL -u G1_DROPBOX_ACCESS_TOKEN -u G1_AGE_RECIPIENT \
+          # Static guard: the exporter must consume only the immutable result
+          # of the manual authorization job, never a mutable environment variable.
+          grep -Fq 'G1_BACKUP_AUTHORIZED: ${{ needs.guard.outputs.authorized }}' .github/workflows/g1-supabase-backup-manual.yml
+          # A legacy/mutable true variable alone can NEVER invoke the exporter.
+          if env -u G1_BACKUP_AUTHORIZED -u G1_SUPABASE_DB_URL -u G1_DROPBOX_ACCESS_TOKEN -u G1_AGE_RECIPIENT \
              GITHUB_REPOSITORY=bonecodesign/salvamotoca GITHUB_REF=refs/heads/main \
              GITHUB_EVENT_NAME=workflow_dispatch G1_BACKUP_ENABLED=true \
+             G1_CONFIRM=BACKUP_TESTES_SALVAMOTOCA \
+             bash scripts/g1-actions-backup-real.sh > "$RUNNER_TEMP/no-authorization.out" 2>&1; then
+             echo 'Fluxo de backup aceitou variável antiga sem autorização do guard' >&2
+             exit 1
+          fi
+          grep -q 'disparo manual não autorizado' "$RUNNER_TEMP/no-authorization.out"
+          # Even with the guard authorized, missing credentials must stop first.
+          if env -u G1_SUPABASE_DB_URL -u G1_DROPBOX_ACCESS_TOKEN -u G1_AGE_RECIPIENT \
+             GITHUB_REPOSITORY=bonecodesign/salvamotoca GITHUB_REF=refs/heads/main \
+             GITHUB_EVENT_NAME=workflow_dispatch G1_BACKUP_AUTHORIZED=true \
              G1_CONFIRM=BACKUP_TESTES_SALVAMOTOCA \
              bash scripts/g1-actions-backup-real.sh > "$RUNNER_TEMP/rejected.out" 2>&1; then
              echo 'Fluxo de backup aceitou credenciais ausentes' >&2

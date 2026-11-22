@@ -4,7 +4,7 @@
 
 ## Implementação preparada
 
-- Workflow: .github/workflows/g1-supabase-backup-manual.yml — disparo exclusivamente manual (workflow_dispatch), somente na main, exige confirmação e habilitação, usa ambiente GitHub g1-backup-testes com secrets. Somente contents: read, sem upload-artifact, commits, pull_request, push ou agendamento.
+- Workflow: .github/workflows/g1-supabase-backup-manual.yml — disparo exclusivamente manual (workflow_dispatch), somente na main, exige confirmação explícita capturada no disparo manual, usa ambiente GitHub g1-backup-testes com secrets. Somente contents: read, sem upload-artifact, commits, pull_request, push ou agendamento.
 - Runner: scripts/g1-actions-backup-real.sh — valida URL do Session Pooler com projeto exato, verifica se o Storage tem zero objetos, exporta roles, schema, data e migrações por Supabase CLI v3, cria manifesto SHA-256, cifra com age/X25519 ANTES do envio e envia apenas arquivo cifrado para uma pasta privada via Dropbox API. Confere tamanho e Dropbox content_hash, limite preventivo de 100 MiB. Segredos não são impressos.
 - CI independente de secrets: o workflow existente g1-backup-restore-offline.yml testa sintaxe, trava de segurança, criptografia com dados fictícios e o experimento PG17 de dump/restauração anteriormente aprovado.
 
@@ -12,14 +12,13 @@
 
 | Item | Onde configurar | Proteção |
 | --- | --- | --- |
-| G1_BACKUP_ENABLED | GitHub Settings > Secrets and variables > Actions > **Variables**, iniciar como false | Só mudar para true depois de revisar/autorizar execução |
 | G1_AGE_RECIPIENT | GitHub Actions **Variables** | Chave PÚBLICA age1...; chave PRIVADA permanece exclusivamente com o fundador, fora do GitHub e desta conversa |
 | G1_SUPABASE_DB_URL | GitHub **Environment Secret** do ambiente g1-backup-testes | URL PostgreSQL do **Session Pooler** do projeto de testes, usuário postgres.yivkqyjdeouxnwtwfekc; NÃO é a URL HTTP |
 | G1_DROPBOX_ACCESS_TOKEN | Mesmo Environment Secret | Token Dropbox API de curta duração com escopo mínimo files.content.write e acesso ao App Folder privado, **não é o acesso ao Dropbox do ChatGPT** |
 | G1_DROPBOX_PATH | Workflow versionado | Valor fixo `/backup-testes` na raiz do token Dropbox App Folder; no Dropbox conectado ele corresponde a `/Apps/Salva Motoca/backup-testes`. O script recusa qualquer outro destino e envia somente ciphertext para esse cofre |
 | g1-backup-testes | GitHub Settings > Environments | Restringir à branch main; configurar aprovação humana/proteções disponíveis |
 
-O GitHub conectado a este ChatGPT não disponibiliza criação/leitura de Actions Secrets, configuração de Environments nem disparo manual de workflows. E um workflow_dispatch só aparecerá normalmente na interface quando o workflow fizer parte da branch padrão main. Este candidato permanece **Draft e sem merge automático**.
+A autorização do exportador é um output do job guard **somente após** validar repositório, branch main, disparo manual, frase de confirmação **e `G1_BACKUP_ENABLED=true` no ambiente protegido no instante da verificação**. Depois de aprovada, a autorização fica congelada no output do guard: o exportador não relê a variável, evitando uma corrida entre os jobs. A variável pode voltar a `false` após a aprovação do guard sem cancelar automaticamente o run já autorizado; para impedir sua execução, o operador deve cancelar o run. Não é permitido tratar `G1_BACKUP_ENABLED=false` no momento do guard como autorização válida. E um workflow_dispatch só aparecerá normalmente na interface quando o workflow fizer parte da branch padrão main. Este candidato permanece **Draft e sem merge automático**.
 
 ## Teste adversarial completo com ferramentas simuladas — 19/11/2026
 
@@ -43,7 +42,7 @@ Essas validações reduzem o risco antes da configuração humana. **Não signif
 
 ## Por que NÃO é G1 aprovado
 
-1. A exportação não foi feita: faltam credenciais seguras, chave pública, destino privado e aprovação de execução.
+1. A exportação real ainda precisa completar e ser comprovada por restauração isolada; o disparo manual continua exigindo a frase de confirmação e os secrets do ambiente.
 2. O backup criptografado, mesmo quando enviado, precisa ser **decifrado e restaurado em ambiente ISOLADO** com a chave privada; esse teste não ocorrerá no GitHub público.
 3. O CLI pode excluir partes de esquemas Supabase gerenciados da exportação de estrutura: auditar a reconstrução completa de Auth, políticas, RLS, dados, grants e história das migrações durante a restauração.
 4. O backup SQL não inclui bytes físicos de Storage. O script aborta se houver objetos no Storage, pois não tenta cobri-los.
