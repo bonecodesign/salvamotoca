@@ -49,6 +49,11 @@ def validate(scope: object) -> None:
     b = buckets[0]
     if not isinstance(b, dict) or set(b) != set(EXPECTED_BUCKETS[0]):
         raise ManagedScopeBlocked("STORAGE_BUCKET_CONFIGURATION_CHANGED")
+    if (type(b["name"]) is not str or type(b["private"]) is not bool
+        or type(b["file_size_limit"]) is not int
+        or not isinstance(b["allowed_mime_types"], list)
+        or any(type(x) is not str for x in b["allowed_mime_types"])):
+        raise ManagedScopeBlocked("STORAGE_BUCKET_CONFIGURATION_CHANGED")
     if b != EXPECTED_BUCKETS[0]:
         raise ManagedScopeBlocked("STORAGE_BUCKET_CONFIGURATION_CHANGED")
 
