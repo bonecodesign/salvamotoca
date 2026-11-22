@@ -71,3 +71,12 @@ Fontes oficiais:
 - https://www.dropbox.com/developers/documentation/http/documentation#files-upload
 
 **Conclusão: pacote preparado para revisão, sem escrita no Supabase de testes, zero novas contratações e sem autorização comercial.**
+
+
+## Evidência do run 9 e condição atual — 22/11/2026
+
+- Run 9 ([GitHub Actions #45074685352](https://github.com/bonecodesign/salvamotoca/actions/runs/45074685352)): a guarda manual passou; a conexão PostgreSQL de testes foi autenticada; `storage.objects=0`; a exportação lógica foi cifrada antes do envio e o upload respondeu com tamanho e hash de conteúdo conferidos pelo fluxo.
+- Marcadores seguros do job: `G1_DB_CONNECTION_AUTHENTICATED=PASS`, `G1_STORAGE_OBJECTS_EMPTY=PASS` e `G1_ENCRYPTED_BACKUP_UPLOADED_PRIVATE_DROPBOX=CONFIRMED`. O job registrou explicitamente `G1_REMOTE_RESTORE_PROVEN=FALSE`, `G1=BLOCKED` e `RELEASE=NO_GO`.
+- A consulta independente ao local privado esperado não localizou o novo arquivo cifrado. Assim, o retorno da API no runner comprova o envio recebido pelo destino autenticado, mas **não comprova que esse destino seja o cofre privado conectado que está sendo auditado agora**. Não houve download, exposição ou alteração de arquivos durante essa conferência.
+- Antes de novo backup ou restauração, é obrigatório reconciliar a identidade da conta Dropbox associada ao token de Actions com a conta/cofre auditado e manter a identidade privada age fora do cofre de backups. Essa reconciliação deve ser comprovada por metadados, sem divulgar token, chaves ou conteúdo.
+- Resultado desta evidência: criação de backup cifrado no fluxo remoto **parcialmente comprovada**; persistência no cofre auditado e restauração isolada seguem pendentes. G1 continua **BLOCKED** e a liberação continua **NO_GO**.
