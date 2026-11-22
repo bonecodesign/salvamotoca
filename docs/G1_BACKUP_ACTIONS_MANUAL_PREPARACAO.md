@@ -18,7 +18,7 @@
 | G1_DROPBOX_PATH | Workflow versionado | Valor fixo `/backup-testes` na raiz do token Dropbox App Folder; no Dropbox conectado ele corresponde a `/Apps/Salva Motoca/backup-testes`. O script recusa qualquer outro destino e envia somente ciphertext para esse cofre |
 | g1-backup-testes | GitHub Settings > Environments | Restringir à branch main; configurar aprovação humana/proteções disponíveis |
 
-A autorização do exportador é um output do job guard **somente após** validar repositório, branch main, disparo manual, frase de confirmação **e `G1_BACKUP_ENABLED=true` no ambiente protegido no instante da verificação**. Depois de aprovada, a autorização fica congelada no output do guard: o exportador não relê a variável, evitando uma corrida entre os jobs. A variável pode voltar a `false` após a aprovação do guard sem cancelar automaticamente o run já autorizado; para impedir sua execução, o operador deve cancelar o run. Não é permitido tratar `G1_BACKUP_ENABLED=false` no momento do guard como autorização válida. E um workflow_dispatch só aparecerá normalmente na interface quando o workflow fizer parte da branch padrão main. Este candidato permanece **Draft e sem merge automático**.
+A autorização do exportador é um output imutável do job guard **somente após** validar repositório, branch main, disparo manual e a frase de confirmação. O exportador aceita exclusivamente esse output; não lê `G1_BACKUP_ENABLED` nem outra variável mutável durante a fila ou a execução. Isto elimina a corrida observada nos runs anteriores sem conceder qualquer gatilho automático: o workflow continua sendo `workflow_dispatch` exclusivo, exige a frase explícita e só opera no repositório/branch autorizados. E um workflow_dispatch só aparecerá normalmente na interface quando o workflow fizer parte da branch padrão main.
 
 ## Teste adversarial completo com ferramentas simuladas — 19/11/2026
 
@@ -39,6 +39,14 @@ Foi repetida consulta **somente SELECT**, diretamente no Supabase de testes, em 
 **Testes adversariais de CI:** o mock local em `tests/g1-actions-backup-fake-e2e.sh` agora precisa provar, adicionalmente, a inclusão do inventário cifrado, rejeitar uma tabela essencial ausente do dump e rejeitar uma variação de contagens antes/depois. Os testes anteriores de criptografia, hash remoto adulterado, projeto inesperado e Storage não vazio foram mantidos, e a verificação continua **sem credenciais reais nem chamadas ao Supabase/Dropbox**. Evidência: [CI #44589991913](https://github.com/bonecodesign/salvamotoca/actions/runs/44589991913) — SUCCESS.
 
 Essas validações reduzem o risco antes da configuração humana. **Não significam que o `pg_dump` hospedado, a transmissão ao Dropbox ou a restauração real tenham ocorrido**.
+
+
+## Evidência de tentativa real controlada — 22/11/2026
+
+- Runs 6 e 7: falharam antes de acessar o exportador por causa de uma guarda mutável. A correção foi testada integralmente offline e integrada por PRs separados #110 e #111.
+- Run 8 ([GitHub Actions #45073048177](https://github.com/bonecodesign/salvamotoca/actions/runs/45073048177)): a guarda manual passou; a conexão PostgreSQL de testes autenticou; o inventário e a verificação `storage.objects=0` passaram. A etapa de upload cifrado retornou HTTP 401 no Dropbox.
+- Não houve upload confirmado, artefato público, dump bruto, chave privada, escrita no Supabase, atendimento ou pagamento. O script remove os arquivos temporários ao falhar; portanto esse run **não constitui backup**.
+- Próximo requisito técnico: renovar com segurança o token de API do Dropbox configurado como `G1_DROPBOX_ACCESS_TOKEN` no Environment Secret `g1-backup-testes`, ou executar o mesmo exportador em máquina local com credenciais fornecidas fora desta conversa. Depois, é obrigatória restauração isolada com a chave privada age antes de G1=PASS.
 
 ## Por que NÃO é G1 aprovado
 
