@@ -18,7 +18,7 @@
 | G1_DROPBOX_PATH | Workflow versionado | Valor fixo `/backup-testes` na raiz do token Dropbox App Folder; no Dropbox conectado ele corresponde a `/Apps/Salva Motoca/backup-testes`. O script recusa qualquer outro destino e envia somente ciphertext para esse cofre |
 | g1-backup-testes | GitHub Settings > Environments | Restringir à branch main; configurar aprovação humana/proteções disponíveis |
 
-A autorização do exportador é um output imutável do job guard após validar repositório, branch main, disparo manual e a frase de confirmação. A variável administrativa `G1_BACKUP_ENABLED` pode permanecer `false`: ela não é mais usada no job exportador, evitando alteração entre a fila e o runner. E um workflow_dispatch só aparecerá normalmente na interface quando o workflow fizer parte da branch padrão main. Este candidato permanece **Draft e sem merge automático**.
+A autorização do exportador é um output do job guard **somente após** validar repositório, branch main, disparo manual, frase de confirmação **e `G1_BACKUP_ENABLED=true` no ambiente protegido no instante da verificação**. Depois de aprovada, a autorização fica congelada no output do guard: o exportador não relê a variável, evitando uma corrida entre os jobs. A variável pode voltar a `false` após a aprovação do guard sem cancelar automaticamente o run já autorizado; para impedir sua execução, o operador deve cancelar o run. Não é permitido tratar `G1_BACKUP_ENABLED=false` no momento do guard como autorização válida. E um workflow_dispatch só aparecerá normalmente na interface quando o workflow fizer parte da branch padrão main. Este candidato permanece **Draft e sem merge automático**.
 
 ## Teste adversarial completo com ferramentas simuladas — 19/11/2026
 
