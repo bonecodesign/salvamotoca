@@ -1,3 +1,13 @@
+## Resultado real do diagnóstico isolado — 21/11/2026 (Brasília)
+
+O fundador autorizou expressamente a execução direta nesta conversa sem usar o botão manual. A ferramenta GitHub conectada não expõe `workflow_dispatch`, então foi criado um **gatilho de push temporário, limitado a um arquivo marcador em main**, com Environment protegido, execução única (`run_attempt == 1`) e sem qualquer ação de backup.
+
+**Evidência:** [GitHub Actions #44964994102](https://github.com/bonecodesign/salvamotoca/actions/runs/44964994102) — o job foi executado e concluiu `FAIL:PASSWORD_REJECTED` ao tentar somente `SELECT 1;`, usando o Secret atual. A saída registrou `G1_REAL_BACKUP=NOT_ATTEMPTED`, `G1_DROPBOX_UPLOAD=NOT_ATTEMPTED`, `G1=BLOCKED` e `RELEASE=NO_GO`. Nenhum SQL do app foi exportado, nenhuma senha/URL foi registrada e nenhuma alteração foi realizada no Supabase.
+
+**Conclusão comprovada:** no momento do teste, a credencial protegida `G1_SUPABASE_DB_URL` **não autenticava** no Session Pooler. A validação prévia da URI passou (formato de host, projeto e porta corretos), mas isso não permite concluir se a senha está errada, desatualizada, foi alterada, ou se há problema no cadastro de credencial do pooler. **Não redefinir a senha sem análise das dependências.**
+
+O PR de limpeza remove o workflow automatizado excepcional e seu arquivo marcador, mantendo o workflow manual seguro e o validador permanentemente no repositório. Uma nova execução do diagnóstico só deve ocorrer **após** atualizar a credencial protegida no painel do GitHub, sem a compartilhar nesta conversa. Nenhuma ferramenta conectada aqui oferece atualizar GitHub Environment Secrets; portanto, o bloqueio administrativo permanece.
+
 # Salva Motoca! — diagnóstico G1 de autenticação PostgreSQL (21/11/2026)
 
 **Projeto:** Supabase de TESTES yivkqyjdeouxnwtwfekc (sa-east-1, PostgreSQL 17.11). **Estado:** G1=BLOCKED; RELEASE=NO_GO.
