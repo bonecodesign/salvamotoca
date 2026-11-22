@@ -55,7 +55,7 @@ cat > source_schema_inventory_before.json <<'SCHEMA_JSON'
 {"tables":[{"name":"prestadores_prospeccao","rls_enabled":true,"policy_count":1},{"name":"ofertas_prospeccao","rls_enabled":true,"policy_count":1},{"name":"configuracao_comercial","rls_enabled":true,"policy_count":1}]}
 SCHEMA_JSON
 cat > source_managed_scope_before.json <<'MANAGED_JSON'
-{"auth_users":0,"auth_identities":0,"auth_sessions":0,"auth_refresh_tokens":0,"auth_mfa_factors":0,"auth_flow_state":0,"storage_objects":0,"storage_policy_count":3,"storage_buckets":[{"name":"request-photos","private":true,"file_size_limit":5242880,"allowed_mime_types":["image/jpeg"]}]}
+{"auth_users":0,"auth_identities":0,"auth_sessions":0,"auth_refresh_tokens":0,"auth_mfa_factors":0,"auth_flow_state":0,"storage_objects":0,"storage_policy_count":3,"storage_policy_sha256":"c75f54c93a080d4552558ce59539c2e8813a645b5dfdfe44ebd328839aad2254","storage_buckets":[{"name":"request-photos","private":true,"file_size_limit":5242880,"allowed_mime_types":["image/jpeg"]}]}
 MANAGED_JSON
 python3 "$GITHUB_WORKSPACE/scripts/g1-verify-managed-scope.py" \
  --input source_managed_scope_before.json > "$dir/managed-scope.log"
