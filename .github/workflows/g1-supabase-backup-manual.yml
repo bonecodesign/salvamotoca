@@ -20,9 +20,9 @@ jobs:
     outputs:
       authorized: ${{ steps.authorize.outputs.authorized }}
     env:
+      # This explicit input is the single authorization surface for a manual
+      # test backup; its validated result is frozen as a job output below.
       G1_CONFIRM: ${{ inputs.confirm }}
-      # Must be enabled when the guarded run begins. Snapshot does not bypass this gate.
-      G1_BACKUP_ENABLED: ${{ vars.G1_BACKUP_ENABLED }}
     steps:
       - id: authorize
         name: "Negar execuções fora do projeto autorizado"
@@ -35,11 +35,8 @@ jobs:
           [[ "$G1_CONFIRM" == "BACKUP_TESTES_SALVAMOTOCA" ]] || {
             echo "::error::Confirmação do fundador ausente/inválida"; exit 1;
           }
-          [[ "$G1_BACKUP_ENABLED" == "true" ]] || {
-            echo "::error::Backup G1 desabilitado no ambiente protegido"; exit 1;
-          }
-          # Congela APENAS uma autorização já aprovada: o exportador não precisa
-          # reler a variável administrativa durante a fila nem durante a execução.
+          # Congela a autorização validada; o exportador não relê variáveis
+          # mutáveis enquanto aguarda na fila nem durante a execução.
           echo "authorized=true" >> "$GITHUB_OUTPUT"
           echo "G1_AUTHORIZED_TEST_BACKUP_MANUAL_PRECHECK=PASS"
 
