@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import re
 from pathlib import Path
 import sys
 
@@ -17,6 +18,7 @@ AUTH_FIELDS = (
 )
 EXPECTED_FIELDS = set(AUTH_FIELDS) | {
     "storage_objects", "storage_buckets", "storage_policy_count",
+    "storage_policy_sha256",
 }
 EXPECTED_BUCKETS = [{
     "name": "request-photos",
@@ -25,6 +27,8 @@ EXPECTED_BUCKETS = [{
     "allowed_mime_types": ["image/jpeg"],
 }]
 MAX_BYTES = 64_000
+# Baseline from TESTES read-only on 2026-11-22. Drift guard, not restoration proof.
+EXPECTED_STORAGE_POLICY_SHA256 = "c75f54c93a080d4552558ce59539c2e8813a645b5dfdfe44ebd328839aad2254"
 
 
 class ManagedScopeBlocked(Exception):
@@ -37,6 +41,11 @@ def validate(scope: object) -> None:
     for name in AUTH_FIELDS + ("storage_objects", "storage_policy_count"):
         if type(scope[name]) is not int or scope[name] < 0:
             raise ManagedScopeBlocked("MANAGED_SCOPE_COUNT_INVALID")
+    policy_hash = scope["storage_policy_sha256"]
+    if (type(policy_hash) is not str
+            or re.fullmatch(r"[0-9a-f]{64}", policy_hash) is None
+            or policy_hash != EXPECTED_STORAGE_POLICY_SHA256):
+        raise ManagedScopeBlocked("STORAGE_POLICY_DEFINITION_CHANGED")
     if any(scope[name] != 0 for name in AUTH_FIELDS):
         raise ManagedScopeBlocked("AUTH_MANAGED_DATA_NOT_IN_G1_SQL")
     if scope["storage_objects"] != 0:
