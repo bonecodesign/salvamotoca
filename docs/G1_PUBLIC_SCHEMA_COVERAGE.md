@@ -13,13 +13,13 @@ Uma consulta **somente de leitura executada diretamente no Supabase de testes**,
 
 1. `scripts/g1-actions-backup-real.sh` agora consulta o catálogo `pg_class` e `pg_policies` **antes e depois dos dumps** e produz `source_schema_inventory_before.json`. A lista é **dinâmica**: contém somente nome da tabela, estado de RLS e quantidade de políticas; não inclui linhas, identidades, chaves ou secrets. O backup **falha** se houver mudança no catálogo entre consultas.
 2. `scripts/g1-verify-public-dump-coverage.py` recebe **inventário, `schema.sql` e `data.sql`** e exige que cada tabela inventariada tenha:
-   - uma declaração `CREATE TABLE` no dump de schema;
+   - uma declaração `CREATE TABLE` no dump de schema, com ou sem `IF NOT EXISTS`;
    - um comando `COPY` no dump de dados (inclusive para tabelas vazias);
    - `ALTER TABLE ... ENABLE ROW LEVEL SECURITY` quando o catálogo informa RLS ativa;
    - o número correspondente de comandos `CREATE POLICY`.
    Rejeita também tabelas inesperadas ou duplicadas, nomes inválidos e arquivos acima de limite preventivo. Não imprime o conteúdo dos arquivos, apenas status.
 3. O inventário de schema é incluído no pacote `tar.gz.age`, protegido por SHA-256 **e criptografado** junto dos demais arquivos. `scripts/g1-verify-encrypted-bundle.py` foi atualizado para exigir o novo membro e conferir o conjunto completo de tabelas `public` em comandos `COPY`.
-4. Os testes de CI no PostgreSQL 17 descartável agora criam **três tabelas fictícias com RLS e políticas reais**, produzem `pg_dump` verdadeiro, criptografam, conferem integridade e restauram o SQL em outro banco descartável. Testes com API falsa de Supabase/Dropbox incluem também: tabela nova não incluída no dump, regra RLS omitida e alterações no número de políticas durante a exportação.
+4. Os testes de CI no PostgreSQL 17 descartável agora criam **três tabelas fictícias com RLS e políticas reais**, produzem `pg_dump` verdadeiro, criptografam, conferem integridade e restauram o SQL em outro banco descartável. Testes com API falsa de Supabase/Dropbox incluem também: formato idempotente `CREATE TABLE IF NOT EXISTS` emitido pela CLI, tabela nova não incluída no dump, regra RLS omitida e alterações no número de políticas durante a exportação.
 
 ## O que isto NÃO prova
 
