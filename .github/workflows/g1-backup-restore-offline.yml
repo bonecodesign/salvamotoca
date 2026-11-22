@@ -9,8 +9,6 @@ on:
       - "scripts/g1-validate-db-url.py"
       - "tests/test_g1_db_url_validation.py"
       - ".github/workflows/g1-postgres-auth-readonly.yml"
-      - ".github/workflows/g1-auth-one-shot-20261121.yml"
-      - "ops/g1-triggers/only-auth-20261121.txt"
       - "scripts/g1-auth-readonly-probe.py"
       - "tests/test_g1_auth_readonly_probe.py"
       - "docs/G1_AUTH_FAILURE_DIAGNOSTICO_2026-11-21.md"
@@ -54,25 +52,6 @@ jobs:
           python3 -m py_compile scripts/g1-validate-db-url.py
           python3 -m unittest discover -s tests -p 'test_g1_db_url_validation.py' -v
           python3 -m unittest discover -s tests -p 'test_g1_auth_readonly_probe.py' -v
-          python3 - <<'PY'
-          from pathlib import Path
-          wf=Path(".github/workflows/g1-auth-one-shot-20261121.yml").read_text()
-          marker=Path("ops/g1-triggers/only-auth-20261121.txt").read_text()
-          assert marker == "G1_DIAGNOSTICO_POSTGRES_TESTES_UMA_VEZ_20261121\\n".replace("\\n", "\n")
-          for required in (
-              "push:", "only-auth-20261121.txt",
-              "github.run_attempt == 1",
-              "environment: g1-backup-testes",
-              "contents: read", "READ_ONLY_CONNECTION_OK",
-              "scripts/g1-auth-readonly-probe.py"
-          ):
-              assert required in wf, required
-          for forbidden in ("pull_request:", "schedule:", "upload-artifact",
-                            "db dump", "DROPBOX_ACCESS_TOKEN", "contents: write",
-                            "git push"):
-              assert forbidden not in wf, forbidden
-          print("G1_AUTH_SINGLE_SHOT_POLICY=PASS")
-          PY
           test -f .github/workflows/g1-postgres-auth-readonly.yml
           grep -q 'workflow_dispatch:' .github/workflows/g1-postgres-auth-readonly.yml
           if grep -qE '^[[:space:]]*(pull_request|push|schedule|pull_request_target):' .github/workflows/g1-postgres-auth-readonly.yml; then
