@@ -65,7 +65,7 @@ jobs:
           # The catalog query is strictly read-only: no DML/DDL/procedures.
           import re
           for keyword in ('INSERT','UPDATE','DELETE','DROP','ALTER','CREATE','GRANT','REVOKE','CALL','DO'):
-              assert not re.search(r'^\\s*'+keyword+r'\\b', sql, re.I|re.M), keyword
+              assert not re.search(r'^\s*'+keyword+r'\b', sql, re.I|re.M), keyword
           assert "pg_get_functiondef" in sql and "aclexplode" in sql
           assert "jsonb_build_object" in sql
           print('G1_RPC_METADATA_QUERY_READONLY=PASS')
