@@ -12,7 +12,7 @@ export GITHUB_REPOSITORY='bonecodesign/salvamotoca'
 export GITHUB_REF='refs/heads/main'
 export GITHUB_EVENT_NAME='workflow_dispatch'
 export GITHUB_RUN_ID='00042'
-export G1_BACKUP_ENABLED='true'
+export G1_BACKUP_AUTHORIZED='true'
 export G1_CONFIRM='BACKUP_TESTES_SALVAMOTOCA'
 # All credentials and hosts are explicitly FICTIONAL, sent only to mocks.
 export G1_SUPABASE_DB_URL='postgresql://postgres.yivkqyjdeouxnwtwfekc:fictional-password@aws-0-sa-east-1.pooler.supabase.com:5432/postgres?sslmode=require'
@@ -120,6 +120,13 @@ MOCK
 chmod 700 "$tmp/bin/"*
 export PATH="$tmp/bin:$PATH"
 script='scripts/g1-actions-backup-real.sh'
+
+# A mutable repository variable cannot authorize the exporter. Only the
+# immutable output from the manual guard may do so.
+if G1_BACKUP_AUTHORIZED=false bash "$script" > "$tmp/not-authorized.log" 2>&1; then
+ echo 'FAIL: exporter accepted missing manual authorization'; exit 1
+fi
+grep -q 'disparo manual não autorizado' "$tmp/not-authorized.log"
 
 # Reject another project before touching any database. Still uses only mocks.
 bad_url="$(printf '%s' "$G1_SUPABASE_DB_URL" | sed 's/yivkqyjdeouxnwtwfekc/differentref00000000000/')"
@@ -268,6 +275,7 @@ if grep -F 'fictional-password' "$tmp/"*.log >/dev/null ||
  echo 'FAIL: secret leaked to logs'; exit 1
 fi
 echo 'G1_MOCK_FULL_PIPELINE=PASS'
+echo 'G1_MANUAL_AUTHORIZATION=REQUIRED'
 echo 'G1_FOREIGN_PROJECT=REJECTED'
 echo 'G1_STORAGE_WITH_OBJECTS=REJECTED'
 echo 'G1_CORRUPT_REMOTE_HASH=REJECTED'
