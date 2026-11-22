@@ -190,6 +190,47 @@ G1_SYNTHETIC_CI_ONLY=true python3 scripts/g1-verify-encrypted-bundle.py \
 grep -q 'G1_ENCRYPTED_ARCHIVE_INTEGRITY=PASS' "$tmp/integrity-ok.log"
 grep -q 'G1_RESTORATION_VERIFIED=FALSE' "$tmp/integrity-ok.log"
 
+# Even when a forged archive has a freshly recalculated SHA256 manifest,
+# semantic scope violations MUST fail (signature only proves integrity).
+for scenario in auth_users public_bucket; do
+ python3 - "$tmp/restored.tar.gz" "$tmp/managed-$scenario.tar.gz" "$scenario" <<'PY'
+import hashlib, io, json, sys, tarfile
+src,dst,scenario=sys.argv[1:]
+with tarfile.open(src,'r:gz') as origin:
+ data={m.name:origin.extractfile(m).read() for m in origin.getmembers()}
+ managed=json.loads(data['source_managed_scope_before.json'])
+ if scenario=='auth_users': managed['auth_users']=1
+ elif scenario=='public_bucket': managed['storage_buckets'][0]['private']=False
+ else: raise AssertionError('unknown synthetic scenario')
+ fresh=json.dumps(managed,sort_keys=True,separators=(',',':')).encode()
+ data['source_managed_scope_before.json']=fresh
+ digest=hashlib.sha256(fresh).hexdigest()
+ lines=data['manifest.sha256'].decode().splitlines()
+ lines=[digest+'  source_managed_scope_before.json'
+        if line.endswith('  source_managed_scope_before.json') else line
+        for line in lines]
+ data['manifest.sha256']=('\n'.join(lines)+'\n').encode()
+ with tarfile.open(dst,'w:gz') as target:
+  for name,raw in data.items():
+   info=tarfile.TarInfo(name)
+   info.size=len(raw)
+   info.mode=0o600
+   target.addfile(info,io.BytesIO(raw))
+PY
+ age -r "$G1_AGE_RECIPIENT" -o "$tmp/managed-$scenario.age" \
+  "$tmp/managed-$scenario.tar.gz"
+ if G1_SYNTHETIC_CI_ONLY=true python3 scripts/g1-verify-encrypted-bundle.py \
+  --archive "$tmp/managed-$scenario.age" --identity "$tmp/fake-identity.txt" \
+  > "$tmp/managed-$scenario.log" 2>&1; then
+  echo "FAIL: semantic Auth/Storage failure accepted despite valid SHA256"; exit 1
+ fi
+ if [[ "$scenario" == auth_users ]]; then
+  grep -q 'AUTH_MANAGED_DATA_NOT_INCLUDED' "$tmp/managed-$scenario.log"
+ else
+  grep -q 'STORAGE_MANAGED_CONFIGURATION_CHANGED' "$tmp/managed-$scenario.log"
+ fi
+done
+
 # Arquivo age adulterado: a autenticação criptográfica deve rejeitar.
 python3 - "$tmp/encrypted-received.age" "$tmp/corrupt.age" <<'PY'
 from pathlib import Path
@@ -300,6 +341,7 @@ echo 'G1_FOREIGN_PROJECT=REJECTED'
 echo 'G1_STORAGE_WITH_OBJECTS=REJECTED'
 echo 'G1_AUTH_USERS_AND_IDENTITIES=REJECTED'
 echo 'G1_STORAGE_BUCKET_POLICY_DRIFT=REJECTED'
+echo 'G1_FORGED_MANIFEST_AUTH_STORAGE=REJECTED'
 echo 'G1_CORRUPT_REMOTE_HASH=REJECTED'
 echo 'G1_MISSING_ESSENTIAL_TABLE=REJECTED'
 echo 'G1_PUBLIC_SCHEMA_RLS_COVERAGE=PASS'
