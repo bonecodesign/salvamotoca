@@ -31,6 +31,14 @@ set -euo pipefail
 [[ "$1" == "$G1_SUPABASE_DB_URL" ]]
 if [[ "$*" == *'select count(*) from storage.objects;'* ]]; then
  printf '%s\n' "${G1_FAKE_STORAGE_OBJECTS:-0}"
+elif [[ "$*" == *'auth.flow_state'* ]]; then
+ auth_users="${G1_FAKE_AUTH_USERS:-0}"
+ auth_identities="${G1_FAKE_AUTH_IDENTITIES:-0}"
+ objects="${G1_FAKE_STORAGE_OBJECTS:-0}"
+ policies="${G1_FAKE_STORAGE_POLICY_COUNT:-3}"
+ private=true
+ if [[ "${G1_FAKE_BUCKET_PUBLIC:-}" == "true" ]]; then private=false; fi
+ printf '{"auth_users":%s,"auth_identities":%s,"auth_sessions":0,"auth_refresh_tokens":0,"auth_mfa_factors":0,"auth_flow_state":0,"storage_objects":%s,"storage_policy_count":%s,"storage_buckets":[{"name":"request-photos","private":%s,"file_size_limit":5242880,"allowed_mime_types":["image/jpeg"]}]}\n' "$auth_users" "$auth_identities" "$objects" "$policies" "$private"
 elif [[ "$*" == *'pg_policies'* ]]; then
  num=0
  [[ -f "$G1_FAKE_SCHEMA_INVENTORY_COUNTER" ]] &&
@@ -133,6 +141,25 @@ fi
 grep -q 'Storage não está vazio' "$tmp/objects.log"
 [[ ! -e "$tmp/encrypted-received.age" ]]
 
+# Auth managed records are NOT recoverable from this SQL-only bundle.
+if G1_FAKE_AUTH_USERS=1 bash "$script" > "$tmp/auth-users.log" 2>&1; then
+ echo 'FAIL: Auth users silently excluded'; exit 1
+fi
+grep -q 'Auth/Storage fora do escopo' "$tmp/auth-users.log"
+if G1_FAKE_AUTH_IDENTITIES=1 bash "$script" > "$tmp/auth-identities.log" 2>&1; then
+ echo 'FAIL: Auth identities silently excluded'; exit 1
+fi
+grep -q 'Auth/Storage fora do escopo' "$tmp/auth-identities.log"
+if G1_FAKE_BUCKET_PUBLIC=true bash "$script" > "$tmp/bucket-public.log" 2>&1; then
+ echo 'FAIL: public Storage bucket accepted'; exit 1
+fi
+grep -q 'Auth/Storage fora do escopo' "$tmp/bucket-public.log"
+if G1_FAKE_STORAGE_POLICY_COUNT=2 bash "$script" > "$tmp/storage-policy.log" 2>&1; then
+ echo 'FAIL: altered Storage policy baseline accepted'; exit 1
+fi
+grep -q 'Auth/Storage fora do escopo' "$tmp/storage-policy.log"
+
+
 # Real script runs end-to-end, but mock SQL and mock Dropbox only.
 if ! bash "$script" > "$tmp/ok.log" 2>&1; then
   # Apenas etiquetas do mock, nunca SQL real ou credenciais.
@@ -151,6 +178,9 @@ for f in roles.sql schema.sql data.sql history_schema.sql history_data.sql; do
  test -s "$tmp/unpacked/$f"
 done
 grep -q 'g1_restoration_verified=false' "$tmp/unpacked/manifest.txt"
+grep -q 'auth_managed_schema_recovery_proven=false' "$tmp/unpacked/manifest.txt"
+grep -q 'storage_bucket_configuration_recovery_proven=false' "$tmp/unpacked/manifest.txt"
+test -s "$tmp/unpacked/source_managed_scope_before.json"
 
 # Verificador rigoroso: decrypt sem extrair SQL, allowlist tar, SHA256,
 # metadados, inventário e cabeçalhos COPY. Só chaves FICTÍCIAS em CI.
@@ -268,6 +298,8 @@ fi
 echo 'G1_MOCK_FULL_PIPELINE=PASS'
 echo 'G1_FOREIGN_PROJECT=REJECTED'
 echo 'G1_STORAGE_WITH_OBJECTS=REJECTED'
+echo 'G1_AUTH_USERS_AND_IDENTITIES=REJECTED'
+echo 'G1_STORAGE_BUCKET_POLICY_DRIFT=REJECTED'
 echo 'G1_CORRUPT_REMOTE_HASH=REJECTED'
 echo 'G1_MISSING_ESSENTIAL_TABLE=REJECTED'
 echo 'G1_PUBLIC_SCHEMA_RLS_COVERAGE=PASS'
