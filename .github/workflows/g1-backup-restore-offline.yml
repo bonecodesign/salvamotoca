@@ -14,6 +14,7 @@ on:
       - "docs/G1_AUTH_FAILURE_DIAGNOSTICO_2026-11-21.md"
       - "tests/g1-actions-backup-fake-e2e.sh"
       - "scripts/g1-verify-encrypted-bundle.py"
+      - "tests/test_g1_historical_archive_version.py"
       - "scripts/g1-repair-age-identity-offline.py"
       - "tests/test_g1_repair_age_identity.py"
       - "scripts/g1-verify-managed-scope.py"
@@ -206,6 +207,7 @@ jobs:
           set -euo pipefail
           bash -n tests/g1-actions-backup-fake-e2e.sh
           python3 -m py_compile scripts/g1-verify-encrypted-bundle.py
+          python3 -m unittest discover -s tests -p 'test_g1_historical_archive_version.py' -v
           python3 -m py_compile scripts/g1-verify-public-dump-coverage.py
           bash tests/g1-actions-backup-fake-e2e.sh
       - name: "Provar FK, trigger, RLS e ACL em restauração PG17 com dados fictícios"
