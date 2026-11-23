@@ -1,6 +1,6 @@
 # G1 — Backup cifrado via GitHub Actions: candidato SEM ATIVAÇÃO
 
-**Estado:** o Supabase existente yivkqyjdeouxnwtwfekc é de TESTES, não produção (SM-DEC-054). O procedimento de exportação REAL foi escrito, mas **não foi executado**; G1=BLOCKED e RELEASE=NO_GO. O repositório bonecodesign/salvamotoca é PÚBLICO.
+**Estado:** o Supabase existente yivkqyjdeouxnwtwfekc é de TESTES, não produção (SM-DEC-054). O procedimento de exportação REAL já foi tentado, mas a persistência no cofre auditado e a restauração ainda **não foram comprovadas**; G1=BLOCKED e RELEASE=NO_GO. O repositório bonecodesign/salvamotoca é PÚBLICO.
 
 ## Implementação preparada
 
@@ -80,3 +80,11 @@ Fontes oficiais:
 - A consulta independente ao local privado esperado não localizou o novo arquivo cifrado. Assim, o retorno da API no runner comprova o envio recebido pelo destino autenticado, mas **não comprova que esse destino seja o cofre privado conectado que está sendo auditado agora**. Não houve download, exposição ou alteração de arquivos durante essa conferência.
 - Antes de novo backup ou restauração, é obrigatório reconciliar a identidade da conta Dropbox associada ao token de Actions com a conta/cofre auditado e manter a identidade privada age fora do cofre de backups. Essa reconciliação deve ser comprovada por metadados, sem divulgar token, chaves ou conteúdo.
 - Resultado desta evidência: criação de backup cifrado no fluxo remoto **parcialmente comprovada**; persistência no cofre auditado e restauração isolada seguem pendentes. G1 continua **BLOCKED** e a liberação continua **NO_GO**.
+
+## Nova proteção proposta para reconciliação do destino — 22/11/2026
+
+**Auditoria independente:** a pasta conectada `/Apps/Salva Motoca/backup-testes` foi lida por metadados e listada integralmente (sem cursor pendente): contém apenas o arquivo da identidade privada age, **nenhum `.age` de backup**. Não foi aberto, baixado, movido nem excluído qualquer arquivo. O Supabase de testes permanece ativo. A persistência do run #45074685352 nesse cofre continua **não demonstrada**.
+
+**Correção em revisão neste PR:** o exportador, **antes de consultar o PostgreSQL**, chama `/2/files/get_metadata` para `/backup-testes` com o token próprio de Actions e compara, em silêncio, o SHA-256 do identificador da pasta com o valor da pasta previamente inspecionada pelo conector. Se a pasta for outra, inacessível ou a API negar `files.metadata.read`, aborta sem exportar, cifrar ou enviar dados. Nenhum token, ID de pasta em logs, dado pessoal ou segredo é publicado pelo guard. A verificação de tamanho e content_hash depois do upload continua obrigatória.
+
+**Condição de implantação:** a chave privada de recuperação deve ser copiada e validada pelo fundador em armazenamento local seguro **antes** de sair da pasta de backup. Não apagar, mover ou sobrescrever o único exemplar enquanto a cópia segura não estiver comprovada. O token de Actions precisa ter `files.metadata.read` e `files.content.write`, com acesso ao App Folder correto. Somente após passar pelo guard em um novo disparo explicitamente autorizado, confirmar o arquivo por listagem independente e demonstrar restauração isolada em PostgreSQL 17, reavaliar G1. **G1=BLOCKED; RELEASE=NO_GO.**
