@@ -100,6 +100,16 @@ cat > "$tmp/bin/curl" <<'MOCK'
 #!/usr/bin/env python3
 import os, sys, shutil, json, hashlib
 args=sys.argv[1:]
+if 'https://api.dropboxapi.com/2/files/get_metadata' in args:
+    assert os.environ['G1_DROPBOX_ACCESS_TOKEN'] in ' '.join(args)
+    payload=json.loads(args[args.index('--data')+1])
+    assert payload['path']=='/backup-testes'
+    if os.getenv('G1_FAKE_DROPBOX_METADATA_DENIED')=='true': sys.exit(22)
+    vault_id='id:u2TRAtz8DrcAAAAAAAAWqg'
+    if os.getenv('G1_FAKE_WRONG_DROPBOX_VAULT')=='true':
+        vault_id='id:wrong-vault-not-the-connected-app-folder'
+    print(json.dumps({'.tag':'folder','id':vault_id,'name':'backup-testes'}))
+    sys.exit(0)
 assert 'https://content.dropboxapi.com/2/files/upload' in args
 assert '--data-binary' in args
 path=args[args.index('--data-binary')+1]
@@ -142,6 +152,17 @@ fi
 grep -q 'Storage não está vazio' "$tmp/objects.log"
 [[ ! -e "$tmp/encrypted-received.age" ]]
 
+# Fail closed BEFORE SQL export when token belongs to a different App Folder.
+if G1_FAKE_WRONG_DROPBOX_VAULT=true bash "$script" > "$tmp/wrong-vault.log" 2>&1; then
+ echo 'FAIL: backup accepted another Dropbox vault'; exit 1
+fi
+grep -q 'token Dropbox aponta para outro cofre' "$tmp/wrong-vault.log"
+if G1_FAKE_DROPBOX_METADATA_DENIED=true bash "$script" > "$tmp/no-metadata.log" 2>&1; then
+ echo 'FAIL: Dropbox token without metadata scope accepted'; exit 1
+fi
+grep -q 'Dropbox não permitiu conferir o cofre' "$tmp/no-metadata.log"
+[[ ! -e "$tmp/encrypted-received.age" ]]
+
 # Real script runs end-to-end, but mock SQL and mock Dropbox only.
 if ! bash "$script" > "$tmp/ok.log" 2>&1; then
   # Apenas etiquetas do mock, nunca SQL real ou credenciais.
@@ -149,6 +170,7 @@ if ! bash "$script" > "$tmp/ok.log" 2>&1; then
   echo 'FAIL: synthetic backup pipeline did not pass' >&2
   exit 1
 fi
+grep -q 'G1_DROPBOX_VAULT_IDENTITY=PASS' "$tmp/ok.log"
 grep -q 'G1_ENCRYPTED_BACKUP_UPLOADED_PRIVATE_DROPBOX=CONFIRMED' "$tmp/ok.log"
 grep -q 'G1=BLOCKED' "$tmp/ok.log"
 test -s "$tmp/encrypted-received.age"
@@ -274,6 +296,8 @@ if grep -F 'fictional-password' "$tmp/"*.log >/dev/null ||
    grep -F 'fictional-test-token-only' "$tmp/"*.log >/dev/null; then
  echo 'FAIL: secret leaked to logs'; exit 1
 fi
+echo 'G1_DROPBOX_WRONG_VAULT=REJECTED'
+echo 'G1_DROPBOX_METADATA_UNAVAILABLE=REJECTED'
 echo 'G1_MOCK_FULL_PIPELINE=PASS'
 echo 'G1_MANUAL_AUTHORIZATION=REQUIRED'
 echo 'G1_FOREIGN_PROJECT=REJECTED'
