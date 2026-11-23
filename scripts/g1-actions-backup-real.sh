@@ -34,6 +34,33 @@ tmp="$(mktemp -d "$RUNNER_TEMP/g1-backup.XXXXXXXX")"
 cleanup() { rm -rf -- "$tmp"; }
 trap cleanup EXIT
 cd "$tmp"
+# Verificar identidade EXATA do cofre privado antes de consultar o banco.
+# Upload com HTTP 200 e hash válido pode ocorrer na conta/App Folder errada.
+# SHA-256 do ID da pasta validada via conector Dropbox (não é credencial).
+# O token Actions requer files.metadata.read além de files.content.write.
+if ! curl --fail --silent --max-time 30 --retry 0 \
+  -X POST 'https://api.dropboxapi.com/2/files/get_metadata' \
+  -H "Authorization: Bearer $G1_DROPBOX_ACCESS_TOKEN" \
+  -H 'Content-Type: application/json' \
+  --data '{"path":"/backup-testes"}' \
+  > "$tmp/dropbox-vault.json" 2> "$tmp/dropbox-vault.stderr"; then
+  deny 'Dropbox não permitiu conferir o cofre; verificar files.metadata.read sem revelar token'
+fi
+python3 - "$tmp/dropbox-vault.json" <<'PY' ||
+import hashlib,json,sys
+try:
+    with open(sys.argv[1],encoding='utf-8') as f: meta=json.load(f)
+    vault_id=meta.get('id')
+    valid=(meta.get('.tag')=='folder'
+           and meta.get('name')=='backup-testes'
+           and isinstance(vault_id,str)
+           and hashlib.sha256(vault_id.encode('utf-8')).hexdigest()
+               =='d122c2ef959705e9ac547542a2a8116b57fc8f9eb2647ecd3613af0e2301b8fb')
+except (OSError,ValueError,TypeError): valid=False
+sys.exit(0 if valid else 2)
+PY
+  deny 'token Dropbox aponta para outro cofre privado'
+echo 'G1_DROPBOX_VAULT_IDENTITY=PASS'
 # Nunca mostrar a URL (inclui senha) nem logs brutos de exportação.
 dump() {
   local name="$1"
