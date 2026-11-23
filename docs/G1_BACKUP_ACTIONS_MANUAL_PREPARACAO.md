@@ -1,5 +1,7 @@
 # G1 — Backup cifrado via GitHub Actions: candidato SEM ATIVAÇÃO
 
+**ATUALIZAÇÃO FACTUAL 22/11/2026 — O backup foi encontrado.** A pesquisa ampla no Dropbox localizou o .age do run #45074685352 em /Aplicativos/Salva Motoca G1 Backup/backup-testes. Ele tem 24.484 bytes e hash Dropbox f0b60e079d460885f614c33e08cfe9f211b756cd04edb0e801e3e8b906db41de. A cópia criptografada foi salva e relida na Biblioteca ChatGPT (App: Salva Motoca! / G1 - Backups criptografados), com SHA-256 idêntico ao original: f7ae94952411e6314c870d987914cec841f84d026f270908409a4d2f96785678. A pasta /Apps/Salva Motoca/backup-testes antes auditada é OUTRA pasta. As notas abaixo sobre ausência de arquivo referem-se somente à pasta errada, não ao destino real. Chave privada intocada; descriptografia e restauração ainda não comprovadas. G1=BLOCKED / RELEASE=NO_GO.
+
 **Estado:** o Supabase existente yivkqyjdeouxnwtwfekc é de TESTES, não produção (SM-DEC-054). O procedimento de exportação REAL já foi tentado, mas a persistência no cofre auditado e a restauração ainda **não foram comprovadas**; G1=BLOCKED e RELEASE=NO_GO. O repositório bonecodesign/salvamotoca é PÚBLICO.
 
 ## Implementação preparada
@@ -15,7 +17,7 @@
 | G1_AGE_RECIPIENT | GitHub Actions **Variables** | Chave PÚBLICA age1...; chave PRIVADA permanece exclusivamente com o fundador, fora do GitHub e desta conversa |
 | G1_SUPABASE_DB_URL | GitHub **Environment Secret** do ambiente g1-backup-testes | URL PostgreSQL do **Session Pooler** do projeto de testes, usuário postgres.yivkqyjdeouxnwtwfekc; NÃO é a URL HTTP |
 | G1_DROPBOX_ACCESS_TOKEN | Mesmo Environment Secret | Token Dropbox API de curta duração com escopo mínimo files.content.write e acesso ao App Folder privado, **não é o acesso ao Dropbox do ChatGPT** |
-| G1_DROPBOX_PATH | Workflow versionado | Valor fixo `/backup-testes` na raiz do token Dropbox App Folder; no Dropbox conectado ele corresponde a `/Apps/Salva Motoca/backup-testes`. O script recusa qualquer outro destino e envia somente ciphertext para esse cofre |
+| G1_DROPBOX_PATH | Workflow versionado | Valor fixo `/backup-testes` na raiz do token Dropbox App Folder; no Dropbox conectado ele corresponde a `/Aplicativos/Salva Motoca G1 Backup/backup-testes` (NÃO à pasta distinta `/Apps/Salva Motoca/backup-testes`). O script recusa qualquer outro destino e envia somente ciphertext para esse cofre |
 | g1-backup-testes | GitHub Settings > Environments | Restringir à branch main; configurar aprovação humana/proteções disponíveis |
 
 A autorização do exportador é um output imutável do job guard **somente após** validar repositório, branch main, disparo manual e a frase de confirmação. O exportador aceita exclusivamente esse output; não lê `G1_BACKUP_ENABLED` nem outra variável mutável durante a fila ou a execução. Isto elimina a corrida observada nos runs anteriores sem conceder qualquer gatilho automático: o workflow continua sendo `workflow_dispatch` exclusivo, exige a frase explícita e só opera no repositório/branch autorizados. E um workflow_dispatch só aparecerá normalmente na interface quando o workflow fizer parte da branch padrão main.
