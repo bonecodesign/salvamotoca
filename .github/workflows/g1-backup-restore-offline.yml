@@ -14,6 +14,9 @@ on:
       - "docs/G1_AUTH_FAILURE_DIAGNOSTICO_2026-11-21.md"
       - "tests/g1-actions-backup-fake-e2e.sh"
       - "scripts/g1-verify-encrypted-bundle.py"
+      - "scripts/g1-verify-managed-scope.py"
+      - "tests/test_g1_managed_scope.py"
+      - "docs/G1_AUTH_STORAGE_SAFE_SCOPE_2026-11-21.md"
       - "scripts/g1-verify-public-dump-coverage.py"
       - "docs/G1_RECUPERACAO_ARQUIVO_PRIVADO.md"
       - "tests/g1-encrypted-restore-pg17-offline.sh"
@@ -58,6 +61,8 @@ jobs:
           python3 -m unittest discover -s tests -p 'test_g1_auth_readonly_probe.py' -v
           python3 -m py_compile scripts/g1-verify-rpc-privileges-offline.py
           python3 -m unittest discover -s tests -p 'test_g1_rpc_privilege_audit.py' -v
+          python3 -m py_compile scripts/g1-verify-managed-scope.py
+          python3 -m unittest discover -s tests -p 'test_g1_managed_scope.py' -v
           python3 - <<'PY'
           from pathlib import Path
           import re
