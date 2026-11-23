@@ -123,9 +123,9 @@ if 'https://api.dropboxapi.com/2/files/get_metadata' in args:
     payload=json.loads(args[args.index('--data')+1])
     assert payload['path']=='/backup-testes'
     if os.getenv('G1_FAKE_DROPBOX_METADATA_DENIED')=='true': sys.exit(22)
-    vault_id='id:u2TRAtz8DrcAAAAAAAAWqg'
+    vault_id='id:E6vaCTSIS1YAAAAAAAAABQ'
     if os.getenv('G1_FAKE_WRONG_DROPBOX_VAULT')=='true':
-        vault_id='id:wrong-vault-not-the-connected-app-folder'
+        vault_id='id:u2TRAtz8DrcAAAAAAAAWqg'
     print(json.dumps({'.tag':'folder','id':vault_id,'name':'backup-testes'}))
     sys.exit(0)
 assert 'https://content.dropboxapi.com/2/files/upload' in args
