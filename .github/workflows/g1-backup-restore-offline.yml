@@ -18,6 +18,10 @@ on:
       - "docs/G1_RECUPERACAO_ARQUIVO_PRIVADO.md"
       - "tests/g1-encrypted-restore-pg17-offline.sh"
       - "docs/G1_BACKUP_ACTIONS_MANUAL_PREPARACAO.md"
+      - "docs/G1_RPC_PRIVILEGES_READONLY.sql"
+      - "scripts/g1-verify-rpc-privileges-offline.py"
+      - "tests/test_g1_rpc_privilege_audit.py"
+      - "tests/g1-functional-relational-recovery-pg17-offline.sh"
 permissions:
   contents: read
 jobs:
@@ -52,6 +56,19 @@ jobs:
           python3 -m py_compile scripts/g1-validate-db-url.py
           python3 -m unittest discover -s tests -p 'test_g1_db_url_validation.py' -v
           python3 -m unittest discover -s tests -p 'test_g1_auth_readonly_probe.py' -v
+          python3 -m py_compile scripts/g1-verify-rpc-privileges-offline.py
+          python3 -m unittest discover -s tests -p 'test_g1_rpc_privilege_audit.py' -v
+          python3 - <<'PY'
+          from pathlib import Path
+          import re
+          sql = Path('docs/G1_RPC_PRIVILEGES_READONLY.sql').read_text(encoding='utf-8')
+          for keyword in ('INSERT','UPDATE','DELETE','DROP','ALTER','CREATE','GRANT','REVOKE','CALL','DO'):
+              assert not re.search(r'^\s*'+keyword+r'\b',sql,re.I|re.M),keyword
+          assert 'pg_get_functiondef' in sql and 'aclexplode' in sql
+          assert 'jsonb_build_object' in sql
+          print('G1_RPC_METADATA_QUERY_READONLY=PASS')
+          PY
+          echo 'G1_RPC_NO_REAL_IDENTITIES_OR_USER_SESSIONS=TRUE'
           test -f .github/workflows/g1-postgres-auth-readonly.yml
           grep -q 'workflow_dispatch:' .github/workflows/g1-postgres-auth-readonly.yml
           if grep -qE '^[[:space:]]*(pull_request|push|schedule|pull_request_target):' .github/workflows/g1-postgres-auth-readonly.yml; then
@@ -182,6 +199,18 @@ jobs:
           python3 -m py_compile scripts/g1-verify-encrypted-bundle.py
           python3 -m py_compile scripts/g1-verify-public-dump-coverage.py
           bash tests/g1-actions-backup-fake-e2e.sh
+      - name: "Provar FK, trigger, RLS e ACL em restauração PG17 com dados fictícios"
+        shell: bash
+        env:
+          PGPASSWORD: fixture_local_only
+        run: |
+          set -euo pipefail
+          bash -n tests/g1-functional-relational-recovery-pg17-offline.sh
+          bash tests/g1-functional-relational-recovery-pg17-offline.sh
+          echo "G1_FUNCTIONAL_RELATIONAL_RECOVERY_FIXTURE=PASS"
+          echo "G1_REMOTE_RESTORE_PROVEN=FALSE"
+          echo "G1=BLOCKED"
+          echo "RELEASE=NO_GO"
       - name: "Restaurar SQL real de fixture PG17 após backup cifrado, sem Supabase"
         shell: bash
         env:
