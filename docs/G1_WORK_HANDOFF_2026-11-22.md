@@ -1,43 +1,29 @@
-# Salva Motoca! — G1: handoff consolidado após PRs #115 e #116
+# Salva Motoca! — G1: estado consolidado após recuperação criptográfica (23/11/2026 UTC)
 
-**ATUALIZAÇÃO FACTUAL 22/11/2026 — O backup foi encontrado.** A pesquisa ampla no Dropbox localizou o .age do run #45074685352 em /Aplicativos/Salva Motoca G1 Backup/backup-testes. Ele tem 24.484 bytes e hash Dropbox f0b60e079d460885f614c33e08cfe9f211b756cd04edb0e801e3e8b906db41de. A cópia criptografada foi salva e relida na Biblioteca ChatGPT (App: Salva Motoca! / G1 - Backups criptografados), com SHA-256 idêntico ao original: f7ae94952411e6314c870d987914cec841f84d026f270908409a4d2f96785678. A pasta /Apps/Salva Motoca/backup-testes antes auditada é OUTRA pasta. As notas abaixo sobre ausência de arquivo referem-se somente à pasta errada, não ao destino real. Chave privada intocada; descriptografia e restauração ainda não comprovadas. G1=BLOCKED / RELEASE=NO_GO.
+**STATUS INALTERADO: G1=BLOCKED; RELEASE=NO_GO.** Este texto substitui interpretações históricas incorretas de que o backup real não existiria. **O arquivo existe, foi decifrado autenticamente e seus SQLs foram verificados — mas nenhum banco PostgreSQL 17 isolado foi efetivamente restaurado.**
 
-**Atualizado em:** 22/11/2026 (horário de Brasília). **G1=BLOCKED; RELEASE=NO_GO.**  
-**Repositório:** `bonecodesign/salvamotoca` — público, branch `main`.  
-**Supabase permitido:** `yivkqyjdeouxnwtwfekc`, projeto existente de **TESTES**, região sa-east-1, PostgreSQL 17.  
-**Sem produção, sem novos custos, sem dados pessoais em GitHub e sem alterações SQL de escrita no hospedado.**
+**Repositório público:** `bonecodesign/salvamotoca`, `main`. **Projeto Supabase existente apenas de TESTES:** `yivkqyjdeouxnwtwfekc`, sa-east-1, PostgreSQL 17.11. Não alterar o hospedado, não contratar serviços e não ativar a operação comercial.
 
-## Estado comprovado — consultar antes de trabalhar
+## Evidência real já obtida — não refazer
 
-1. **Autenticação PostgreSQL corrigida para execução de exportação:** o run manual [#45074685352](https://github.com/bonecodesign/salvamotoca/actions/runs/45074685352) registrou `G1_DB_CONNECTION_AUTHENTICATED=PASS`, `G1_STORAGE_OBJECTS_EMPTY=PASS` e resposta de envio cifrado ao Dropbox com tamanho/content_hash válidos. Isso **não prova** que o arquivo persistiu no cofre auditado.
-2. **Divergência do destino:** a listagem completa e recente via conector Dropbox da pasta `/Apps/Salva Motoca/backup-testes` continha somente o arquivo de identidade privada age `SalvaMotoca-G1-age-private-key-2026-11-21.txt` (187 bytes); **nenhum** `SalvaMotoca-Supabase-TESTES-*.tar.gz.age`. O arquivo da chave **não** foi lido, baixado, removido, movido ou compartilhado nesta investigação. A identidade do token Dropbox **do GitHub Actions** não foi comprovada como sendo a mesma conta/pasta do conector.
-3. **Correções de segurança integradas à main:**
-   - [#110](https://github.com/bonecodesign/salvamotoca/pull/110), [#111](https://github.com/bonecodesign/salvamotoca/pull/111): autorização manual imutável via job `guard`; não depender de variável administrativa mutável;
-   - [#114](https://github.com/bonecodesign/salvamotoca/pull/114): preflight `files/get_metadata` com o token privado do runner, compara hash do identificador do cofre esperado e falha fechado **antes de consultar o banco**;
-   - [#115](https://github.com/bonecodesign/salvamotoca/pull/115): ensaio PostgreSQL 17 real **com dados fictícios** para FK, trigger, RLS, ACL, criptografia `age` e recuperação, e 11 testes da auditoria offline de seis RPCs. [CI #45094263841](https://github.com/bonecodesign/salvamotoca/actions/runs/45094263841) `SUCCESS`;
-   - [#116](https://github.com/bonecodesign/salvamotoca/pull/116): guarda de escopo Auth/Storage (contagem de users/identities/sessions/refresh/mfa/flow, objetos, bucket e SHA-256 das policies) antes/depois do dump. Recusa mudanças e pacotes cifrados com inventário gerenciado ausente/forjado. Testes adversariais preservam guards de Dropbox/autorização. [CI #45094678247](https://github.com/bonecodesign/salvamotoca/actions/runs/45094678247) `SUCCESS` após atualizar fixture antiga ao novo manifesto.
-4. **Leitura real mais recente via Supabase SELECT:** Auth: users/identities/sessions/refresh_tokens/mfa_factors/flow_state = 0; Storage objects=0, buckets=1, policies `storage.objects`=3 e hash `c75f54c93a080d4552558ce59539c2e8813a645b5dfdfe44ebd328839aad2254`; bucket `request-photos` privado, JPEG, 5 MiB. Essa fotografia é estrutural, não é prova de recuperação.
-5. **PR #108 continua Draft desatualizado** com conflitos após as integrações recentes. A maior parte dos testes/guards foi transportada por #115/#116 **sem substituir** os controles atuais. [PR #108](https://github.com/bonecodesign/salvamotoca/pull/108) **não deve ser mesclado diretamente**. Há documentos históricos nesse ramo; reutilizar apenas depois de comparação com a `main`.
+1. [GitHub Actions Run 9](https://github.com/bonecodesign/salvamotoca/actions/runs/45074685352) conectou ao PostgreSQL, exportou o SQL e cifrou arquivo `SalvaMotoca-Supabase-TESTES-20261122T215644Z-run45074685352.tar.gz.age`.
+2. O arquivo **existe** no Dropbox `/Aplicativos/Salva Motoca G1 Backup/backup-testes`. A pasta anterior `/Apps/Salva Motoca/backup-testes` é **outra pasta**, motivo da falsa ausência. [PR #118](https://github.com/bonecodesign/salvamotoca/pull/118) corrigiu o pin de identidade do cofre em `main`. O backup tem **24.484 bytes** e SHA-256 do **arquivo cifrado** `f7ae94952411e6314c870d987914cec841f84d026f270908409a4d2f96785678`.
+3. **Segunda cópia verificada por igualdade de bytes** na Biblioteca pessoal ChatGPT `App: Salva Motoca! / G1 - Backups criptografados`. Não houve upload de SQL em claro nem chave para essa Biblioteca.
+4. As duas cópias da identidade privada age no Dropbox eram idênticas, mas sua representação textual estava malformada: hífen ausente no prefixo e checksum Bech32 inválido. A estrutura codificada da chave foi normalizada **somente em área temporária privada** e conferida pela chave pública da própria identidade. A decifragem criptográfica do backup real passou em X25519, HMAC de cabeçalho e ChaCha20-Poly1305 do payload. **A identidade corrigida não foi publicada, armazenada em chat nem sobrescrita no Dropbox; arquivos temporários locais foram eliminados após a análise.**
+5. **O pacote SQL verdadeiro foi validado**, com 9 entradas, **7 de 7 SHA-256 do manifesto íntegros**, `project_ref` exato e `environment=TESTES`. O dump `data.sql` tem instruções `COPY` para **13 de 13 tabelas públicas**, 36 prestadores prospectados, 40 ofertas, 1 configuração e 11 migrações; o inventário declarou 0 usuários Auth e 0 objetos Storage.
+6. **Conferência independente via SELECT no Supabase de testes**: as contagens `36/40/1/11` e as 13 tabelas com respectivos estados RLS e números de policies **correspondem ao backup**. O Supabase hospedado continua saudável e **não foi alterado**.
+7. [PR #119](https://github.com/bonecodesign/salvamotoca/pull/119) integrada: `scripts/g1-repair-age-identity-offline.py` reproduz a normalização local, exige chave pública correspondente e autenticação completa do arquivo age; [CI #45102371821](https://github.com/bonecodesign/salvamotoca/actions/runs/45102371821) passou com **chaves/dados apenas fictícios**. Detalhes na [evidência G1 de 23/11](G1_CHAVE_RECUPERADA_PACOTE_ABERTO_2026-11-23.md).
+8. Integrações anteriores permanecem: PRs #110/#111 autorização manual imutável; #114 e #118 preflight Dropbox; #115 ensaio relacional PG17/RPC com fixtures; #116 guarda Auth/Storage. O PR #108 permanece Draft desatualizado e **não deve ser mesclado diretamente**.
 
-## Limitações técnicas não resolvidas
+## O que NÃO foi provado
 
-- A autenticação do PostgreSQL e a resposta de upload de arquivo cifrado **não são** evidência de persistência no cofre esperado, muito menos de restauração.
-- O backup lógico SQL **não reconstitui** serviço Auth, configuração externa de Auth, bytes físicos do Storage, secrets, instalações de Edge Functions ou fornecedores externos. O novo guard aborta quando o escopo gerenciado atual diverge do recorte SQL conhecido. Um bucket sem objetos não prova restauração de objetos.
-- Cinco dumps separados podem sofrer deriva de conteúdo mesmo se as contagens permanecerem iguais: **não há snapshot transacional único comprovado**. Impedir modificações no ambiente de homologação durante a exportação e comparar conteúdos/restauração em ambiente isolado.
-- As seis RPCs `SECURITY DEFINER` executáveis por `authenticated` e quatro tabelas `public` sem policies requerem análise funcional de autorização A/B/C sem dados reais. Contagem de policies ou referência estática a `auth.uid()` não prova isolamento.
+- **Nenhuma restauração real dos cinco arquivos SQL foi executada em segunda instância PostgreSQL 17.** Este ambiente de execução não possui servidor PG17 isolado nem Docker, e a conta Supabase conectada dispõe de um único projeto de testes existente e **nenhuma branch**. Não sobrescrever esse projeto saudável, não criar projeto pago nem transferir segredos reais a CI pública para contornar o bloqueio.
+- **Backup SQL lógico não recupera automaticamente** Auth gerenciado, configuração externa, bytes de Storage, secrets, fornecedores ou Edge Functions; o backup é do formato histórico **anterior** à guarda de inventário Auth/Storage do PR #116 (não aplicar o verificador atual de 8 hashes sem tratamento versionado).
+- Cinco dumps SQL separados podem não representar snapshot transacional único. Comparação por contagem, hash e estado RLS não elimina todas as divergências.
+- Quatro tabelas públicas com RLS habilitada e 0 policies podem representar deny-by-default; seis RPCs SECURITY DEFINER requerem testes funcionais de autorização com atores fictícios. Não alterar ACLs reais sem auditoria.
 
-## Próxima sequência segura e pendências exclusivamente humanas
+## Próxima ação realmente pendente
 
-1. **Chave privada age:** o responsável deve baixar e conferir uma cópia local protegida, fora de pastas sincronizadas e fora do GitHub. Preservar o original até validar a cópia. Nunca colar a chave ou seu conteúdo em chat, issue, commit, runner ou artifact. Não mover nem excluir a única cópia identificada automaticamente.
-2. **Token Dropbox de Actions:** conferir diretamente, sem expor o token, se tem `files.metadata.read` e `files.content.write` e se aponta para o mesmo **App Folder** inspecionado. O conector Dropbox do ChatGPT e o token do GitHub são contextos diferentes.
-3. **Somente após 1 e 2**, disparar de forma explicitamente autorizada o `workflow_dispatch` manual em `main` com a confirmação própria. A execução deve passar pelo preflight de identificação, pelas travas Auth/Storage, exportar apenas a base de testes e enviar **somente** o `.age`.
-4. Confirmar o arquivo cifrado **por leitura independente no destino privado**, sem publicar o arquivo, manifesto, secret ou chave. Conferir tamanho, hash e projeto.
-5. Restaurar em PostgreSQL 17 **local/isolado e descartável**, sem links de pagamento, despacho, notificações ou credenciais reais, comprovando dados, migrações, RLS, ACL, funções, FKs, triggers e os limites dos serviços gerenciados.
-6. Registrar evidências G1-E01...G1-E08 como `PASS`, `FAIL` ou `BLOCKED`, com horários/URLs seguros. **Não transformar CI fictícia em aprovação de recuperação real.**
+**Executar restauração isolada verdadeira do pacote histórico já decifrável:** abrir a identidade de forma privada com o reparador offline do PR #119, verificar o pacote de 7 hashes e importar os cinco SQLs para uma instância PostgreSQL 17 **descartável, independente da hospedada**, cuidando de roles e dependências Supabase; comprovar tabelas/contagens, migrações, policies, RLS, ACLs, triggers, funções e FK. O uso de dados reais de prospectados deve permanecer privado, sem logs ou artifacts públicos. Tratar Auth/Storage como cobertura incompleta e registrar lacunas.
 
-## O que pode ser feito autonomamente enquanto as pendências persistirem
-
-- Auditar código `main`/PRs, CI, documentação e somente metadados Supabase/Dropbox.
-- Criar correções e testes exclusivamente offline em branches e PRs revisáveis.
-- Não fazer DDL/DML em Supabase, não alterar Auth/Storage, não disparar backup real ou uploads privados, não tocar na chave, não contratar serviços, não ativar operações comerciais.
-- Manter `G1=BLOCKED` e `RELEASE=NO_GO` até haver restauração **real** comprovada e avaliação dos demais gates.
+**Não executar novo backup só porque a chave textual estava malformada.** O backup e seus bytes já foram recuperados e validados. **G1=BLOCKED; RELEASE=NO_GO até restauração independente e gates de segurança.**
