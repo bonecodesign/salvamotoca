@@ -1,5 +1,7 @@
 # Salva Motoca! — G1: handoff consolidado após PRs #115 e #116
 
+**ATUALIZAÇÃO FACTUAL 22/11/2026 — O backup foi encontrado.** A pesquisa ampla no Dropbox localizou o .age do run #45074685352 em /Aplicativos/Salva Motoca G1 Backup/backup-testes. Ele tem 24.484 bytes e hash Dropbox f0b60e079d460885f614c33e08cfe9f211b756cd04edb0e801e3e8b906db41de. A cópia criptografada foi salva e relida na Biblioteca ChatGPT (App: Salva Motoca! / G1 - Backups criptografados), com SHA-256 idêntico ao original: f7ae94952411e6314c870d987914cec841f84d026f270908409a4d2f96785678. A pasta /Apps/Salva Motoca/backup-testes antes auditada é OUTRA pasta. As notas abaixo sobre ausência de arquivo referem-se somente à pasta errada, não ao destino real. Chave privada intocada; descriptografia e restauração ainda não comprovadas. G1=BLOCKED / RELEASE=NO_GO.
+
 **Atualizado em:** 22/11/2026 (horário de Brasília). **G1=BLOCKED; RELEASE=NO_GO.**  
 **Repositório:** `bonecodesign/salvamotoca` — público, branch `main`.  
 **Supabase permitido:** `yivkqyjdeouxnwtwfekc`, projeto existente de **TESTES**, região sa-east-1, PostgreSQL 17.  
