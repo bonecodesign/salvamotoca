@@ -1,6 +1,9 @@
 # Salva Motoca! — G1: estado consolidado após recuperação criptográfica (23/11/2026 UTC)
 
-**STATUS INALTERADO: G1=BLOCKED; RELEASE=NO_GO.** Este texto substitui interpretações históricas incorretas de que o backup real não existiria. **O arquivo existe, foi decifrado autenticamente e seus SQLs foram verificados — mas nenhum banco PostgreSQL 17 isolado foi efetivamente restaurado.**
+**STATUS INALTERADO: G1=BLOCKED; RELEASE=NO_GO.**
+
+**Auditoria pré-restauração 23/11/2026:** pacote real novamente autenticado (HMAC + ChaCha20-Poly1305, 7/7 SHA-256); 13 tabelas públicas com 80 linhas; 26 COPY Auth com 0 linhas; 7 COPY Storage com 1 linha de metadados; quatro extensões e dependências Supabase. **Não executar importação em PostgreSQL 17 vazio**, pois `auth`/`storage` são estruturas gerenciadas não criadas por `schema.sql`. Ambiente isolado PG17/Supabase local indisponível aqui por ausência de binários e rede; restauração ainda NÃO executada. [Detalhes](G1_AUDITORIA_REAL_PRE_RESTORE_2026-11-23.md).
+ Este texto substitui interpretações históricas incorretas de que o backup real não existiria. **O arquivo existe, foi decifrado autenticamente e seus SQLs foram verificados — mas nenhum banco PostgreSQL 17 isolado foi efetivamente restaurado.**
 
 **Repositório público:** `bonecodesign/salvamotoca`, `main`. **Projeto Supabase existente apenas de TESTES:** `yivkqyjdeouxnwtwfekc`, sa-east-1, PostgreSQL 17.11. Não alterar o hospedado, não contratar serviços e não ativar a operação comercial.
 
