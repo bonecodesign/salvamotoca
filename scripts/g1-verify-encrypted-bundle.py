@@ -29,6 +29,9 @@ SQL_FILES = frozenset((
 ))
 HASHED_FILES = SQL_FILES | {"source_inventory_before.json", "source_schema_inventory_before.json", "source_managed_scope_before.json"}
 REQUIRED_FILES = HASHED_FILES | {"manifest.sha256", "manifest.txt"}
+LEGACY_HASHED_FILES = SQL_FILES | {"source_inventory_before.json", "source_schema_inventory_before.json"}
+LEGACY_REQUIRED_FILES = LEGACY_HASHED_FILES | {"manifest.sha256", "manifest.txt"}
+LEGACY_CIPHERTEXT_SHA256 = "f7ae94952411e6314c870d987914cec841f84d026f270908409a4d2f96785678"
 REQUIRED_INVENTORY = frozenset((
     "auth_users", "service_requests", "registered_providers",
     "prospected_providers", "prospecting_offers", "commercial_config",
@@ -86,10 +89,20 @@ def read_backup(archive: Path, identity: Path) -> None:
                 member_names = [m.name for m in members]
                 # Não usar tar.extract(): caminho, links e arquivos fora da
                 # lista aprovada são rejeitados antes de ler quaisquer dados.
-                if len(members) != len(REQUIRED_FILES) or set(member_names) != REQUIRED_FILES:
-                    raise ValidationError("UNEXPECTED_OR_MISSING_ARCHIVE_FILES")
                 if len(member_names) != len(set(member_names)):
                     raise ValidationError("DUPLICATE_ARCHIVE_MEMBER")
+                member_set = set(member_names)
+                if member_set == REQUIRED_FILES and len(members) == len(REQUIRED_FILES):
+                    legacy = False
+                elif member_set == LEGACY_REQUIRED_FILES and len(members) == len(LEGACY_REQUIRED_FILES):
+                    legacy = True
+                    # Apenas o ciphertext histórico exato previamente auditado pode ser usado.
+                    # CI testa pacote FICTÍCIO com marcador de teste explícito.
+                    if os.environ.get("G1_SYNTHETIC_CI_ONLY") != "true":
+                        if hashlib.sha256(archive.read_bytes()).hexdigest() != LEGACY_CIPHERTEXT_SHA256:
+                            raise ValidationError("UNRECOGNIZED_LEGACY_CIPHERTEXT")
+                else:
+                    raise ValidationError("UNEXPECTED_OR_MISSING_ARCHIVE_FILES")
                 for member in members:
                     if not member.isfile() or not (0 < member.size <= MAX_FILE_BYTES):
                         raise ValidationError("NONREGULAR_OR_INVALID_FILE_SIZE")
@@ -140,7 +153,8 @@ def read_backup(archive: Path, identity: Path) -> None:
             if not matched or matched.group(2) in entries:
                 raise ValidationError("MANIFEST_FORMAT_INVALID")
             entries[matched.group(2)] = matched.group(1)
-        if set(entries) != HASHED_FILES:
+        expected_hashes = LEGACY_HASHED_FILES if legacy else HASHED_FILES
+        if set(entries) != expected_hashes:
             raise ValidationError("MANIFEST_FILE_SET_MISMATCH")
         for filename, expected in entries.items():
             if hashes.get(filename) != expected:
@@ -163,6 +177,9 @@ def read_backup(archive: Path, identity: Path) -> None:
             "auth_managed_schema_recovery_proven": "false",
             "storage_bucket_configuration_recovery_proven": "false",
         }
+        if legacy:
+            del required_settings["auth_managed_schema_recovery_proven"]
+            del required_settings["storage_bucket_configuration_recovery_proven"]
         if settings != required_settings:
             raise ValidationError("BACKUP_PROJECT_OR_SCOPE_MISMATCH")
 
@@ -179,55 +196,61 @@ def read_backup(archive: Path, identity: Path) -> None:
             raise ValidationError("BACKUP_INVENTORY_VALUES_INVALID")
         if inventory["storage_objects"] != 0:
             raise ValidationError("STORAGE_PHYSICAL_FILES_NOT_INCLUDED")
-        # Managed Auth and Storage services are NOT part of the SQL restore.
-        # Their source metadata is hashed/encrypted for future private review.
-        # Refuse any package containing Auth rows or physical Storage objects.
-        try:
-            managed = json.loads(
-                metadata["source_managed_scope_before.json"].decode("utf-8")
-            )
-        except (UnicodeError, json.JSONDecodeError):
-            raise ValidationError("MANAGED_SCOPE_INVENTORY_INVALID") from None
-        auth_fields = {
-            "auth_users", "auth_identities", "auth_sessions",
-            "auth_refresh_tokens", "auth_mfa_factors", "auth_flow_state",
-        }
-        managed_keys = auth_fields | {
-            "storage_objects", "storage_buckets", "storage_policy_count",
-            "storage_policy_sha256"
-        }
-        if not isinstance(managed, dict) or set(managed) != managed_keys:
-            raise ValidationError("MANAGED_SCOPE_INVENTORY_INVALID")
-        if any(type(managed[k]) is not int or managed[k] < 0
-               for k in auth_fields | {"storage_objects", "storage_policy_count"}):
-            raise ValidationError("MANAGED_SCOPE_COUNTS_INVALID")
-        policy_hash = managed["storage_policy_sha256"]
-        if (type(policy_hash) is not str
-            or re.fullmatch(r"[0-9a-f]{64}", policy_hash) is None
-            or policy_hash != "c75f54c93a080d4552558ce59539c2e8813a645b5dfdfe44ebd328839aad2254"):
-            raise ValidationError("STORAGE_POLICY_DEFINITION_CHANGED")
-        if any(managed[k] != 0 for k in auth_fields):
-            raise ValidationError("AUTH_MANAGED_DATA_NOT_INCLUDED")
-        if managed["storage_objects"] != 0:
-            raise ValidationError("STORAGE_PHYSICAL_FILES_NOT_INCLUDED")
-        buckets = managed["storage_buckets"]
-        if not isinstance(buckets, list) or len(buckets) != 1:
-            raise ValidationError("STORAGE_MANAGED_CONFIGURATION_CHANGED")
-        bucket = buckets[0]
-        if (not isinstance(bucket, dict)
-            or set(bucket) != {"name", "private", "file_size_limit", "allowed_mime_types"}
-            or type(bucket["name"]) is not str
-            or type(bucket["private"]) is not bool
-            or type(bucket["file_size_limit"]) is not int
-            or not isinstance(bucket["allowed_mime_types"], list)
-            or any(type(m) is not str for m in bucket["allowed_mime_types"])):
-            raise ValidationError("STORAGE_MANAGED_CONFIGURATION_CHANGED")
-        if managed["storage_policy_count"] != 3 or bucket != {
-            "name": "request-photos", "private": True,
-            "file_size_limit": 5242880,
-            "allowed_mime_types": ["image/jpeg"],
-        }:
-            raise ValidationError("STORAGE_MANAGED_CONFIGURATION_CHANGED")
+        if not legacy:
+            # Managed Auth and Storage services are NOT part of the SQL restore.
+            # Their source metadata is hashed/encrypted for future private review.
+            # Refuse any package containing Auth rows or physical Storage objects.
+            try:
+                managed = json.loads(
+                    metadata["source_managed_scope_before.json"].decode("utf-8")
+                )
+            except (UnicodeError, json.JSONDecodeError):
+                raise ValidationError("MANAGED_SCOPE_INVENTORY_INVALID") from None
+            auth_fields = {
+                "auth_users", "auth_identities", "auth_sessions",
+                "auth_refresh_tokens", "auth_mfa_factors", "auth_flow_state",
+            }
+            managed_keys = auth_fields | {
+                "storage_objects", "storage_buckets", "storage_policy_count",
+                "storage_policy_sha256"
+            }
+            if not isinstance(managed, dict) or set(managed) != managed_keys:
+                raise ValidationError("MANAGED_SCOPE_INVENTORY_INVALID")
+            if any(type(managed[k]) is not int or managed[k] < 0
+                   for k in auth_fields | {"storage_objects", "storage_policy_count"}):
+                raise ValidationError("MANAGED_SCOPE_COUNTS_INVALID")
+            policy_hash = managed["storage_policy_sha256"]
+            if (type(policy_hash) is not str
+                or re.fullmatch(r"[0-9a-f]{64}", policy_hash) is None
+                or policy_hash != "c75f54c93a080d4552558ce59539c2e8813a645b5dfdfe44ebd328839aad2254"):
+                raise ValidationError("STORAGE_POLICY_DEFINITION_CHANGED")
+            if any(managed[k] != 0 for k in auth_fields):
+                raise ValidationError("AUTH_MANAGED_DATA_NOT_INCLUDED")
+            if managed["storage_objects"] != 0:
+                raise ValidationError("STORAGE_PHYSICAL_FILES_NOT_INCLUDED")
+            buckets = managed["storage_buckets"]
+            if not isinstance(buckets, list) or len(buckets) != 1:
+                raise ValidationError("STORAGE_MANAGED_CONFIGURATION_CHANGED")
+            bucket = buckets[0]
+            if (not isinstance(bucket, dict)
+                or set(bucket) != {"name", "private", "file_size_limit", "allowed_mime_types"}
+                or type(bucket["name"]) is not str
+                or type(bucket["private"]) is not bool
+                or type(bucket["file_size_limit"]) is not int
+                or not isinstance(bucket["allowed_mime_types"], list)
+                or any(type(m) is not str for m in bucket["allowed_mime_types"])):
+                raise ValidationError("STORAGE_MANAGED_CONFIGURATION_CHANGED")
+            if managed["storage_policy_count"] != 3 or bucket != {
+                "name": "request-photos", "private": True,
+                "file_size_limit": 5242880,
+                "allowed_mime_types": ["image/jpeg"],
+            }:
+                raise ValidationError("STORAGE_MANAGED_CONFIGURATION_CHANGED")
+
+        else:
+            # Formato histórico não comprova toda a cobertura Auth/Storage.
+            if inventory["auth_users"] != 0:
+                raise ValidationError("LEGACY_AUTH_DATA_NOT_COVERED")
 
         try:
             schema_inventory = json.loads(
@@ -259,8 +282,9 @@ def read_backup(archive: Path, identity: Path) -> None:
 
         print("G1_ENCRYPTED_ARCHIVE_INTEGRITY=PASS")
         print("G1_EXPECTED_PROJECT_AND_INVENTORY=PASS")
-        print("G1_HASHED_MEMBER_COUNT=8")
-        print("G1_MANAGED_SCOPE_NOT_RESTORED=CONFIRMED")
+        print("G1_HASHED_MEMBER_COUNT=" + ("7" if legacy else "8"))
+        print("G1_PACKAGE_VERSION=" + ("HISTORICAL_PINNED" if legacy else "MANAGED_SCOPE_V2"))
+        print("G1_MANAGED_SCOPE_NOT_RESTORED=" + ("UNKNOWN_LEGACY" if legacy else "CONFIRMED"))
         print("G1_ESSENTIAL_COPY_HEADERS=PASS")
         print("G1_RESTORATION_VERIFIED=FALSE")
         print("G1=BLOCKED")
