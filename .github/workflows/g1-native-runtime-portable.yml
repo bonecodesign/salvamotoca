@@ -1,14 +1,19 @@
 name: "G1 — pacote público de ferramentas Supabase Native"
 on:
-  pull_request:
-    branches: [main]
-    paths:
-      - ".github/workflows/g1-native-runtime-portable.yml"
+  workflow_dispatch:
+    inputs:
+      confirm:
+        description: "Digite PREPARAR_RUNTIME_PUBLICO (sem backup nem secrets)"
+        required: true
+        type: string
+concurrency:
+  group: g1-public-native-runtime
+  cancel-in-progress: false
 permissions:
   contents: read
 jobs:
   public-runtime-only:
-    if: github.repository == 'bonecodesign/salvamotoca' && github.event.pull_request.head.repo.full_name == 'bonecodesign/salvamotoca' && github.head_ref == 'g1/neon-laboratorio-20261123'
+    if: github.repository == 'bonecodesign/salvamotoca' && github.ref == 'refs/heads/main' && github.event_name == 'workflow_dispatch' && inputs.confirm == 'PREPARAR_RUNTIME_PUBLICO'
     runs-on: ubuntu-24.04
     timeout-minutes: 15
     env:
