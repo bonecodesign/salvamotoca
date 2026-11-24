@@ -82,15 +82,26 @@ jobs:
           cd "$RUNNER_TEMP/g1-public-pack"
           cp "$RUNNER_TEMP/g1-public-project/supabase/config.toml" config.toml
           cp "$RUNNER_TEMP/g1-public-project/supabase/supabase.lock" supabase.lock
-          # Transfer only the cache of published binaries, not runtime state, SQL or credentials.
-          tar -czf service-cache.tar.gz -C "$SUPABASE_HOME/cache" stack
-          sha256sum service-cache.tar.gz config.toml supabase.lock > runtime.sha256
-          bytes="$(du -sb . | cut -f1)"
+          # Use the verified cache, selecting only postgres, auth, storage and postgrest.
+          cache="$SUPABASE_HOME/cache/stack/slim-services"
+          test -d "$cache/postgres"
+          find "$cache" -mindepth 1 -maxdepth 1 -type d -printf '%f\n'
+          for service in postgres gotrue storage-api postgrest; do
+            if [[ -d "$cache/$service" ]]; then
+              tar -czf "$service.tar.gz" -C "$SUPABASE_HOME/cache" "stack/slim-services/$service"
+            fi
+          done
+          test -s postgres.tar.gz
+          # Retain exact bytes and checksums; split public payload into independently transferable chunks.
+          sha256sum ./*.tar.gz age age-keygen config.toml supabase.lock > runtime.sha256
+          mkdir "$RUNNER_TEMP/g1-public-chunks"
+          for file in ./*.tar.gz; do
+            split -b 24000000 -d -a 3 "$file" "$RUNNER_TEMP/g1-public-chunks/$(basename "$file").part-"
+          done
+          cp age age-keygen config.toml supabase.lock runtime.sha256 cli.sha256 "$RUNNER_TEMP/g1-public-chunks/"
+          bytes="$(du -sb "$RUNNER_TEMP/g1-public-chunks" | cut -f1)"
           echo "G1_PUBLIC_RUNTIME_BYTES=$bytes"
-          # Small, one-day public-software artifact; no private data or paid runners.
-          if (( bytes > 400000000 )); then
-            echo 'G1_PUBLIC_RUNTIME_TOO_LARGE=BLOCKED'; exit 3
-          fi
+          if (( bytes > 400000000 )); then echo 'G1_PUBLIC_RUNTIME_TOO_LARGE=BLOCKED'; exit 3; fi
           echo 'G1_PUBLIC_RUNTIME_PREPARED=PASS'
           echo 'G1_REAL_BACKUP_ACCESSED=FALSE'
           echo 'G1_REAL_RESTORE=NOT_EXECUTED'
@@ -98,7 +109,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: g1-native-runtime-public-linux-amd64
-          path: "${{ runner.temp }}/g1-public-pack/"
+          path: "${{ runner.temp }}/g1-public-chunks/"
           if-no-files-found: error
           retention-days: 1
           compression-level: 0
