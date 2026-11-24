@@ -86,10 +86,9 @@ jobs:
           cache="$SUPABASE_HOME/cache/stack/slim-services"
           test -d "$cache/postgres"
           find "$cache" -mindepth 1 -maxdepth 1 -type d -printf '%f\n'
-          for service in postgres gotrue storage-api postgrest; do
-            if [[ -d "$cache/$service" ]]; then
-              tar -czf "$service.tar.gz" -C "$SUPABASE_HOME/cache" "stack/slim-services/$service"
-            fi
+          for service in postgres auth storage postgrest; do
+            test -d "$cache/$service"
+            tar -czf "$service.tar.gz" -C "$SUPABASE_HOME/cache" "stack/slim-services/$service"
           done
           test -s postgres.tar.gz
           # Retain exact bytes and checksums; split public payload into independently transferable chunks.
