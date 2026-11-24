@@ -1,0 +1,90 @@
+name: "G1 — pacote público de ferramentas Supabase Native"
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - ".github/workflows/g1-native-runtime-portable.yml"
+permissions:
+  contents: read
+jobs:
+  public-runtime-only:
+    if: github.repository == 'bonecodesign/salvamotoca' && github.event.pull_request.head.repo.full_name == 'bonecodesign/salvamotoca' && github.head_ref == 'g1/neon-laboratorio-20261123'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    env:
+      SUPABASE_EXPERIMENTAL_STACK: "1"
+      SUPABASE_YES: "1"
+      SUPABASE_HOME: "${{ runner.temp }}/g1-native-public-home"
+    steps:
+      - name: "Obter somente executáveis oficiais, sem checkout ou secrets"
+        shell: bash
+        run: |
+          set -euo pipefail
+          umask 077
+          mkdir -p "$RUNNER_TEMP/g1-public-pack" "$RUNNER_TEMP/g1-public-bin" "$RUNNER_TEMP/g1-public-project"
+          cd "$RUNNER_TEMP/g1-public-pack"
+          base='https://github.com/supabase/cli/releases/download/v3.2.0'
+          filename='supabase_3.2.0_linux_amd64.tar.gz'
+          curl --fail --silent --show-error --location --proto '=https' "$base/$filename" -o "$filename"
+          curl --fail --silent --show-error --location --proto '=https' "$base/checksums.txt" -o checksums.txt
+          awk -v f="$filename" '$2==f || $2=="*"f {print}' checksums.txt > cli.sha256
+          test "$(wc -l < cli.sha256)" = 1
+          sha256sum --check cli.sha256
+          tar -xzf "$filename" -C "$RUNNER_TEMP/g1-public-bin" supabase
+          export PATH="$RUNNER_TEMP/g1-public-bin:$PATH"
+          test "$(supabase --version)" = 3.2.0
+          sudo apt-get install -y age >/dev/null
+          cp "$(command -v age)" "$(command -v age-keygen)" .
+          sha256sum age age-keygen > age.sha256
+          cd "$RUNNER_TEMP/g1-public-project"
+          supabase init > "$RUNNER_TEMP/g1-native-init.log" 2>&1
+          python3 - <<'PY'
+          import pathlib, re, tomllib
+          p=pathlib.Path('supabase/config.toml')
+          s=p.read_text()
+          s,n=re.subn(r'(?m)^major_version\s*=\s*\d+\s*$', 'major_version = 17',s)
+          assert n==1
+          # Disable optional services that are not required for the recovery database.
+          sections={'studio','realtime','analytics','edge_runtime','inbucket','local_smtp','imgproxy'}
+          lines=s.splitlines()
+          section=''
+          for i,line in enumerate(lines):
+              m=re.fullmatch(r'\[([^\]]+)\]',line.strip())
+              if m: section=m.group(1)
+              if section in sections and re.match(r'^\s*enabled\s*=',line):
+                  lines[i]='enabled = false'
+          s='\n'.join(lines)+'\n'
+          assert tomllib.loads(s)['db']['major_version']==17
+          p.write_text(s)
+          PY
+          supabase stack prepare --help > "$RUNNER_TEMP/g1-native-help.log" 2>&1
+          grep -q -- '--runtime' "$RUNNER_TEMP/g1-native-help.log"
+          # Only download published service archives. Do not start or link any project.
+          if ! supabase stack prepare --runtime native > "$RUNNER_TEMP/g1-native-prepare.log" 2>&1; then
+            echo 'G1_NATIVE_PREPARE=BLOCKED'
+            exit 2
+          fi
+          test -d "$SUPABASE_HOME/cache/stack"
+          test -n "$(find "$SUPABASE_HOME/cache/stack" -type f -print -quit)"
+          cd "$RUNNER_TEMP/g1-public-pack"
+          cp "$RUNNER_TEMP/g1-public-project/supabase/config.toml" config.toml
+          # Transfer only the cache of published binaries, not runtime state, SQL or credentials.
+          tar -czf service-cache.tar.gz -C "$SUPABASE_HOME/cache" stack
+          sha256sum service-cache.tar.gz config.toml > runtime.sha256
+          bytes="$(du -sb . | cut -f1)"
+          echo "G1_PUBLIC_RUNTIME_BYTES=$bytes"
+          # Small, one-day public-software artifact; no private data or paid runners.
+          if (( bytes > 400000000 )); then
+            echo 'G1_PUBLIC_RUNTIME_TOO_LARGE=BLOCKED'; exit 3
+          fi
+          echo 'G1_PUBLIC_RUNTIME_PREPARED=PASS'
+          echo 'G1_REAL_BACKUP_ACCESSED=FALSE'
+          echo 'G1_REAL_RESTORE=NOT_EXECUTED'
+      - name: "Transferir exclusivamente ferramentas públicas"
+        uses: actions/upload-artifact@v4
+        with:
+          name: g1-native-runtime-public-linux-amd64
+          path: "${{ runner.temp }}/g1-public-pack/"
+          if-no-files-found: error
+          retention-days: 1
+          compression-level: 0
