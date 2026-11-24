@@ -84,6 +84,7 @@ begin
  if (select count(*) from public.f5_mock_sessions)<>0
  or (select count(*) from public.f5_mock_messages)<>0
  or (select count(*) from public.f5_mock_latest_location)<>0
+ or private.f5_mock_binding_visible('10101010-1010-4010-8010-101010101010')
  then raise exception 'Gate false nao bloqueou acesso'; end if;
 end $$;
 reset role;
