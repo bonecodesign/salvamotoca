@@ -1,0 +1,74 @@
+name: Suporte - persistência e autorização de incidentes PG17 descartável
+on:
+  pull_request:
+    paths:
+      - 'supabase/drafts/f23_incident*.sql'
+      - 'tests/f23-incident*'
+      - 'tests/f2-stage-setup.sql'
+      - 'tests/f3-pre-setup.sql'
+      - 'supabase/drafts/f2_backend_candidate.sql'
+      - 'supabase/drafts/f3_tow_backend_candidate.sql'
+      - '.github/workflows/support-incident-db-offline.yml'
+permissions:
+  contents: read
+jobs:
+  isolated-postgres:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: f23_disposable
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d f23_disposable"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      PGHOST: 127.0.0.1
+      PGPORT: 5432
+      PGUSER: postgres
+      PGPASSWORD: postgres
+      PGDATABASE: f23_disposable
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Cliente PostgreSQL
+        run: command -v psql || (sudo apt-get update -qq && sudo apt-get install -y postgresql-client)
+      - name: Criar banco sintético F1-F3 e testar regressões
+        run: |
+          test "$PGHOST" = 127.0.0.1
+          test "$PGDATABASE" = f23_disposable
+          psql -X -v ON_ERROR_STOP=1 -f tests/f2-stage-setup.sql
+          psql -X -v ON_ERROR_STOP=1 -f tests/f3-pre-setup.sql
+          psql -X -v ON_ERROR_STOP=1 -f supabase/drafts/f2_backend_candidate.sql
+          psql -X -v ON_ERROR_STOP=1 -f tests/f2-stage-rls.sql
+          psql -X -v ON_ERROR_STOP=1 -f supabase/drafts/f3_tow_backend_candidate.sql
+          psql -X -v ON_ERROR_STOP=1 -f tests/f3-stage-rls.sql
+      - name: Persistência, recuperação, autorização e concorrência
+        run: |
+          psql -X -v ON_ERROR_STOP=1 -f supabase/drafts/f23_incidents_persistence_candidate.sql
+          psql -X -v ON_ERROR_STOP=1 -f tests/f23-incidents-persistence.sql
+          psql -X -v ON_ERROR_STOP=1 -f tests/f23-incidents-recovery.sql
+          psql -X -v ON_ERROR_STOP=1 -f supabase/drafts/f23_incident_intake_candidate.sql
+          psql -X -v ON_ERROR_STOP=1 -f tests/f23-incident-intake.sql
+          psql -X -v ON_ERROR_STOP=1 -f supabase/drafts/f23_incident_historical_access_candidate.sql
+          psql -X -v ON_ERROR_STOP=1 -f tests/f23-incidents-historical-access.sql
+          bash tests/f23-incidents-history-concurrency.sh
+      - name: Provar limpeza e bloqueios
+        run: |
+          psql -X -Atqc "select not enabled from private.f23_mock_support_gate where singleton" | grep -qx t
+          psql -X -Atqc "select not enabled from private.f2_release_gate where singleton" | grep -qx t
+          psql -X -Atqc "select not enabled from private.f3_release_gate where singleton" | grep -qx t
+          for table in public.f23_mock_incidents public.f23_mock_incident_events private.f23_mock_admins public.service_requests public.providers public.f2_request_offers public.f3_tow_requests; do
+            psql -X -Atqc "select count(*)=0 from $table" | grep -qx t
+          done
+          echo 'F23_INCIDENT_PERSISTENCE=OFFLINE_PASS'
+          echo 'HOSTED_WRITES=NONE'
+          echo 'RELEASE=NO_GO'
