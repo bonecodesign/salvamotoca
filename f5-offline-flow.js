@@ -31,7 +31,7 @@
     return {
       engine: "f5-offline-mock-only", requestId: request, quoteId: quote,
       customerId: customer, providerId: provider,
-      createdAt: timestamp(createdAt, "Criação"), status: "awaiting_payment",
+      createdAt: timestamp(createdAt, "Criação"), lastEventAt: createdAt, status: "awaiting_payment",
       mockPaid: false, providerTrackingConsent: false,
       lastLocation: null, arrivedAt: null, messages: [], supportMessages: [],
       processed: [], version: 0,
@@ -80,6 +80,7 @@
         "Colisão de evento: mesmo ID com conteúdo divergente.");
       return {state: session, duplicate: true};
     }
+    requireOk(event.at >= session.lastEventAt, "Evento anterior ao último evento processado.");
     // Não aceitar payload bruto de dinheiro, token, senha ou URL assinada.
     requireOk(!("paymentStatus" in event) && !("paymentToken" in event) &&
       !("secret" in event) && !("signedPhotoUrl" in event),
@@ -154,21 +155,23 @@
       }
     }
     next.processed.push({id:event.id,serialized});
-    next.version++;
+    next.version++; next.lastEventAt=event.at;
     return {state: next, duplicate:false};
   }
-  function viewFor(session, viewerId) {
+  function viewFor(session, viewerId, now=session?.lastEventAt) {
     requireOk(session && session.engine === "f5-offline-mock-only", "Sessão inválida.");
     const role = actorRole(session, viewerId);
     if (role === "outsider")
       return Object.freeze({access:"denied",status:"private",mockOnly:true});
-    const enRoute = session.mockPaid && session.status === "en_route";
+    requireOk(Number.isSafeInteger(now) && now >= session.lastEventAt,"Relógio de visualização inválido.");
+    const enRoute = session.mockPaid && session.status === "en_route" && session.providerTrackingConsent;
+    const fresh = enRoute && session.lastLocation && now-session.lastLocation.sampledAt<=120000;
     return {
       access:"participant",role, status:session.status,
       mockOnly:true, paymentIsReal:false,
       chatMockOpen:session.mockPaid && ACTIVE.includes(session.status),
       displacementMockActive:enRoute,
-      lastLocation:enRoute ? session.lastLocation : null,
+      lastLocation:fresh ? {...session.lastLocation} : null,
       arrivalNotice:session.arrivedAt !== null,
       chatMessages:session.mockPaid ? session.messages.map(m=>({...m})) : [],
       supportMessages:session.status === "support_review" ?
