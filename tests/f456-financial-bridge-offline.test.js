@@ -136,7 +136,7 @@ test("F4+F5: disputa revoga acesso mock, localização e revisão",()=>{
  });
  assert.notEqual(B.viewFor(s,C).f5MockLocation,null);
  s=B.risk(s,{id:"evt_dispute_001",kind:"mock_dispute",actorId:"offline_fixture",
-  fixtureReceipt:B.MOCK_RECEIPT,amountCents:29300});
+  fixtureReceipt:B.MOCK_RECEIPT,requestId:R,quoteId:Q,currency:"BRL",at:3000,amountCents:29300});
  const view=B.viewFor(s,C);
  assert.equal(view.status,"mock_hold");
  assert.equal(view.f5MockLocation,null);
@@ -151,7 +151,7 @@ test("F4+F6: chargeback após duas confirmações impede até revisão mock",()=
  let s=complete();
  assert.equal(B.settlementReview(s).mockHumanReviewCandidate,true);
  s=B.risk(s,{id:"evt_chargeback_001",kind:"mock_chargeback",
-  actorId:"offline_fixture",fixtureReceipt:B.MOCK_RECEIPT,amountCents:29300});
+  actorId:"offline_fixture",fixtureReceipt:B.MOCK_RECEIPT,requestId:R,quoteId:Q,currency:"BRL",at:3000,amountCents:29300});
  assert.equal(B.settlementReview(s).mockHumanReviewCandidate,false);
  assert.equal(B.settlementReview(s).transferAuthorized,false);
  assert.throws(()=>B.completion(s,{kind:"rate_provider",id:"evt_rate_001",
@@ -178,9 +178,9 @@ test("F4: material avulso e status de orçamento sem aceite são rejeitados",()=
 });
 test("F456: risco não pode ser declarado antes de fixture ou acima do valor cobrado",()=>{
  assert.throws(()=>B.risk(make(),{id:"evt_risk_pre",kind:"mock_dispute",
-  actorId:"offline_fixture",fixtureReceipt:B.MOCK_RECEIPT,amountCents:200}),/após fixture/);
+  actorId:"offline_fixture",fixtureReceipt:B.MOCK_RECEIPT,requestId:R,quoteId:Q,currency:"BRL",at:3000,amountCents:200}),/após fixture/);
  assert.throws(()=>B.risk(pay(),{id:"evt_risk_bad",kind:"mock_refund_requested",
-  actorId:"offline_fixture",fixtureReceipt:B.MOCK_RECEIPT,amountCents:30450}),/inválido/);
+  actorId:"offline_fixture",fixtureReceipt:B.MOCK_RECEIPT,requestId:R,quoteId:Q,currency:"BRL",at:3000,amountCents:30450}),/inválido/);
 });
 
 test("F456: alteração consistente dos totais sem alterar itens é rejeitada",()=>{
@@ -196,4 +196,18 @@ test("F456: proposta real do módulo F2 entra no mesmo fluxo fictício",()=>{
  assert.equal(s.amounts.customerSubtotalBeforeProcessingCents,29300);
  assert.equal(s.realPaymentVerified,false);
  assert.equal(B.viewFor(s,C).f5MockChatOpen,true);
+});
+
+test("F456: risk is bound to the same order, quote, currency and event timeline",()=>{
+ const s=complete();
+ const e={id:"evt_risk_bound",kind:"mock_dispute",actorId:"offline_fixture",
+ fixtureReceipt:B.MOCK_RECEIPT,requestId:R,quoteId:Q,currency:"BRL",at:3000,amountCents:29300};
+ for(const patch of [{requestId:X},{quoteId:X},{currency:"USD"},{at:2799},{id:"evt_summary_001"}])
+  assert.throws(()=>B.risk(s,{...e,...patch}),/inválido/);
+ assert.equal(B.settlementReview(B.risk(s,e)).mockHumanReviewCandidate,false);
+});
+test("F456: completion does not reuse an operation event ID",()=>{
+ const s=handoff();
+ assert.throws(()=>B.completion(s,{kind:"submit_summary",id:"evt_handoff_001",
+ actorId:P,at:2600,text:"Servico com materiais inclusos concluido."}),/já usado/);
 });

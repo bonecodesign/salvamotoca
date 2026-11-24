@@ -244,6 +244,35 @@ begin
  if not blocked then raise exception 'Mensagem de suporte fora de divergencia'; end if;
 end $$;
 
+-- Explicit deadline cannot be null, and rating must follow both confirmations.
+do $test$ declare blocked boolean:=false; begin
+ begin
+  update public.f6_mock_completions set customer_deadline_at=null where id='30303030-3030-4030-8030-303030303030';
+ exception when check_violation then blocked:=true; end;
+ if not blocked then raise exception 'Resumo aceitou prazo nulo'; end if;
+end $test$;
+do $test$ declare blocked boolean:=false; begin
+ begin
+  update public.f6_mock_completions set rating_at=now()-interval '2 minutes' where id='30303030-3030-4030-8030-303030303030';
+ exception when check_violation then blocked:=true; end;
+ if not blocked then raise exception 'Avaliacao anterior a confirmacao'; end if;
+end $test$;
+update public.f6_mock_completions set status='support_review' where id='30303030-3030-4030-8030-303030303030';
+do $test$ begin
+ if not exists(select 1 from public.f6_mock_completions where id='30303030-3030-4030-8030-303030303030' and status='support_review' and rating_stars=5)
+ then raise exception 'Divergencia apagou historico de avaliacao'; end if;
+end $test$;
+update public.service_requests set provider_id='bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb' where id='cccccccc-cccc-4ccc-8ccc-cccccccccccc';
+update public.service_requests set provider_id='aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa' where id='cccccccc-cccc-4ccc-8ccc-cccccccccccc';
+set role authenticated;
+set request.jwt.claim.sub='11111111-1111-4111-8111-111111111111';
+set app.f5_test_only='local_fixture';
+set app.f6_test_only='local_fixture';
+do $test$ begin
+ if (select count(*) from public.f6_mock_completions)<>0 then raise exception 'Conclusao antiga reapareceu apos troca'; end if;
+end $test$;
+reset role;
+
 -- Perda da homologacao revoga o acesso do prestador (cliente ainda ve dados).
 update public.providers set status='suspended',is_active=false
  where id='aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa';

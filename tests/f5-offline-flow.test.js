@@ -158,3 +158,13 @@ test("F5: eventos anteriores ao pedido são recusados",()=>{
  at:999,actorId:"offline_fixture",fixtureReceipt:"F5_LOCAL_FIXTURE_NOT_PSP",
  requestId:R,quoteId:Q}),/anterior/);
 });
+
+test("F5: rejects backdated arrival and hides stale GPS with explicit clock",()=>{
+ const s=apply(dispatch(paid(base())),location());
+ assert.throws(()=>apply(s,{kind:"provider_arrived",id:"evt_backdated",at:1300,actorId:P}),/anterior ao último/);
+ assert.notEqual(F.viewFor(s,C,121350).lastLocation,null);
+ assert.equal(F.viewFor(s,C,121351).lastLocation,null);
+ assert.throws(()=>F.viewFor(s,C,1399),/Relógio/);
+ const copy=F.viewFor(s,C).lastLocation; copy.lat=0;
+ assert.equal(s.lastLocation.lat,-19.924);
+});
