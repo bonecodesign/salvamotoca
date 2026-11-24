@@ -58,7 +58,7 @@ alter table private.f5_mock_revocations enable row level security;
 revoke all on private.f5_mock_revocations from public,anon,authenticated;
 
 create function private.f5_mock_revoke_request_binding()
-returns trigger language plpgsql security definer set search_path='' as $
+returns trigger language plpgsql security definer set search_path='' as $f5$
 begin
  if (new.customer_id,new.provider_id,new.status) is distinct from
     (old.customer_id,old.provider_id,old.status) then
@@ -68,14 +68,14 @@ begin
  end if;
  return new;
 end;
-$;
+$f5$;
 revoke all on function private.f5_mock_revoke_request_binding() from public,anon,authenticated;
 create trigger f5_mock_revoke_binding after update of customer_id,provider_id,status
  on public.service_requests for each row execute function private.f5_mock_revoke_request_binding();
 
 -- Consulta privada de vínculo: também valida o próprio chamador, não expõe dados.
 create function private.f5_mock_binding_visible(p_session_id uuid)
-returns boolean language sql stable security definer set search_path='' as $
+returns boolean language sql stable security definer set search_path='' as $f5$
  select private.f5_mock_enabled() is true and auth.uid() is not null and exists (
   select 1 from public.f5_mock_sessions s
   join public.service_requests r on r.id=s.request_id
@@ -90,7 +90,7 @@ returns boolean language sql stable security definer set search_path='' as $
     (s.provider_owner_id=auth.uid() and p.owner_id=auth.uid()
      and p.status='approved' and p.is_active))
  );
-$;
+$f5$;
 revoke all on function private.f5_mock_binding_visible(uuid) from public,anon,authenticated;
 grant execute on function private.f5_mock_binding_visible(uuid) to authenticated;
 
