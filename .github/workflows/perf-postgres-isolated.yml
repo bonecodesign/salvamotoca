@@ -49,6 +49,7 @@ jobs:
           psql -X -v ON_ERROR_STOP=1 -f supabase/drafts/f2_backend_candidate.sql
           psql -X -v ON_ERROR_STOP=1 -f supabase/drafts/f4_financial_backend_candidate.sql
           psql -X -v ON_ERROR_STOP=1 -f supabase/drafts/f4_double_entry_mock_candidate.sql
+          psql -X -v ON_ERROR_STOP=1 -c "create table private.sm_perf_fixture_marker(marker text primary key); insert into private.sm_perf_fixture_marker values('SM_PG17_CI_ONLY_20261124'); revoke all on private.sm_perf_fixture_marker from public,anon,authenticated;"
       - name: Carga, conflito, reexecução, desconexão e limpeza
         run: |
           set -o pipefail
