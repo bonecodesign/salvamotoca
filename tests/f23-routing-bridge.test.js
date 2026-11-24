@@ -258,7 +258,11 @@ test("Orçamento F3 misto preserva o preço de reboque e materiais embutidos",()
  assert.equal(result.customerSubtotalBeforeProcessingCents,27350);
  assert.equal(result.providerReceivableCents,22650);
  assert.equal(result.platformGrossCommissionCents,4700);
- assert.equal(result.customerSubtotalBeforeProcessingCents,old.customerSubtotalBeforeProcessingCents);
+ assert.equal(result.customerSubtotalBeforeProcessingCents,old.customerPayableCents);
+ assert.equal(result.providerReceivableCents,old.providerReceivableCents);
+ assert.equal(result.riderFeeCents,old.customerCommissionCents);
+ assert.equal(result.providerFeeCents,old.providerCommissionCents);
+ assert.equal(old.paymentAllowed,false);
  proveNoAuthority(result);
 });
 test("Orçamento com item extra, valor negativo ou total exagerado é recusado",()=>{
