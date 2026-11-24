@@ -321,6 +321,32 @@
       (state.f2AlertsEnabled ? 'Desativar avisos F2 na tela' : 'Ativar avisos F2 na tela') +
       '</button><p class="small muted">Somente no app aberto. Não envia push externo e não confirma entrega automaticamente.</p>';
   }
+  // The estimate is calculated from complete server-provided quote lines, not a client price.
+  function quoteEstimate(order, quote) {
+    try {
+      if (!window.SMF4Finance || !Array.isArray(order.service_types) ||
+          quote.request_id !== order.id) return null;
+      const items = state.f2QuoteItems.filter(item => item.quote_id === quote.id);
+      const lines = items.map(item => ({kind:item.kind,code:item.code,amountCents:item.amount_cents}));
+      const services = lines.filter(item => item.kind === "service").map(item => item.code);
+      if (services.length !== order.service_types.length ||
+          !order.service_types.every(code => services.includes(code))) return null;
+      // "accepted" is a calculation fixture only; no acceptance or payment is made here.
+      const snapshot = window.SMF4Finance.quoteSnapshot({
+        quoteId:quote.id,requestId:order.id,items:lines,status:"accepted"
+      });
+      if (snapshot.quoteTotalCents !== quote.amount_cents) return null;
+      return window.SMF4Finance.costBreakdown({quote:snapshot});
+    } catch (_err) { return null; }
+  }
+  function renderQuoteEstimate(estimate) {
+    if (!estimate) return '<p class="notice bad">Orçamento incompleto ou divergente. Atualize os pedidos antes de aceitar.</p>';
+    return '<div class="notice"><p>Serviço com materiais inclusos: '+amount(estimate.serviceCents)+
+      '</p><p>Deslocamento: '+amount(estimate.travelCents)+
+      '</p><p>Taxa do solicitante (10% sobre serviço): '+amount(estimate.riderFeeCents)+
+      '</p><p><b>Subtotal antes da tarifa de processamento: '+amount(estimate.customerSubtotalBeforeProcessingCents)+
+      '</b></p><p class="small muted">Tarifa de processamento ainda não homologada. Total final indisponível; nenhum pagamento será realizado.</p></div>';
+  }
   function renderF2Order(order, quotes) {
     if (f3Active() && order.service_types?.includes("reboque_moto"))
       return renderF3Order(order,quotes);
@@ -342,13 +368,15 @@
           esc(order.id) + '">Verificar vencimentos no servidor</button>';
       content += quotes.filter(q => offers.some(offer => offer.quote_id === q.id)).map(q => {
         const items = state.f2QuoteItems.filter(item => item.quote_id === q.id);
+        const estimate = quoteEstimate(order,q);
         return '<div class="card"><p><b>Proposta: ' +
           esc(state.directory.find(p => p.id === q.provider_id)?.display_name || "prestador") +
           '</b> · ' + amount(q.amount_cents) + '</p>' +
           items.map(item => '<p class="small">' + esc(item.code) + ': ' + amount(item.amount_cents) + '</p>').join("") +
+          renderQuoteEstimate(estimate) +
           (order.status === "requested" && q.status === "proposed" ?
-            '<div class="actions"><button class="btn sm" data-action="f2-decide" data-id="' + esc(q.id) +
-            '" data-accept="true">Aceitar este orçamento</button>' +
+            '<div class="actions">' + (estimate ? '<button class="btn sm" data-action="f2-decide" data-id="' + esc(q.id) +
+            '" data-accept="true">Aceitar este orçamento de teste</button>' : '') +
             '<button class="btn outline sm" data-action="f2-decide" data-id="' + esc(q.id) +
             '" data-accept="false">Recusar este orçamento</button></div>' : '') +
           '</div>';
@@ -421,13 +449,15 @@
         ' · '+esc(o.status)+'</p>').join("");
       out+=quotes.filter(q=>offers.some(o=>o.quote_id===q.id)).map(q=>{
         const items=state.f2QuoteItems.filter(item=>item.quote_id===q.id);
+        const estimate=quoteEstimate(order,q);
         return '<div class="card"><p><b>Orçamento de reboque:</b> '+
           amount(q.amount_cents)+' · '+esc(q.status)+'</p>' +
           items.map(item=>'<p class="small">'+esc(item.code)+': '+
             amount(item.amount_cents)+'</p>').join("") +
+          renderQuoteEstimate(estimate) +
           (order.status==="requested" && q.status==="proposed" ?
-            '<div class="actions"><button class="btn sm" data-action="f3-decide" data-id="'+
-              esc(q.id)+'" data-accept="true">Escolher orçamento F3</button>' +
+            '<div class="actions">'+ (estimate ? '<button class="btn sm" data-action="f3-decide" data-id="'+
+              esc(q.id)+'" data-accept="true">Escolher orçamento F3 de teste</button>' : '') +
             '<button class="btn outline sm" data-action="f3-decide" data-id="'+
               esc(q.id)+'" data-accept="false">Recusar proposta</button></div>' : '') +
           '</div>';
@@ -816,6 +846,7 @@
         if(!quote || !state.orders.some(o=>o.id===quote.request_id && owns(o) &&
           o.service_types?.includes("reboque_moto")))return;
         const accept=target.dataset.accept==="true";
+        if(accept && !quoteEstimate(state.orders.find(o=>o.id===quote.request_id),quote)) return;
         if(accept&&!window.confirm("Escolher este reboque apenas para teste, sem pagamento?"))return;
         rpc="f3_decide_tow_quote";args={p_quote_id:id,p_accept:accept};
         success=accept?"Proposta de reboque escolhida. Aguardando pagamento não habilitado.":
@@ -865,6 +896,8 @@
         if (!state.quotes.some(q => q.id === id && q.status === "proposed" &&
           state.orders.some(o => o.id === q.request_id && owns(o)))) return;
         const accept = target.dataset.accept === "true";
+        const quote = state.quotes.find(q=>q.id===id);
+        if (accept && !quoteEstimate(state.orders.find(o=>o.id===quote.request_id),quote)) return;
         if (accept && !window.confirm("Selecionar este orçamento para teste? Não haverá pagamento real.")) return;
         rpc = "f2_decide_quote"; args = { p_quote_id: id, p_accept: accept };
         success = accept ? "Proposta selecionada. Pagamento e chat continuam bloqueados." :
