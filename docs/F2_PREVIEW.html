@@ -62,14 +62,12 @@
       <section class="card">
         <h2>3. Orçamento itemizado</h2>
         <p class="hint">Este orçamento demonstrativo pertence apenas à simulação; o banco atual ainda não suporta múltiplos orçamentos simultâneos.</p>
-        <label>Reparo de pneu (R$)
+        <label>Reparo de pneu com materiais (R$)
           <input id="serviceA" type="number" min="0.01" step="0.01" value="80.00"></label>
-        <label>Troca de câmara (R$)
-          <input id="serviceB" type="number" min="0.01" step="0.01" value="35.00"></label>
+        <label>Troca de câmara com materiais (R$)
+          <input id="serviceB" type="number" min="0.01" step="0.01" value="80.00"></label>
         <label>Deslocamento obrigatório (R$)
           <input id="travel" type="number" min="0" step="0.01" value="15.00"></label>
-        <label>Câmara — material (R$)
-          <input id="part" type="number" min="0.01" step="0.01" value="45.00"></label>
         <div class="buttons"><button id="quote" type="button">Calcular proposta</button></div>
         <div id="breakdown" aria-live="polite"></div>
         <div id="comparison" class="hint" aria-live="polite"></div>
@@ -192,7 +190,7 @@
       quote=F2.quoteBreakdown({serviceTypes:request.serviceTypes,
         services:[{code:"pneu_furado",amountCents:cents("serviceA")},
           {code:"troca_camara",amountCents:cents("serviceB")}],
-        travelCents:cents("travel"),parts:[{name:"Câmara demonstrativa",amountCents:cents("part")}]});
+        travelCents:cents("travel")});
       $("breakdown").replaceChildren();
       for(const row of quote.rows){
         const line=document.createElement("div");line.className="line";
