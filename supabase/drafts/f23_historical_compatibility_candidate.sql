@@ -46,7 +46,8 @@ returns uuid language plpgsql security definer set search_path='' as $wrapper$
 declare r record;
 begin
  if auth.uid() is null then raise exception 'Login obrigatório.'; end if;
- select id,f2_mode into r from public.service_requests where id=p_request_id for update;
+ select req.id,req.f2_mode into r from public.service_requests req
+ where req.id=p_request_id and exists(select 1 from public.providers p where p.id=req.provider_id and p.owner_id=auth.uid()) for update;
  if not found then raise exception 'Pedido não autorizado.'; end if;
  if r.f2_mode is not null or exists(select 1 from public.f2_request_offers o where o.request_id=r.id)
  then raise exception 'Pedido gerenciado: use orçamento itemizado.'; end if;
@@ -59,7 +60,7 @@ begin
  if auth.uid() is null then raise exception 'Login obrigatório.'; end if;
  select req.id,req.f2_mode into r from public.service_requests req
   where req.id=(select request_id from public.service_quotes where id=p_quote_id)
-  for update;
+  and req.customer_id=auth.uid() for update;
  if not found then raise exception 'Pedido não autorizado.'; end if;
  if r.f2_mode is not null or exists(select 1 from public.f2_request_offers o where o.request_id=r.id)
  then raise exception 'Pedido gerenciado: use decisão itemizada.'; end if;
@@ -89,6 +90,7 @@ returns boolean language sql stable security definer set search_path='' as $allo
  and exists(select 1 from private.f2_release_gate where enabled)
  and exists(select 1 from public.service_categories c where c.id=p_category and c.code='borracharia_delivery' and c.paid_in_app)
  and p_photo is not null and cardinality(p_services)>0
+ and (select count(distinct s) from unnest(p_services) s)=cardinality(p_services)
  and not ('reboque_moto'=any(p_services))
  and (p_mode='manual' or (p_mode='automatic' and p_provider is null));
 $allowed$;
