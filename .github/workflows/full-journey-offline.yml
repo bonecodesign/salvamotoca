@@ -1,0 +1,34 @@
+name: F1-F6 - jornada integrada exclusivamente offline
+on:
+  pull_request:
+    paths:
+      - 'request-f1.js'
+      - 'f2-flow.js'
+      - 'f3-tow.js'
+      - 'f4-finance.js'
+      - 'f5-offline-flow.js'
+      - 'f6-offline-completion.js'
+      - 'f23-*-offline.js'
+      - 'f456-financial-bridge-offline.js'
+      - 'tests/f1-f6-full-journey.test.js'
+      - '.github/workflows/full-journey-offline.yml'
+permissions:
+  contents: read
+jobs:
+  synthetic-journeys:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Jornadas de borracharia e reboque
+        run: |
+          node --test tests/f1-f6-full-journey.test.js
+          echo 'FULL_JOURNEY=IN_MEMORY_FIXTURE_ONLY'
+          echo 'HOSTED_WRITES=NONE'
+          echo 'REAL_PAYMENTS=NONE'
+          echo 'RELEASE=NO_GO'
