@@ -1,0 +1,39 @@
+name: Desempenho - carga sintética isolada
+on:
+  pull_request:
+    paths:
+      - 'scripts/perf-isolated-journeys.js'
+      - 'f2-flow.js'
+      - 'f3-tow.js'
+      - 'f4-finance.js'
+      - 'f5-offline-flow.js'
+      - 'f6-offline-completion.js'
+      - 'f23-*-offline.js'
+      - 'f456-financial-bridge-offline.js'
+      - 'admin-supervision-offline.js'
+      - '.github/workflows/perf-isolated-journeys.yml'
+permissions:
+  contents: read
+jobs:
+  synthetic-load:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Testar regras e regressão de suporte
+        run: node --test tests/f1-f6-full-journey.test.js tests/admin-supervision-offline.test.js tests/f23-support-incident-offline.test.js
+      - name: Carga HTTP local e agregação administrativa
+        run: |
+          set -o pipefail
+          mkdir -p /tmp/sm-perf
+          node scripts/perf-isolated-journeys.js | tee /tmp/sm-perf/results.json
+      - uses: actions/upload-artifact@v4
+        with:
+          name: sm-synthetic-load-results
+          path: /tmp/sm-perf/results.json
+          retention-days: 3
