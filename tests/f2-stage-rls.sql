@@ -190,13 +190,27 @@ begin
   end;
 end $missing$;
 
+-- SM-DEC-046: reject a separate material line before writing any proposal.
+do $materials$
+declare v_offer uuid;
+begin
+ select id into v_offer from public.f2_request_offers where provider_id='aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa';
+ begin
+   perform public.f2_submit_quote(v_offer,'[{"kind":"service","code":"pneu_furado","amountCents":8000},{"kind":"service","code":"troca_camara","amountCents":3500},{"kind":"travel","code":"deslocamento","amountCents":1500},{"kind":"part","code":"Camara","amountCents":4500}]'::jsonb);
+   raise exception using message='FAIL: material separado aceito',errcode='ZX009';
+ exception when others then if sqlstate='ZX009' then raise; end if;
+   if sqlerrm not like 'Materiais devem estar inclusos%' then raise; end if;
+ end;
+ if exists(select 1 from public.service_quotes where provider_id='aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa') then
+   raise exception 'Material rejeitado deixou proposta'; end if;
+end $materials$;
+
 select public.f2_submit_quote(
   (select id from public.f2_request_offers
    where provider_id='aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa'),
   '[{"kind":"service","code":"pneu_furado","amountCents":8000},
-    {"kind":"service","code":"troca_camara","amountCents":3500},
-    {"kind":"travel","code":"deslocamento","amountCents":1500},
-    {"kind":"part","code":"Camara nova","amountCents":4500}]'::jsonb,
+    {"kind":"service","code":"troca_camara","amountCents":8000},
+    {"kind":"travel","code":"deslocamento","amountCents":1500}]'::jsonb,
   'Orçamento Alfa fictício'
 ) as quote_a \gset
 select set_config('request.jwt.claim.sub','33333333-3333-4333-8333-333333333333',false);
