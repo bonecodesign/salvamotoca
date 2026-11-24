@@ -1,6 +1,6 @@
 # G1 — consolidação do aceite do backup histórico de TESTES
 
-**G1_REAL_BACKUP_RESTORE=PASS; RELEASE=NO_GO.** Aceite técnico limitado ao backup histórico de TESTES, com evidências reais no relatório [restauração Native](G1_RESTAURACAO_REAL_SUPABASE_NATIVE_2026-11-23.md). Integração formal pendente da revisão/merge do PR #123. Não autoriza gravações remotas ou operação comercial.
+**G1_REAL_BACKUP_RESTORE=PASS; RELEASE=NO_GO.** Aceite técnico limitado ao backup histórico de TESTES, com evidências reais no relatório [restauração Native](G1_RESTAURACAO_REAL_SUPABASE_NATIVE_2026-11-23.md). Integração formal concluída na main pelo [PR #123](https://github.com/bonecodesign/salvamotoca/pull/123). Não autoriza gravações remotas ou operação comercial.
 
 ## Critérios comprovados
 - Backup real cifrado em dois locais privados; identidade autenticada; 7/7 hashes.
@@ -20,4 +20,4 @@
 ## Fora deste aceite
 - Recuperação de contas reais, objetos físicos de Storage quando existirem, segredos/Vault externo, parâmetros de Auth, configurações e integrações externas, Edge Functions, consistência de snapshot entre cinco dumps independentes: escopo de recuperação futura/produção não comprovado por um backup de testes sem usuários/objetos.
 - Homologação F1 hospedada e física, operações comerciais e release têm gates próprios. Manter NO_GO.
-- Não repetir backup histórico por falta de evidência: a prova existe. Revisar PR, integrar evidências à main mediante autorização e manter testes de recuperação futuros proporcionais ao escopo dos dados.
+- Não repetir backup histórico por falta de evidência: a prova existe. As evidências estão integradas à main; manter testes de recuperação futuros proporcionais ao escopo dos dados.
