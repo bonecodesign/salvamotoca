@@ -14,13 +14,13 @@ jobs:
     env:
       SUPABASE_EXPERIMENTAL_STACK: "1"
       SUPABASE_YES: "1"
-      SUPABASE_HOME: "${{ runner.temp }}/g1-native-public-home"
     steps:
       - name: "Obter somente executáveis oficiais, sem checkout ou secrets"
         shell: bash
         run: |
           set -euo pipefail
           umask 077
+          export SUPABASE_HOME="$RUNNER_TEMP/g1-native-public-home"
           mkdir -p "$RUNNER_TEMP/g1-public-pack" "$RUNNER_TEMP/g1-public-bin" "$RUNNER_TEMP/g1-public-project"
           cd "$RUNNER_TEMP/g1-public-pack"
           base='https://github.com/supabase/cli/releases/download/v3.2.0'
