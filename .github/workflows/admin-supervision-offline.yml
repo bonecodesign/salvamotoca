@@ -1,0 +1,39 @@
+name: Administração - supervisão sintética offline
+on:
+  pull_request:
+    paths:
+      - 'admin-supervision-offline.js'
+      - 'scripts/admin-preview-fixtures.js'
+      - 'scripts/render-admin-preview.js'
+      - 'tests/admin-supervision-offline.test.js'
+      - 'tests/f1-f6-full-journey.test.js'
+      - 'f23-*-offline.js'
+      - 'f456-financial-bridge-offline.js'
+      - 'f5-offline-flow.js'
+      - 'f6-offline-completion.js'
+      - '.github/workflows/admin-supervision-offline.yml'
+permissions:
+  contents: read
+jobs:
+  admin:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Painel e regressão integrada
+        run: |
+          node --test tests/admin-supervision-offline.test.js tests/f1-f6-full-journey.test.js tests/f456-financial-bridge-offline.test.js tests/f23-support-incident-offline.test.js
+          mkdir -p /tmp/sm-admin-preview
+          node scripts/render-admin-preview.js > /tmp/sm-admin-preview/admin.html
+          echo 'REAL_DATA=NONE'
+          echo 'RELEASE=NO_GO'
+      - uses: actions/upload-artifact@v4
+        with:
+          name: salva-motoca-admin-preview-synthetic
+          path: /tmp/sm-admin-preview/admin.html
+          retention-days: 3
