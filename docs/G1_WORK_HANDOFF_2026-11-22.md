@@ -1,3 +1,9 @@
+# Atualização de estado — 23/11/2026 BRT
+
+**G1_REAL_BACKUP_RESTORE=PASS (pacote histórico TESTES); RELEASE=NO_GO.** A restauração independente anteriormente bloqueada foi efetivamente concluída em Supabase Native privado PG17.12, com 5 SQL importados em transação, 47/47 blocos COPY idênticos, 80 registros public, 11 migrações, 16 FKs sem violações, 9/9 categorias de catálogo iguais após correções locais de ACL e das 3 policies Storage, 34 verificações funcionais com Auth/JWT e Storage reais locais. Ambiente temporário encerrado e removido. [Relatório e evidências](G1_RESTAURACAO_REAL_SUPABASE_NATIVE_2026-11-23.md). Não repetir o backup/restauração por suposta falta de prova. A homologação F1 no hospedado, a cobertura futura de dados Auth/Storage/configurações e a decisão de release continuam separadas; não autoriza escrita remota. O texto abaixo é histórico anterior a esta comprovação.
+
+---
+
 # Salva Motoca! — G1: estado consolidado após recuperação criptográfica (23/11/2026 UTC)
 
 **STATUS INALTERADO: G1=BLOCKED; RELEASE=NO_GO.**

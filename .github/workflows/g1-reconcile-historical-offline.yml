@@ -1,0 +1,50 @@
+name: "G1 — guardas de reconciliação histórica (somente fixture)"
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'scripts/g1-reconcile-historical-local.py'
+      - 'scripts/g1-reconcile-historical-catalog.sql'
+      - 'tests/test_g1_reconcile_historical_local.py'
+      - '.github/workflows/g1-reconcile-historical-offline.yml'
+permissions:
+  contents: read
+jobs:
+  guards:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_PASSWORD: fixture_local_only
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: "Guardas Python e ordem da transação"
+        run: python3 -m unittest discover -s tests -p test_g1_reconcile_historical_local.py -v
+      - name: "Confirmar rejeição real de destino PostgreSQL incorreto"
+        env:
+          PGPASSWORD: fixture_local_only
+        shell: bash
+        run: |
+          set -euo pipefail
+          docker run --rm -i --network host -e PGPASSWORD postgres:17 psql -X -h 127.0.0.1 -U postgres -d postgres -v ON_ERROR_STOP=1 -c 'CREATE TABLE public.fixture_guard (id integer); INSERT INTO public.fixture_guard VALUES (1);'
+          if docker run --rm -i --network host -e PGPASSWORD postgres:17 psql -X -h 127.0.0.1 -U postgres -d postgres -v ON_ERROR_STOP=1 -v expected_data_directory=/not/the/fixture < scripts/g1-reconcile-historical-catalog.sql > "$RUNNER_TEMP/reject.log" 2>&1; then
+            echo 'G1_WRONG_DESTINATION_UNEXPECTEDLY_ACCEPTED'; exit 1
+          fi
+          grep -q 'G1_WRONG_DESTINATION' "$RUNNER_TEMP/reject.log"
+          result="$(docker run --rm --network host -e PGPASSWORD postgres:17 psql -X -h 127.0.0.1 -U postgres -d postgres -Atqc 'SELECT count(*) FROM public.fixture_guard')"
+          test "$result" = 1
+          echo 'G1_WRONG_DESTINATION_REJECTED=PASS'
+          echo 'G1_FIXTURE_UNCHANGED=PASS'
+          echo 'G1_REAL_BACKUP_ACCESSED=FALSE'
+          echo 'RELEASE=NO_GO'

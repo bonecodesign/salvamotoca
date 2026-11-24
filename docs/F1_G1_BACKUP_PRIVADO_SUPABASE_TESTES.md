@@ -1,3 +1,9 @@
+# Atualização de estado — recuperação real comprovada (23/11/2026 BRT)
+
+**G1_REAL_BACKUP_RESTORE=PASS, pacote histórico de TESTES; RELEASE=NO_GO.** O backup cifrado foi criado, validado e restaurado em Supabase Native independente, com comparação exata de 47 blocos de dados, 9 categorias de catálogo e 34 verificações funcionais locais. Consulte [evidência real](G1_RESTAURACAO_REAL_SUPABASE_NATIVE_2026-11-23.md) e [handoff atualizado](G1_WORK_HANDOFF_2026-11-22.md). O documento abaixo preserva o procedimento e o estado histórico da data original; afirmações de ausência de backup ou restauração não representam o estado atual. Não autoriza gravações no Supabase hospedado nem lançamento comercial.
+
+---
+
 # Salva Motoca! — G1: exportação privada do Supabase de testes (plano Free)
 
 **Status em 18/11/2026:** `PROCEDIMENTO PREPARADO, DUMP AINDA NÃO EXECUTADO`.  
