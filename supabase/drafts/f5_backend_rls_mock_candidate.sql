@@ -48,6 +48,52 @@ create table public.f5_mock_sessions (
    (not tracking_consent or (status='en_route' and mock_paid))
 );
 
+-- Revogação permanente da sessão sintética quando o vínculo do pedido muda.
+-- A -> B -> A não ressuscita mensagens nem GPS de uma atribuição encerrada.
+create table private.f5_mock_revocations (
+ session_id uuid primary key references public.f5_mock_sessions(id) on delete cascade,
+ revoked_at timestamptz not null default clock_timestamp()
+);
+alter table private.f5_mock_revocations enable row level security;
+revoke all on private.f5_mock_revocations from public,anon,authenticated;
+
+create function private.f5_mock_revoke_request_binding()
+returns trigger language plpgsql security definer set search_path='' as $
+begin
+ if (new.customer_id,new.provider_id,new.status) is distinct from
+    (old.customer_id,old.provider_id,old.status) then
+   insert into private.f5_mock_revocations(session_id)
+   select s.id from public.f5_mock_sessions s where s.request_id=old.id
+   on conflict(session_id) do nothing;
+ end if;
+ return new;
+end;
+$;
+revoke all on function private.f5_mock_revoke_request_binding() from public,anon,authenticated;
+create trigger f5_mock_revoke_binding after update of customer_id,provider_id,status
+ on public.service_requests for each row execute function private.f5_mock_revoke_request_binding();
+
+-- Consulta privada de vínculo: também valida o próprio chamador, não expõe dados.
+create function private.f5_mock_binding_visible(p_session_id uuid)
+returns boolean language sql stable security definer set search_path='' as $
+ select auth.uid() is not null and exists (
+  select 1 from public.f5_mock_sessions s
+  join public.service_requests r on r.id=s.request_id
+  join public.service_quotes q on q.id=s.quote_id and q.request_id=r.id
+  join public.providers p on p.id=s.provider_id
+  where s.id=p_session_id
+   and r.status='awaiting_payment' and r.customer_id=s.customer_id
+   and r.provider_id=s.provider_id
+   and q.status='accepted' and q.provider_id=s.provider_id
+   and not exists(select 1 from private.f5_mock_revocations x where x.session_id=s.id)
+   and (s.customer_id=auth.uid() or
+    (s.provider_owner_id=auth.uid() and p.owner_id=auth.uid()
+     and p.status='approved' and p.is_active))
+ );
+$;
+revoke all on function private.f5_mock_binding_visible(uuid) from public,anon,authenticated;
+grant execute on function private.f5_mock_binding_visible(uuid) to authenticated;
+
 create function private.f5_validate_mock_session()
 returns trigger language plpgsql security invoker set search_path='' as $$
 begin
@@ -57,12 +103,15 @@ begin
       (old.request_id,old.quote_id,old.customer_id,old.provider_id,old.provider_owner_id)
    then raise exception 'Vinculos da sessao mock imutaveis.'; end if;
  end if;
+ if exists(select 1 from private.f5_mock_revocations x where x.session_id=new.id)
+ then raise exception 'Vinculo da sessao mock revogado.'; end if;
  if not exists (
    select 1 from public.service_requests r
    join public.service_quotes q on q.request_id=r.id
    join public.providers p on p.id=q.provider_id
    where r.id=new.request_id and r.customer_id=new.customer_id
      and r.status='awaiting_payment'
+     and r.provider_id=new.provider_id
      and q.id=new.quote_id and q.status='accepted'
      and q.provider_id=new.provider_id
      and p.owner_id=new.provider_owner_id
@@ -135,11 +184,7 @@ grant select(session_id,latitude,longitude,accuracy_meters,sampled_at,updated_at
 
 create policy f5_mock_session_participants on public.f5_mock_sessions
 for select to authenticated using (
-  (select private.f5_mock_enabled()) and
-  (customer_id=(select auth.uid()) or
-    (provider_owner_id=(select auth.uid()) and
-      exists(select 1 from public.providers p where p.id=provider_id
-      and p.owner_id=(select auth.uid()) and p.status='approved' and p.is_active)))
+  (select private.f5_mock_enabled()) and private.f5_mock_binding_visible(id)
 );
 create policy f5_mock_messages_participants on public.f5_mock_messages
 for select to authenticated using (
