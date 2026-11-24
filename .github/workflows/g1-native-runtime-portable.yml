@@ -15,6 +15,15 @@ jobs:
       SUPABASE_EXPERIMENTAL_STACK: "1"
       SUPABASE_YES: "1"
     steps:
+      - name: "Comprovar transporte de artefato público pequeno"
+        shell: bash
+        run: |
+          printf "%s\n" "SALVAMOTOCA_G1_PUBLIC_RUNTIME_TRANSPORT_V1" > "$RUNNER_TEMP/g1-transport-probe.txt"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: g1-public-transport-probe
+          path: "${{ runner.temp }}/g1-transport-probe.txt"
+          retention-days: 1
       - name: "Obter somente executáveis oficiais, sem checkout ou secrets"
         shell: bash
         run: |
@@ -37,7 +46,8 @@ jobs:
           cp "$(command -v age)" "$(command -v age-keygen)" .
           sha256sum age age-keygen > age.sha256
           cd "$RUNNER_TEMP/g1-public-project"
-          supabase init > "$RUNNER_TEMP/g1-native-init.log" 2>&1
+          supabase init > "$RUNNER_TEMP/g1-native-init.log" 2>&1 || { cat "$RUNNER_TEMP/g1-native-init.log"; exit 1; }
+          echo G1_NATIVE_INIT=PASS
           python3 - <<'PY'
           import pathlib, re, tomllib
           p=pathlib.Path('supabase/config.toml')
@@ -57,20 +67,24 @@ jobs:
           assert tomllib.loads(s)['db']['major_version']==17
           p.write_text(s)
           PY
-          supabase stack prepare --help > "$RUNNER_TEMP/g1-native-help.log" 2>&1
-          grep -q -- '--runtime' "$RUNNER_TEMP/g1-native-help.log"
+          supabase stack install --help > "$RUNNER_TEMP/g1-native-help.log" 2>&1
+          grep -q -- '--runtime' "$RUNNER_TEMP/g1-native-help.log" || { cat "$RUNNER_TEMP/g1-native-help.log"; exit 1; }
+          echo G1_NATIVE_INSTALL_HELP=PASS
           # Only download published service archives. Do not start or link any project.
-          if ! supabase stack prepare --runtime native > "$RUNNER_TEMP/g1-native-prepare.log" 2>&1; then
+          if ! supabase stack install --runtime native > "$RUNNER_TEMP/g1-native-prepare.log" 2>&1; then
+            cat "$RUNNER_TEMP/g1-native-prepare.log"
             echo 'G1_NATIVE_PREPARE=BLOCKED'
             exit 2
           fi
+          cat "$RUNNER_TEMP/g1-native-prepare.log"
           test -d "$SUPABASE_HOME/cache/stack"
           test -n "$(find "$SUPABASE_HOME/cache/stack" -type f -print -quit)"
           cd "$RUNNER_TEMP/g1-public-pack"
           cp "$RUNNER_TEMP/g1-public-project/supabase/config.toml" config.toml
+          cp "$RUNNER_TEMP/g1-public-project/supabase/supabase.lock" supabase.lock
           # Transfer only the cache of published binaries, not runtime state, SQL or credentials.
           tar -czf service-cache.tar.gz -C "$SUPABASE_HOME/cache" stack
-          sha256sum service-cache.tar.gz config.toml > runtime.sha256
+          sha256sum service-cache.tar.gz config.toml supabase.lock > runtime.sha256
           bytes="$(du -sb . | cut -f1)"
           echo "G1_PUBLIC_RUNTIME_BYTES=$bytes"
           # Small, one-day public-software artifact; no private data or paid runners.
