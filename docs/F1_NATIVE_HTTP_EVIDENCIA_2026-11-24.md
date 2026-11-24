@@ -1,0 +1,12 @@
+# F1 — evidência HTTP real em Supabase Native descartável (24/11/2026 UTC)
+
+**F1_NATIVE_SIGNED_STORAGE=PASS; RELEASE=NO_GO.** Escopo exclusivamente de teste local, dados sintéticos. Não substitui homologação HTTP do projeto hospedado nem Android físico.
+
+- [Run 45306686438](https://github.com/bonecodesign/salvamotoca/actions/runs/45306686438), job 138152144145, completed/success, head cc56cf6917349d578436698257e63a2227ae753e.
+- Stack oficial Supabase Native iniciada de modo isolado em GitHub Actions, CLI 3.2.0, PG17, sem acesso ao backup privado, a tokens hospedados ou a serviços comerciais. Aplicação da migration F1 verdadeira sobre duas tabelas de negócio mínimas de fixture. Auth/JWT, REST e Storage reais locais, não stubs.
+- 29/29 verificações: três usuários fictícios distintos; upload JPEG próprio; namespace alheio e acesso público anônimo negados; autorização de emissão de URL assinada; bytes recuperados idênticos; criação de pedido fictício; prestador designado autorizado; terceiro negado; troca de prestador local; antigo prestador perde acesso direto e emissão de novos links; novo prestador autorizado; foto vinculada preservada mesmo após tentativa de exclusão; foto órfã excluída via Storage API e leitura posterior negada; URL anterior expira; inventário final de uma foto vinculada da fixture.
+- Comportamento observado: a URL já assinada do antigo prestador continua utilizável até expirar. Teste usou 20 segundos e verificou recusa após 23 segundos. O app main usa TTL de 60 segundos e não persiste a URL no banco; limpa preview na troca de identidade ou ao sair da tela. A emissão deve permanecer curta, não prometer revogação imediata de URLs já emitidas.
+- Runner descartável, stack parada ao finalizar. HOSTED_PROJECT_TOUCHED=FALSE; F1_LOCAL_ONLY=PASS.
+
+## Pendências
+A recuperação G1 do backup histórico de testes já foi comprovada e integrada (PR #123). O presente resultado complementa as 34 verificações de recuperação local real anteriores, sem somá-las como se fossem casos independentes. Faltam homologação HTTP no projeto hospedado com autorização específica e ambiente privado, verificação em Android físico, e critérios de publicação. Não ativar f1TestRequestsEnabled nem operações comerciais. Não executar novo backup histórico por ausência de prova; respeitar validade do backup no roteiro de escrita hospedada e reavaliar seu escopo antes de eventual escrita.
