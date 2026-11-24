@@ -104,6 +104,23 @@ begin
  then raise exception 'Prévia não corresponde aos itens do orçamento'; end if;
 end $preview$;
 
+-- Totais iguais não legitimam códigos de serviço/deslocamento adulterados.
+reset role;
+update public.f2_quote_items set code='outro' where quote_id='cccccccc-cccc-4ccc-8ccc-cccccccccccc' and kind='service';
+set role authenticated;
+do $wrong_service$
+begin
+ begin
+  perform public.f4_quote_preview('cccccccc-cccc-4ccc-8ccc-cccccccccccc');
+  raise exception using message='FAIL: serviço incorreto aceito',errcode='ZX410';
+ exception when others then
+  if sqlstate='ZX410' or sqlerrm not like 'Itens de orçamento não correspondem%' then raise; end if;
+ end;
+end $wrong_service$;
+reset role;
+update public.f2_quote_items set code='pneu_furado' where quote_id='cccccccc-cccc-4ccc-8ccc-cccccccccccc' and kind='service';
+set role authenticated;
+
 -- O navegador conhece IDs mas NÃO pode registrar pagamento.
 do $no_browser$
 begin
@@ -132,6 +149,22 @@ end $admin_gate$;
 select private.f4_prepare_mock_attempt(
  'cccccccc-cccc-4ccc-8ccc-cccccccccccc') as repeated_attempt \gset
 select set_config('test.f4_attempt',:'repeated_attempt',false);
+
+-- Repetir a mesma tentativa não pode aceitar nova composição com total igual.
+update public.f2_quote_items set amount_cents=amount_cents+1000 where quote_id='cccccccc-cccc-4ccc-8ccc-cccccccccccc' and kind='service';
+update public.f2_quote_items set amount_cents=amount_cents-1000 where quote_id='cccccccc-cccc-4ccc-8ccc-cccccccccccc' and kind='travel';
+do $changed_snapshot$
+begin
+ begin
+  perform private.f4_prepare_mock_attempt('cccccccc-cccc-4ccc-8ccc-cccccccccccc');
+  raise exception using message='FAIL: composição alterada aceitou tentativa antiga',errcode='ZX411';
+ exception when others then
+  if sqlstate='ZX411' or sqlerrm not like 'Já existe tentativa com orçamento ou valores divergentes%' then raise; end if;
+ end;
+end $changed_snapshot$;
+update public.f2_quote_items set amount_cents=amount_cents-1000 where quote_id='cccccccc-cccc-4ccc-8ccc-cccccccccccc' and kind='service';
+update public.f2_quote_items set amount_cents=amount_cents+1000 where quote_id='cccccccc-cccc-4ccc-8ccc-cccccccccccc' and kind='travel';
+
 
 do $idempotent_prepare$
 begin

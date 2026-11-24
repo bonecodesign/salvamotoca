@@ -93,11 +93,12 @@ declare
  v_user uuid:=auth.uid();v_quote record;
  v_svc bigint;v_travel bigint;v_part_lines bigint;v_travel_lines integer;
  v_total bigint;v_rider bigint;v_provider bigint;v_comm bigint;
+ v_valid_items boolean;
 begin
  if v_user is null or not exists(select 1 from private.f4_release_gate where enabled)
  then raise exception 'F4 indisponível para cliente.'; end if;
  select q.id,q.request_id,q.provider_id,q.amount_cents,q.status as quote_status,
-   r.customer_id,r.status as request_status,r.provider_id as chosen_provider
+   r.customer_id,r.status as request_status,r.provider_id as chosen_provider,r.service_types
  into v_quote
  from public.service_quotes q
  join public.service_requests r on r.id=q.request_id
@@ -109,11 +110,15 @@ begin
  select count(*) filter(where kind='travel'),
    coalesce(sum(amount_cents) filter(where kind='service'),0),
    coalesce(sum(amount_cents) filter(where kind='travel'),0),
-   count(*) filter(where kind='part')
- into v_travel_lines,v_svc,v_travel,v_part_lines
+   count(*) filter(where kind='part'),
+   coalesce(bool_and((kind='travel' and code='deslocamento') or
+     (kind='service' and code=any(v_quote.service_types) and amount_cents>0)),false)
+     and count(*) filter(where kind='service')=cardinality(v_quote.service_types)
+     and count(distinct code) filter(where kind='service')=cardinality(v_quote.service_types)
+ into v_travel_lines,v_svc,v_travel,v_part_lines,v_valid_items
  from public.f2_quote_items where quote_id=p_quote_id;
  v_total:=v_svc+v_travel;
- if v_svc<=0 or v_part_lines<>0 or v_travel_lines<>1 or v_total<>v_quote.amount_cents
+ if v_valid_items is distinct from true or v_svc<=0 or v_part_lines<>0 or v_travel_lines<>1 or v_total<>v_quote.amount_cents
    or v_total not between 100 and 500000
  then raise exception 'Itens de orçamento não correspondem ao valor aceito.'; end if;
  v_rider:=(v_svc*1000+5000)/10000;
@@ -139,25 +144,34 @@ returns uuid language plpgsql security definer set search_path='' as $$
 declare v_quote record;v_req record;v_svc bigint;v_travel bigint;
  v_part_lines bigint;v_travel_lines integer;v_total bigint;
  v_rider bigint;v_provider bigint;v_comm bigint;v_id uuid;
+ v_valid_items boolean;v_request_id uuid;
 begin
  if not exists(select 1 from private.f4_release_gate where enabled)
    or current_setting('app.f4_test_only',true) is distinct from 'local_fixture'
  then raise exception 'Operação F4 mock bloqueada fora de fixture isolada.'; end if;
- select * into v_quote from public.service_quotes where id=p_quote_id;
- if not found or v_quote.status<>'accepted' then raise exception 'Proposta não aceita.'; end if;
- select * into v_req from public.service_requests
-  where id=v_quote.request_id for update;
- if not found or v_req.status<>'awaiting_payment'
+ -- Same lock order as F2: request before quote.
+ select request_id into v_request_id from public.service_quotes where id=p_quote_id;
+ if not found then raise exception 'Proposta não aceita.'; end if;
+ select * into v_req from public.service_requests where id=v_request_id for update;
+ if not found then raise exception 'Pedido não aguarda pagamento deste prestador.'; end if;
+ select * into v_quote from public.service_quotes where id=p_quote_id for update;
+ if not found or v_quote.status<>'accepted' or v_quote.request_id is distinct from v_req.id
+ then raise exception 'Proposta não aceita.'; end if;
+ if v_req.status<>'awaiting_payment'
    or v_req.provider_id is distinct from v_quote.provider_id
  then raise exception 'Pedido não aguarda pagamento deste prestador.'; end if;
  select count(*) filter(where kind='travel'),
     coalesce(sum(amount_cents) filter(where kind='service'),0),
     coalesce(sum(amount_cents) filter(where kind='travel'),0),
-    count(*) filter(where kind='part')
- into v_travel_lines,v_svc,v_travel,v_part_lines
+    count(*) filter(where kind='part'),
+    coalesce(bool_and((kind='travel' and code='deslocamento') or
+      (kind='service' and code=any(v_req.service_types) and amount_cents>0)),false)
+      and count(*) filter(where kind='service')=cardinality(v_req.service_types)
+      and count(distinct code) filter(where kind='service')=cardinality(v_req.service_types)
+ into v_travel_lines,v_svc,v_travel,v_part_lines,v_valid_items
  from public.f2_quote_items where quote_id=v_quote.id;
  v_total:=v_svc+v_travel;
- if v_svc<=0 or v_part_lines<>0 or v_travel_lines<>1 or v_total<>v_quote.amount_cents
+ if v_valid_items is distinct from true or v_svc<=0 or v_part_lines<>0 or v_travel_lines<>1 or v_total<>v_quote.amount_cents
    or v_total not between 100 and 500000
  then raise exception 'Orçamento não confere com itens persistidos.'; end if;
  v_rider:=(v_svc*1000+5000)/10000;
@@ -174,9 +188,14 @@ begin
  on conflict(request_id) do nothing returning id into v_id;
  if v_id is null then
    select id into v_id from private.f4_mock_payment_attempts
-   where request_id=v_req.id and quote_id=v_quote.id;
+   where request_id=v_req.id and quote_id=v_quote.id
+     and customer_id=v_req.customer_id and provider_id=v_quote.provider_id
+     and service_cents=v_svc and travel_cents=v_travel
+     and quote_total_cents=v_total and customer_subtotal_cents=v_total+v_rider
+     and rider_fee_cents=v_rider and provider_fee_cents=v_provider
+     and commission_cents=v_comm and expected_provider_cents=v_total-v_provider;
    if v_id is null then
-     raise exception 'Já existe tentativa para orçamento diferente do mesmo pedido.'; end if;
+     raise exception 'Já existe tentativa com orçamento ou valores divergentes do mesmo pedido.'; end if;
  end if;
  return v_id;
 end;
