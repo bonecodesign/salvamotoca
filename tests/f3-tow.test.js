@@ -91,7 +91,9 @@ test("F3: heartbeat expira em 90 segundos e não aceita relógio futuro",()=>{
  assert.equal(find([provider("a",{lastSeenAt:T+1})]).status,"no_provider");
 });
 test("F3: cobertura por proximidade e município de origem",()=>{
- assert.equal(find([provider("a",{city:"Contagem"})]).status,"no_provider");
+ assert.equal(find([provider("a",{city:"Contagem"})]).status,"candidates");
+ assert.equal(find([provider("a",{city:"Betim"})]).status,"candidates");
+ assert.equal(find([provider("a",{city:"Sabará"})]).status,"no_provider");
  assert.equal(find([provider("a",{location:{lat:-20.3,lng:-43.95}})]).status,"no_provider");
  assert.equal(find([provider("a",{capacity:{...capacity(),coverageKm:1}})]).candidates.length,1);
 });
@@ -159,4 +161,16 @@ test("F3: jamais calcula distância de endereço exato confidencial",()=>{
  const d=F.distanceKm(req.pickupLocation,p.location);
  assert.ok(d<1);
  assert.equal(F.distanceKm({lat:999,lng:0},p.location),Infinity);
+});
+
+test("SM-DEC-047/048: approved rings and destination outside pilot",()=>{
+ assert.deepEqual(F.APPROVED_RADII_KM,[5,15,60]);
+ const req=F.validateTowRequest({...base(),pickupCity:"Betim",destinationCity:"Nova Lima"});
+ const run=(patch={},r=req)=>F.findTowProviders({providers:[provider("x",{city:"Contagem",capacity:{...capacity(),coverageKm:60},...patch})],request:r,now:T});
+ assert.equal(run().radiusKm,5);
+ assert.equal(run({location:{lat:-20.01,lng:-43.938}}).radiusKm,15);
+ assert.equal(run({location:{lat:-20.27,lng:-43.938}}).radiusKm,60);
+ assert.equal(run({location:{lat:-20.60,lng:-43.938}}).status,"no_provider");
+ assert.equal(run({location:{lat:-20.27,lng:-43.938},capacity:{...capacity(),coverageKm:20}}).status,"no_provider");
+ assert.equal(run({},F.validateTowRequest({...base(),pickupCity:"Sabará"})).status,"no_provider");
 });
