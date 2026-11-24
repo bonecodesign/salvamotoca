@@ -76,7 +76,7 @@ create trigger f5_mock_revoke_binding after update of customer_id,provider_id,st
 -- Consulta privada de vínculo: também valida o próprio chamador, não expõe dados.
 create function private.f5_mock_binding_visible(p_session_id uuid)
 returns boolean language sql stable security definer set search_path='' as $
- select auth.uid() is not null and exists (
+ select private.f5_mock_enabled() is true and auth.uid() is not null and exists (
   select 1 from public.f5_mock_sessions s
   join public.service_requests r on r.id=s.request_id
   join public.service_quotes q on q.id=s.quote_id and q.request_id=r.id
