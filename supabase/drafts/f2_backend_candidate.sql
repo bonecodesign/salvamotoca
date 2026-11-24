@@ -294,12 +294,14 @@ $$;
 create or replace function public.f2_decline_offer(p_offer_id uuid)
 returns text language plpgsql security definer set search_path='' as $$
 declare
-  v_user uuid:=auth.uid(); v_offer record; v_request_status text;
+  v_user uuid:=auth.uid(); v_offer record; v_request_status text; v_request_id uuid;
 begin
   if v_user is null or
      not exists(select 1 from private.f2_release_gate where enabled)
   then raise exception 'Recusa F2 indisponível.'; end if;
 
+  select request_id into v_request_id from public.f2_request_offers where id=p_offer_id;
+  perform 1 from public.service_requests where id=v_request_id for update;
   select o.id,o.request_id,o.status,o.offered_at,o.delivered_at
     into v_offer
   from public.f2_request_offers o
@@ -328,7 +330,7 @@ create or replace function public.f2_submit_quote(
   p_offer_id uuid,p_items jsonb,p_details text default ''
 ) returns uuid language plpgsql security definer set search_path='' as $$
 declare
-  v_user uuid:=auth.uid(); v_offer record; v_req record; v_quote uuid;
+  v_user uuid:=auth.uid(); v_offer record; v_req record; v_quote uuid; v_request_id uuid;
   v_line jsonb; v_kind text; v_code text; v_amount integer;
   v_index integer:=0; v_total integer:=0; v_travel integer:=0;
   v_seen text[]:=array[]::text[];
@@ -341,6 +343,8 @@ begin
     coalesce(p_details,'') ~*
       '(https?://|www[.]|wa[.]me|whats[[:space:]]*app|chave[[:space:]]*pix|@[-_[:alnum:].]+|([0-9][[:space:]().-]*){9,})'
   then raise exception 'Itens ou descrição inválidos.'; end if;
+  select request_id into v_request_id from public.f2_request_offers where id=p_offer_id;
+  perform 1 from public.service_requests where id=v_request_id for update;
   select o.id,o.request_id,o.provider_id,o.status,o.delivered_at
     into v_offer from public.f2_request_offers o
     join public.providers p on p.id=o.provider_id and p.owner_id=v_user
@@ -476,9 +480,9 @@ declare v_user uuid:=auth.uid(); v_count integer;
 begin
   if v_user is null or not exists(select 1 from private.f2_release_gate where enabled)
     then raise exception 'F2 indisponível.'; end if;
-  if not exists(select 1 from public.service_requests r
-    where r.id=p_request_id and r.customer_id=v_user)
-  then raise exception 'Acesso negado.'; end if;
+  perform 1 from public.service_requests r
+    where r.id=p_request_id and r.customer_id=v_user for update;
+  if not found then raise exception 'Acesso negado.'; end if;
   -- Convite não aberto expira sem gerar ausência; se foi aberto, a contagem
   -- depende de ACK autêntico e da janela completa de resposta.
   update public.f2_request_offers set status='expired',replied_at=now()
