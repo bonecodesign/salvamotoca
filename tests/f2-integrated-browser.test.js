@@ -7,7 +7,7 @@ const executablePath=process.env.CHROME_BIN||[
   "/usr/bin/google-chrome","/usr/bin/chromium","/usr/bin/chromium-browser"
 ].find(p=>fs.existsSync(p));
 
-async function app(role="customer",f2=true){
+async function app(role="customer",f2=true,quoteMode=null){
   assert.ok(executablePath,"Chrome ausente");
   const browser=await chromium.launch({executablePath,headless:true,
     args:["--no-sandbox","--disable-dev-shm-usage"]});
@@ -20,7 +20,7 @@ async function app(role="customer",f2=true){
     '<div id="role-label"></div><div class="demo-banner"></div><main id="app"></main>'+
     '<div class="bottom-nav"><button data-page="orders">Pedidos</button>'+
     '<button data-page="profile">Perfil</button></div></body></html>');
-  await page.evaluate(({role,f2})=>{
+  await page.evaluate(({role,f2,quoteMode})=>{
     const uid=role==="provider"?"33333333-3333-4333-8333-333333333333":
       "11111111-1111-4111-8111-111111111111";
     const pid="bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb";
@@ -48,6 +48,20 @@ async function app(role="customer",f2=true){
       }]:[],
       quotes:[],quoteItems:[],calls:[],queries:[],
     };
+    if (quoteMode) {
+      const qid="dddddddd-dddd-4ddd-8ddd-dddddddddddd";
+      model.offers.push({id:"offer-quote",request_id:rid,provider_id:pid,status:"quoted",quote_id:qid});
+      model.quotes.push({id:qid,request_id:rid,provider_id:pid,status:"proposed",amount_cents:27000,created_at:new Date().toISOString()});
+      model.quoteItems=[
+        {quote_id:qid,line_no:1,kind:"service",code:"pneu_furado",amount_cents:8000},
+        {quote_id:qid,line_no:2,kind:"service",code:"troca_camara",amount_cents:15000},
+        {quote_id:qid,line_no:3,kind:"travel",code:"deslocamento",amount_cents:4000}
+      ];
+      if(quoteMode==="missing") model.quoteItems.pop();
+      if(quoteMode==="mismatch") model.quoteItems[0].amount_cents=9000;
+      if(quoteMode==="duplicate") model.quoteItems[1].code="pneu_furado";
+      if(quoteMode==="legacy") model.quoteItems[1].kind="part";
+    }
     window.__mock=model;
     window.BJ_CONFIG={f1TestRequestsEnabled:f2,f2TestOffersEnabled:f2};
     window.confirm=()=>true;
@@ -107,8 +121,8 @@ async function app(role="customer",f2=true){
       },
       storage:{from:()=>({createSignedUrl:async()=>({data:null,error:{message:"sem imagem"}})})}
     })};
-  },{role,f2});
-  for(const js of ["request-f1.js","f2-flow.js","live-app-current.js"])
+  },{role,f2,quoteMode});
+  for(const js of ["request-f1.js","f2-flow.js","f4-finance.js","live-app-current.js"])
     await page.addScriptTag({path:path.join(__dirname,"..",js)});
   await page.waitForFunction(()=>document.querySelector("#app")?.innerHTML.length>20);
   await page.locator(".bottom-nav [data-page=orders]").click();
@@ -165,3 +179,34 @@ test("App real: prestador recusa convite sem ausência e sem acionar rede",async
     assert.deepEqual(external,[]);
   }finally{await browser.close()}
 });
+
+test("App real: cliente vê comissão e subtotal antes da tarifa PSP e aceita apenas para teste",async()=>{
+  const {browser,page,external}=await app("customer",true,"valid");
+  try{
+    const accept=page.locator('[data-action="f2-decide"][data-accept="true"]');
+    await accept.waitFor();
+    const body=await page.locator("#app").innerText();
+    assert.match(body,/Taxa do solicitante \(10% sobre serviço\): R\$\s*23,00/);
+    assert.match(body,/Subtotal antes da tarifa de processamento: R\$\s*293,00/);
+    assert.match(body,/Total final indisponível/);
+    await accept.click();
+    await page.waitForFunction(()=>window.__mock.calls.some(x=>x.name==="f2_decide_quote"&&x.args.p_accept===true));
+    assert.deepEqual(external,[]);
+  }finally{await browser.close()}
+});
+for(const mode of ["missing","mismatch","duplicate","legacy"]){
+ test("App real: orçamento "+mode+" impede aceite mesmo por botão adulterado",async()=>{
+  const {browser,page,external}=await app("customer",true,mode);
+  try{
+   await page.getByText("Orçamento incompleto ou divergente.").waitFor();
+   assert.equal(await page.locator('[data-action="f2-decide"][data-accept="true"]').count(),0);
+   assert.equal(await page.locator('[data-action="f2-decide"][data-accept="false"]').count(),1);
+   await page.evaluate(()=>{
+    const button=document.querySelector('[data-action="f2-decide"][data-accept="false"]');
+    button.dataset.accept="true";button.click();
+   });
+   assert.equal(await page.evaluate(()=>window.__mock.calls.some(x=>x.name==="f2_decide_quote")),false);
+   assert.deepEqual(external,[]);
+  }finally{await browser.close()}
+ });
+}

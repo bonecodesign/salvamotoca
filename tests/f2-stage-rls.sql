@@ -237,6 +237,30 @@ begin
  then raise exception 'Total do orçamento nao reflete itens'; end if;
 end $totals$;
 
+-- Rejeita proposta corrompida antes do aceite, mantendo o pedido aberto.
+select set_config('test.f2_invalid_quote',:'quote_a',false);
+reset role;
+update public.service_quotes set amount_cents=amount_cents+1
+ where id=current_setting('test.f2_invalid_quote')::uuid;
+set role authenticated;
+select set_config('request.jwt.claim.sub','11111111-1111-4111-8111-111111111111',false);
+do $invalid_total$
+begin
+ begin
+  perform public.f2_decide_quote(current_setting('test.f2_invalid_quote')::uuid,true);
+  raise exception using message='FAIL: total inconsistente aceito',errcode='ZX010';
+ exception when others then
+  if sqlstate='ZX010' or sqlerrm not like 'Orçamento incompleto ou divergente%' then raise; end if;
+ end;
+ if not exists(select 1 from public.service_requests where id='11111111-aaaa-4111-8111-111111111111' and status='requested')
+ then raise exception 'Aceite inválido alterou pedido'; end if;
+end $invalid_total$;
+reset role;
+update public.service_quotes set amount_cents=amount_cents-1
+ where id=current_setting('test.f2_invalid_quote')::uuid;
+set role authenticated;
+select set_config('request.jwt.claim.sub','11111111-1111-4111-8111-111111111111',false);
+
 -- Prestador/terceiro não podem escolher vencedor, mesmo conhecendo UUID de proposta.
 select set_config('request.jwt.claim.sub','44444444-4444-4444-8444-444444444444',false);
 do $not_owner$

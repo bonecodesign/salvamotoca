@@ -417,11 +417,11 @@ begin
   select request_id into v_request_id
   from public.service_quotes where id=p_quote_id;
   if v_request_id is null then raise exception 'Proposta não encontrada.'; end if;
-  select id,customer_id,status into v_req from public.service_requests
+  select id,customer_id,status,service_types into v_req from public.service_requests
     where id=v_request_id for update;
   if v_req.customer_id<>v_user or v_req.status<>'requested'
     then raise exception 'Titularidade ou estado incompatível.'; end if;
-  select q.id,q.provider_id,q.status,q.created_at into v_quote
+  select q.id,q.provider_id,q.status,q.created_at,q.amount_cents into v_quote
   from public.service_quotes q
   join public.f2_request_offers o on o.quote_id=q.id
   where q.id=p_quote_id and o.request_id=v_request_id and o.status='quoted'
@@ -439,6 +439,21 @@ begin
     where quote_id=p_quote_id;
     return 'declined';
   end if;
+  -- Revalidate complete itemization under the locked quote, including F3 delegation.
+  -- Ordinary authenticated roles have no direct write privilege on quote items.
+  if v_req.service_types is null or cardinality(v_req.service_types)<1
+    or not exists (
+      select 1 from public.f2_quote_items i where i.quote_id=p_quote_id
+      group by i.quote_id
+      having sum(i.amount_cents)=v_quote.amount_cents
+        and sum(i.amount_cents) between 100 and 500000
+        and count(*) filter(where i.kind='travel' and i.code='deslocamento')=1
+        and count(*) filter(where i.kind='travel')=1
+        and count(*) filter(where i.kind='service')=cardinality(v_req.service_types)
+        and count(distinct i.code) filter(where i.kind='service')=cardinality(v_req.service_types)
+        and bool_and(i.kind='travel' or (i.kind='service' and i.code=any(v_req.service_types) and i.amount_cents>0))
+    )
+  then raise exception 'Orçamento incompleto ou divergente.'; end if;
   update public.service_quotes set status='accepted' where id=p_quote_id;
   update public.service_quotes set status='expired' where request_id=v_request_id
     and id<>p_quote_id and status='proposed';

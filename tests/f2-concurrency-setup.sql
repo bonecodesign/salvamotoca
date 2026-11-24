@@ -18,6 +18,11 @@ values
 ('88888888-8888-4888-8888-888888888802',
  '77777777-7777-4777-8777-777777777777',
  'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb',12000,'proposed');
+insert into public.f2_quote_items(quote_id,line_no,kind,code,amount_cents) values
+('88888888-8888-4888-8888-888888888801',1,'service','pneu_furado',8500),
+('88888888-8888-4888-8888-888888888801',2,'travel','deslocamento',1500),
+('88888888-8888-4888-8888-888888888802',1,'service','pneu_furado',10000),
+('88888888-8888-4888-8888-888888888802',2,'travel','deslocamento',2000);
 insert into public.f2_request_offers(id,request_id,provider_id,status,offered_at,delivered_at,
  replied_at,quote_id) values
 ('99999999-9999-4999-8999-999999999901',
