@@ -37,7 +37,7 @@ test('F7: documentos faltantes nao podem parecer prontos',()=>{
  assert.ok(r.reasons.some(x=>x.includes('F1_WORK_EXECUCAO')));
 });
 test('F7: flags duplicadas ou removidas nao passam por acidente',()=>{
- const duplicated=config+'\n// duplicacao proposital\n f1TestRequestsEnabled: false,\n';
+ const duplicated=config.replace('window.BJ_CONFIG = {','window.BJ_CONFIG = {f1TestRequestsEnabled: false,');
  const missing=config.replace(/f1TestRequestsEnabled\s*:\s*false/,
      'f1TestRequestsEnabled: unknown');
  for(const input of [duplicated,missing]){
@@ -65,4 +65,36 @@ test('F7: script nao faz chamadas de rede ou operacoes externas',()=>{
    /createClient\s*\(/,/spawn\s*\(/,/exec\s*\(/,/service_role/,
    /PaymentIntent/,/navigator\.geolocation/,/process\.env\./
  ])assert.doesNotMatch(src,pattern);
+});
+
+test('F7: comentarios nao substituem flags reais, nem bloqueiam configuracao literal valida',()=>{
+ const fake=config.replace(/f1TestRequestsEnabled\s*:\s*false,/,'// f1TestRequestsEnabled: false,');
+ assert.equal(evaluateReadiness({configText:fake,isPresent:()=>true}).staticPreflight,'FAIL_CLOSED');
+ const comment=config+'\n// f1TestRequestsEnabled: true\n';
+ assert.equal(evaluateReadiness({configText:comment,isPresent:()=>true}).staticPreflight,'PASS_STATIC_GUARDS_ONLY');
+});
+test('F7: sobrescritas e codigo executavel nao passam pela guarda literal',()=>{
+ for(const input of [
+  config+'\nwindow.BJ_CONFIG.f4PaymentsEnabled = true;',
+  config.replace('window.BJ_CONFIG = {','window.BJ_CONFIG = {...other,'),
+  config.replace('f1TestRequestsEnabled: false','f1TestRequestsEnabled: false || true'),
+  config.replace('window.BJ_CONFIG = {','window.BJ_CONFIG = {unexpected: false,'),
+  config.replace('f1TestRequestsEnabled: false','get f1TestRequestsEnabled(){return false}'),
+  config.replace(/f1TestRequestsEnabled\s*:\s*false/,"'f1TestRequestsEnabled': false")
+ ]){
+  const r=evaluateReadiness({configText:input,isPresent:()=>true});
+  assert.equal(r.staticPreflight,'FAIL_CLOSED');
+  assert.equal(r.configurationGrammar,'FAIL_CLOSED');
+  assert.equal(r.decision,'NO_GO');
+ }
+});
+test('F7: chave nao publicavel ou destino diferente de Supabase falha sem expor valor',()=>{
+ for(const input of [
+  config.replace(/sb_publishable_[A-Za-z0-9_-]+/,'invalid_demo_value'),
+  config.replace(/https:\/\/[a-z0-9-]+\.supabase\.co/,'https://example.invalid')
+ ]){
+  const r=evaluateReadiness({configText:input,isPresent:()=>true});
+  assert.equal(r.staticPreflight,'FAIL_CLOSED');
+  assert.ok(!JSON.stringify(r).includes('invalid_demo_value'));
+ }
 });
