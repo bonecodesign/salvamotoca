@@ -32,7 +32,7 @@
     <span class="eyebrow">SALVA MOTOCA! · F2</span>
     <h1>Distribuição e orçamentos</h1>
     <p>Protótipo demonstrativo de prestadores elegíveis, busca progressiva, prazos e orçamento discriminado.</p>
-    <div class="warn" role="status"><b>Simulador 100% local.</b> Não usa Supabase, login, GPS real, notificações, pagamentos, pedidos ou prestadores reais. As distâncias 1 / 3 / 10 km são exemplos de teste, não parâmetros aprovados para produção.</div>
+    <div class="warn" role="status"><b>Simulador 100% local.</b> Não usa Supabase, login, GPS real, notificações, pagamentos, pedidos ou prestadores reais. Busca demonstrativa em Belo Horizonte, Contagem e Betim, com anéis de 5 / 15 / 60 km aprovados. Não garante cobertura nem atendimento real.</div>
   </header>
   <section class="columns">
     <div>
@@ -101,7 +101,7 @@
     location:{lat:-19.924,lng:-43.938}};
   const sample=[
     {id:"alfa",name:"Oficina Alfa",lat:-19.925,lng:-43.939,types:["pneu_furado","troca_camara"],dist:10},
-    {id:"beta",name:"Oficina Beta",lat:-19.940,lng:-43.938,types:["pneu_furado","troca_camara"],dist:10},
+    {id:"beta",name:"Oficina Beta",lat:-20.010,lng:-43.938,types:["pneu_furado","troca_camara"],dist:10},
     {id:"gama",name:"Oficina Gama",lat:-19.930,lng:-43.939,types:["pneu_furado"],dist:10},
     {id:"delta",name:"Oficina Delta",lat:-19.926,lng:-43.939,types:["pneu_furado","troca_camara"],dist:10,online:false},
     {id:"epsilon",name:"Oficina Épsilon",lat:-19.951,lng:-43.938,types:["pneu_furado","troca_camara"],dist:1}
@@ -122,7 +122,7 @@
       serviceTypes:p.types,location:{lat:p.lat,lng:p.lng},coverageKm:p.dist,rejectionCount:refusals[p.id]||0
     }));
     return F2.distribute({providers,request:{...request,justDeclinedProviderId:lastDeclined},
-      radiiKm:expanded?[10]:[1,3,10],now:start+Math.min(elapsed,89999),rotationSeed:"F2-DESMONSTRACAO"});
+      radiiKm:expanded?[60]:F2.APPROVED_RADII_KM,now:start+Math.min(elapsed,89999),rotationSeed:"F2-DESMONSTRACAO"});
   }
   function resetQuote(){
     quote=null;$("accept").disabled=true;$("decline").disabled=true;
