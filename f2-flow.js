@@ -177,7 +177,7 @@
     const chosen = serviceTypes(selected);
     invariant(Array.isArray(services) && services.length === chosen.length,
       "Discrimine exatamente cada serviço solicitado.");
-    invariant(Array.isArray(parts) && parts.length <= 10, "Lista de peças inválida.");
+    invariant(Array.isArray(parts) && parts.length === 0, "Materiais já estão inclusos no serviço; não informar itens separados.");
     const used = new Set(), rows = [];
     for (const s of services) {
       invariant(s && chosen.includes(s.code) && !used.has(s.code), "Serviço duplicado ou diferente do pedido.");
@@ -186,16 +186,10 @@
     }
     invariant(chosen.every(s => used.has(s)), "Serviços sem preço.");
     rows.push({ type: "travel", code: "deslocamento", amountCents: asCents(travelCents, "Deslocamento") });
-    for (const part of parts) {
-      const name = cleanString(part?.name);
-      invariant(name.length >= 2 && name.length <= 80 && !/(https?:\/\/|www\.|@|whats|pix)/i.test(name),
-        "Material inválido ou contém contato externo.");
-      rows.push({ type: "part", code: name, amountCents: asCents(part.amountCents, "Material", true) });
-    }
     const totalCents = rows.reduce((sum, r) => sum + r.amountCents, 0);
     invariant(totalCents >= 100 && totalCents <= 500000,
       "Total deve estar entre R$ 1,00 e R$ 5.000,00 no simulador.");
-    return { rows, totalCents, currency: "BRL", paymentAllowed: false,
+    return { rows, totalCents, materialsIncludedInService: true, currency: "BRL", paymentAllowed: false,
       needsNewAcceptanceForChanges: true };
   }
   function quoteDecision({ quote, now, actingUserId, customerId, accept }) {
