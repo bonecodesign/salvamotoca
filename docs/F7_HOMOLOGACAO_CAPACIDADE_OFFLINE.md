@@ -43,3 +43,14 @@ Zero falhas e operações reais. Resultados de uma execução, não SLA. Medidas
 - Dispositivos físicos, rede instável, recuperação e operação humana; PSP de teste somente depois das respectivas travas.
 
 RELEASE=NO_GO.
+
+## Evidência complementar: carga transacional PostgreSQL 17 — 24/11/2026
+
+CI [45507024277](https://github.com/bonecodesign/salvamotoca/actions/runs/45507024277), SHA testado `e0a21e9fb967598967c1b584a95bf33ac98daf9f`. Primeira execução rejeitou endereço interno Docker; guarda corrigida para destino loopback fixo e marcador explícito da fixture. Nenhuma conexão externa.
+
+| Rodada | Aceites concorrentes | Vencedores | Conflitos esperados | Reexecuções financeiras | Journals únicos | p95 aceite | p95 financeiro |
+|---|---:|---:|---:|---:|---:|---:|---:|
+| 100 pedidos | 200 | 100 | 100 | 200 | 100 | 517,26 ms | 553,21 ms |
+| 300 pedidos | 600 | 300 | 300 | 600 | 300 | 502,80 ms | 563,77 ms |
+
+Até 24 conexões simultâneas. 400/400 pedidos coerentes, 400 recibos únicos, 400 journals, 400 replays idempotentes, 1.200 linhas balanceadas; quatro ensaios de desconexão sem commit revertidos, isolamento RLS e limpeza PASS. Zero falhas inesperadas. Os 400 conflitos de aceite são resultados esperados, não falhas. Gates F2/F4 retornaram a false. Os tempos incluem abertura de conexão. Não exercita reserva de um prestador entre pedidos, Auth nativo, F3/F5/F6 persistidos, rede móvel nem capacidade do Supabase hospedado. RELEASE=NO_GO.
