@@ -1,0 +1,61 @@
+name: Integração - replay de histórico e candidatos em PostgreSQL isolado
+on:
+  pull_request:
+    paths:
+      - 'tests/fixtures/hosted-history/**'
+      - 'tests/integration-history-*.sql'
+      - 'supabase/migrations/**'
+      - 'supabase/drafts/**'
+      - '.github/workflows/integration-history-replay.yml'
+permissions:
+  contents: read
+jobs:
+  replay:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: sm_history_disposable
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d sm_history_disposable"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      PGHOST: 127.0.0.1
+      PGPORT: 5432
+      PGDATABASE: sm_history_disposable
+      PGUSER: postgres
+      PGPASSWORD: postgres
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Verificar hashes históricos
+        working-directory: tests/fixtures/hosted-history
+        run: sha256sum -c SHA256SUMS
+      - name: Replay das 11 migrações históricas em ordem cronológica
+        run: |
+          test "$PGHOST" = 127.0.0.1
+          test "$PGDATABASE" = sm_history_disposable
+          command -v psql
+          psql -X -v ON_ERROR_STOP=1 -f tests/integration-history-setup.sql
+          mapfile -t paths < <(find supabase/migrations tests/fixtures/hosted-history -maxdepth 1 -name '*.sql' -printf '%f %p\n' | sort | cut -d' ' -f2-)
+          test "${#paths[@]}" -eq 11
+          for path in "${paths[@]}"; do
+            echo "REPLAY $(basename "$path")"
+            psql -X -v ON_ERROR_STOP=1 -f "$path"
+          done
+      - name: Instalar candidatos somente na fixture
+        run: |
+          for name in f2_backend_candidate f3_tow_backend_candidate f4_financial_backend_candidate f4_double_entry_mock_candidate f4_risk_settlement_mock_candidate f5_backend_rls_mock_candidate f6_backend_rls_mock_candidate f23_incidents_persistence_candidate f23_incident_intake_candidate f23_incident_historical_access_candidate; do
+            psql -X -v ON_ERROR_STOP=1 -f "supabase/drafts/$name.sql"
+          done
+          psql -X -v ON_ERROR_STOP=1 -f tests/integration-history-audit.sql
+          echo 'HISTORICAL_REPLAY=DDL_ONLY HOSTED_WRITES=NONE RELEASE=NO_GO'
