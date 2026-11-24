@@ -1188,8 +1188,8 @@
       const generation = identityGeneration, uid = state.user.id;
       const services = window.SMF2Flow.serviceTypes(data.getAll("services"));
       const coverage = Number(String(data.get("coverage") || "").replace(",", "."));
-      if (!Number.isFinite(coverage) || coverage < 0.1 || coverage > 30)
-        throw new Error("Raio de cobertura precisa ficar entre 0,1 e 30 km.");
+      if (!Number.isFinite(coverage) || coverage < 0.1 || coverage > 60)
+        throw new Error("Raio de cobertura precisa ficar entre 0,1 e 60 km.");
       const result = await db.rpc("f2_set_capacity", {
         p_services: services, p_coverage_km: coverage
       });
