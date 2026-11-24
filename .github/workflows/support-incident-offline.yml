@@ -1,0 +1,30 @@
+name: Suporte - triagem e central de incidentes offline
+on:
+  pull_request:
+    paths:
+      - 'f23-support-hybrid-offline.js'
+      - 'f23-critical-alert-plan-offline.js'
+      - 'f23-founder-incident-desk-offline.js'
+      - 'tests/f23-support-incident-offline.test.js'
+      - 'f4-finance.js'
+      - '.github/workflows/support-incident-offline.yml'
+permissions:
+  contents: read
+jobs:
+  offline:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Testes exclusivamente locais
+        run: |
+          node --test tests/f23-support-incident-offline.test.js tests/f4-finance.test.js tests/f456-financial-bridge-offline.test.js
+          node --test tests/f1-release-guard.test.js tests/f2-release-guard.test.js tests/f3-release-guard.test.js tests/f4-release-guard.test.js tests/f5-release-guard.test.js tests/f6-release-guard.test.js
+          echo 'REAL_NOTIFICATIONS=NONE'
+          echo 'HOSTED_WRITES=NONE'
+          echo 'RELEASE=NO_GO'
