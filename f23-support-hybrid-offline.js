@@ -64,6 +64,9 @@ function previewSupportCase({
 const DUTY_TIMEZONE="America/Sao_Paulo";
 const OFFICE_START_MINUTE=9*60;
 const OFFICE_END_MINUTE=18*60;
+const DUTY_FORMATTER=new Intl.DateTimeFormat("en-GB",{
+ timeZone:DUTY_TIMEZONE,weekday:"short",hour:"2-digit",minute:"2-digit",hourCycle:"h23"
+});
 function planDutyCoverage({
   kind,eventAt,isHolidayMock=false,officeStaffedMock=false,
   onCallAssignedMock=false,onCallChannelReadyMock=false
@@ -76,10 +79,7 @@ function planDutyCoverage({
   }
   const at=typeof eventAt==="number"?eventAt:Date.parse(eventAt);
   assert(Number.isFinite(at),"Horário do relato inválido.");
-  const segments=Object.fromEntries(new Intl.DateTimeFormat("en-GB",{
-    timeZone:DUTY_TIMEZONE,weekday:"short",hour:"2-digit",
-    minute:"2-digit",hourCycle:"h23"
-  }).formatToParts(new Date(at)).filter(p=>p.type!=="literal").map(p=>[p.type,p.value]));
+  const segments=Object.fromEntries(DUTY_FORMATTER.formatToParts(new Date(at)).filter(p=>p.type!=="literal").map(p=>[p.type,p.value]));
   const day=segments.weekday;
   const minutes=Number(segments.hour)*60+Number(segments.minute);
   const workday=["Mon","Tue","Wed","Thu","Fri"].includes(day);
