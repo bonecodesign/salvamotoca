@@ -50,11 +50,11 @@ function parseConfig(source){
   if(source.length>32768)return null;
   const token=/(?:\s+|\/\/[^\r\n]*|\/\*[\s\S]*?\*\/)|([A-Za-z_$][A-Za-z0-9_$]*|'[^'\\\r\n]*'|[.=:{},;])/gy;
   const tokens=[];let offset=0;
-  while(offset<source.length){
-    token.lastIndex=offset;const m=token.exec(source);
-    if(!m)return null;
-    offset=token.lastIndex;if(m[1])tokens.push(m[1]);
+  for(const m of source.matchAll(token)){
+    if(m.index!==offset)return null;
+    offset+=m[0].length;if(m[1])tokens.push(m[1]);
   }
+  if(offset!==source.length)return null;
   let i=0;
   for(const expected of ['window','.','BJ_CONFIG','=','{'])
     if(tokens[i++]!==expected)return null;
