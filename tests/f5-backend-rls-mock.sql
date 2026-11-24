@@ -212,14 +212,14 @@ update public.service_requests set provider_id='aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaa
 set role authenticated;
 set request.jwt.claim.sub='11111111-1111-4111-8111-111111111111';
 set app.f5_test_only='local_fixture';
-do $ begin
+do $test$ begin
  if (select count(*) from public.f5_mock_sessions)<>0 or (select count(*) from public.f5_mock_messages)<>0 or (select count(*) from public.f5_mock_latest_location)<>0
  then raise exception 'Sessao antiga voltou apos reatribuicao'; end if;
-end $;
+end $test$;
 reset role;
-do $ begin
+do $test$ begin
  if (select count(*) from private.f5_mock_revocations)<>1 then raise exception 'Revogacao nao persistiu'; end if;
-end $;
+end $test$;
 
 -- Nenhum fixture nem alteracao do gate deve sobreviver ao teste.
 rollback;
