@@ -1,0 +1,33 @@
+name: F2-F3 - planejador unificado de atendimento offline
+on:
+  pull_request:
+    paths:
+      - 'f23-routing-bridge-offline.js'
+      - 'tests/f23-routing-bridge.test.js'
+      - 'f2-flow.js'
+      - 'f3-tow.js'
+      - 'f4-finance.js'
+      - '.github/workflows/f23-routing-offline.yml'
+permissions:
+  contents: read
+jobs:
+  routing:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Testar roteamento e contrato financeiro em memória
+        run: |
+          node --check f23-routing-bridge-offline.js
+          node --test tests/f23-routing-bridge.test.js tests/f2-flow.test.js tests/f3-tow.test.js tests/f4-finance.test.js
+      - name: Preservar travas operacionais
+        run: |
+          node --test tests/f1-release-guard.test.js tests/f2-release-guard.test.js tests/f3-release-guard.test.js tests/f4-release-guard.test.js
+          echo 'REAL_NOTIFICATIONS=NONE'
+          echo 'HOSTED_WRITES=NONE'
+          echo 'RELEASE=NO_GO'
