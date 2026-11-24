@@ -43,7 +43,10 @@ function makeHarness({ confirm=true, uploadFails=false, insertFails=false, f1Ena
   let pendingGps=null;
   let pendingSignedResolve=null;
   const storedPhotos=new Map();
-  const docListeners={}, formListeners={};
+  const docListeners={}, formListeners={}, winListeners={};
+  let clock=Date.now(), timerId=0;
+  const timers=new Map();
+  class FakeDate extends Date { static now(){return clock;} }
   const container={
     innerHTML:"",
     addEventListener(name,fn){formListeners[name]=fn;},
@@ -193,6 +196,7 @@ function makeHarness({ confirm=true, uploadFails=false, insertFails=false, f1Ena
     supabase:{createClient:()=>db},SMRequestF1:F1,
     scrollTo(){},
     setInterval(){},
+    addEventListener(name,fn){winListeners[name]=fn;},
     confirm(){sent.confirmCalls++;return confirm;},
     L:null
   };
@@ -209,13 +213,35 @@ function makeHarness({ confirm=true, uploadFails=false, insertFails=false, f1Ena
       getAll(name){const v=this.values[name];return v==null?[]:Array.isArray(v)?v:[v];}
     },
     createImageBitmap:async()=>({width:1500,height:1200,close(){}}),
-    setTimeout(fn){fn();},
+    setTimeout(fn,delay=0){
+      if(delay<=0){fn();return 0;}
+      const id=++timerId;timers.set(id,{fn,at:clock+delay});return id;
+    },
+    clearTimeout(id){timers.delete(id);},
     setInterval(){},
-    Date,URL,Promise,Set,Map,Number,Math
+    Date:FakeDate,URL,Promise,Set,Map,Number,Math
   };
   vm.runInNewContext(APP,sandbox,{filename:"live-app-current.js",timeout:3000});
   return {
     sent,container,docListeners,formListeners,
+    async navigate(page){
+      await docListeners.click({target:{closest:()=>({dataset:{page}})}});
+      await flush();
+    },
+    async reload(){
+      await docListeners.click({target:{closest:()=>({dataset:{action:"reload"}})}});
+      await flush();
+    },
+    removeOrders(){records.service_requests=[];},
+    changePhotoPath(){
+      records.service_requests=records.service_requests.map(row=>({...row,photo_path:row.customer_id+"/ffffffff-ffff-4fff-8fff-ffffffffffff.jpg"}));
+    },
+    visibility(value){document.visibilityState=value;docListeners.visibilitychange();},
+    pagehide(){winListeners.pagehide();},
+    advance(ms){
+      clock+=ms;
+      for(const [id,timer] of [...timers])if(timer.at<=clock){timers.delete(id);timer.fn();}
+    },
     async switchUser(nextId){
       currentUserId=nextId;
       assert.equal(typeof authCallback,"function");
@@ -496,4 +522,54 @@ test("F1: GPS recebido após confirmação não modifica local do pedido durante
   assert.equal(h.sent.requests.length,1);
   assert.equal(h.sent.requests[0].latitude,null);
   assert.equal(h.sent.requests[0].longitude,null);
+});
+
+
+test("F1: foto some da interface após a validade local de 60 segundos",async()=>{
+  const h=makeHarness();await h.prepare();await h.submit(validFields());await h.openPhoto();
+  assert.match(h.container.innerHTML,/token=nao-real/);
+  assert.equal(h.sent.signed[0].seconds,60);
+  h.advance(59999);assert.match(h.container.innerHTML,/token=nao-real/);
+  h.advance(1);assert.doesNotMatch(h.container.innerHTML,/token=nao-real/);
+});
+
+test("F1: resposta assinada antiga é descartada ao sair e voltar à tela",async()=>{
+  const h=makeHarness({delayedSignedUrl:true});await h.prepare();await h.submit(validFields());
+  const pending=h.openPhoto();await flush();assert.equal(h.sent.signed.length,1);
+  await h.navigate("home");await h.navigate("orders");
+  h.resolveSignedPhoto();await pending;assert.doesNotMatch(h.container.innerHTML,/NAO-REAL-PRIVADO/);
+});
+
+test("F1: resposta assinada que chega depois de 60 segundos não é exibida",async()=>{
+  const h=makeHarness({delayedSignedUrl:true});await h.prepare();await h.submit(validFields());
+  const pending=h.openPhoto();await flush();h.advance(60000);
+  h.resolveSignedPhoto();await pending;assert.doesNotMatch(h.container.innerHTML,/NAO-REAL-PRIVADO/);
+});
+
+test("F1: atualização de pedidos descarta preview e ordem retirada pela RLS",async()=>{
+  const h=makeHarness();await h.prepare();await h.submit(validFields());await h.openPhoto();
+  assert.match(h.container.innerHTML,/token=nao-real/);
+  h.removeOrders();await h.reload();assert.doesNotMatch(h.container.innerHTML,/token=nao-real|Ver foto do problema/);
+});
+
+test("F1: atualização com novo caminho da foto descarta link anterior",async()=>{
+  const h=makeHarness();await h.prepare();await h.submit(validFields());await h.openPhoto();
+  assert.match(h.container.innerHTML,/token=nao-real/);
+  h.changePhotoPath();await h.reload();assert.doesNotMatch(h.container.innerHTML,/token=nao-real/);
+  await h.openPhoto();assert.equal(h.sent.signed.at(-1).name,CLIENT+"/ffffffff-ffff-4fff-8fff-ffffffffffff.jpg");
+});
+
+test("F1: minimizar app invalida foto e resposta pendente",async()=>{
+  const h=makeHarness();await h.prepare();await h.submit(validFields());await h.openPhoto();
+  assert.match(h.container.innerHTML,/token=nao-real/);
+  h.visibility("hidden");assert.doesNotMatch(h.container.innerHTML,/token=nao-real/);
+  await h.openPhoto();assert.equal(h.sent.signed.length,1);
+  h.visibility("visible");await h.openPhoto();assert.match(h.container.innerHTML,/token=nao-real/);
+  h.pagehide();assert.doesNotMatch(h.container.innerHTML,/token=nao-real/);
+});
+
+test("F1: resposta pendente não reaparece após ocultar e retornar ao app",async()=>{
+  const h=makeHarness({delayedSignedUrl:true});await h.prepare();await h.submit(validFields());
+  const pending=h.openPhoto();await flush();h.visibility("hidden");h.visibility("visible");
+  h.resolveSignedPhoto();await pending;assert.doesNotMatch(h.container.innerHTML,/NAO-REAL-PRIVADO/);
 });

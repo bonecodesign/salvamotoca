@@ -1,4 +1,4 @@
-const CACHE = 'salva-motoca-static-f3-draft-v1';
+const CACHE = 'salva-motoca-static-f3-draft-v2';
 const ASSETS = ['./', './index.html', './config.js', './app.js', './bootstrap.js', './request-f1.js', './f2-flow.js', './f3-tow.js', './live-app-current.js', './styles.css', './manifest.webmanifest', './assets/icon-192.png', './assets/icon.svg'];
 self.addEventListener('install', event => event.waitUntil(caches.open(CACHE).then(cache => cache.addAll(ASSETS)).then(() => self.skipWaiting())));
 self.addEventListener('activate', event => event.waitUntil(caches.keys().then(keys => Promise.all(keys.filter(key => key.startsWith('salva-motoca-') && key !== CACHE).map(key => caches.delete(key)))).then(() => self.clients.claim())));

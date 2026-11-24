@@ -28,6 +28,26 @@
   // O marcador de geração protege tarefas assíncronas iniciadas por outra conta.
   let identityGeneration = 0;
   let requestContextVersion = 0;
+  // A URL emitida não pode ser revogada pelo cliente. O preview é efêmero,
+  // nunca persistido, e sua validade local começa ANTES da chamada ao Storage.
+  const PHOTO_TTL_SECONDS = 60;
+  let photoContextVersion = 0;
+  let photoExpiryTimer = null;
+  let photoRefreshes = 0;
+  function clearPhotoPreviews() {
+    photoContextVersion++;
+    const hadPreview = Object.keys(state.photoPreview).length > 0;
+    state.photoPreview = {};
+    if (photoExpiryTimer !== null) {
+      clearTimeout(photoExpiryTimer);
+      photoExpiryTimer = null;
+    }
+    return hadPreview;
+  }
+  function invalidatePhotoScreen() {
+    const hadPreview = clearPhotoPreviews();
+    if (hadPreview && state.page === "orders") render();
+  }
   function transitionAccount(nextUser) {
     const currentId = state.user?.id || null;
     const nextId = nextUser?.id || null;
@@ -35,7 +55,7 @@
     identityGeneration++;
     state.user = nextUser || null;
     state.profile = null; state.ownProvider = null; state.ownPresence = null;
-    state.orders = []; state.quotes = []; state.photoPreview = {};
+    state.orders = []; state.quotes = []; clearPhotoPreviews();
     state.f2Offers = []; state.f2QuoteItems = []; state.f2Capacity = null;
     state.f2AlertsEnabled = false; state.f2SeenOffers = new Set();
     state.f3Capacity = null; state.f3TowDetails = []; state.f3Summaries = {}; state.f3Eligible = [];
@@ -82,7 +102,7 @@
     if (["request-form", "f3-tow"].includes(state.page) && page !== state.page)
       requestContextVersion++;
     // Nao manter URLs assinadas de fotos ao sair da tela de pedidos.
-    if (page !== "orders") state.photoPreview = {};
+    if (page !== state.page || page !== "orders") clearPhotoPreviews();
     state.page = page;
     state.error = ""; state.message = "";
     render();
@@ -478,7 +498,7 @@
            (o.motorcycle_brand ? '<p><b>Moto:</b> ' + esc(o.motorcycle_brand) + ' ' + esc(o.motorcycle_model) + ' (' + esc(o.motorcycle_year) + ')</p>' : '') +
            (o.service_types?.length ? '<p><b>Serviços:</b> ' + o.service_types.map(code => esc(F1.SERVICE_TYPES[code] || code)).join(', ') + '</p>' : '') +
            (o.photo_path && canViewOrderPhoto(o) ? '<button class="btn outline sm" data-action="view-photo" data-id="' + esc(o.id) + '">Ver foto do problema</button>' +
-             (state.photoPreview[o.id] ? '<p><img style="max-width:100%;border-radius:8px" referrerpolicy="no-referrer" alt="Foto do problema enviada pelo cliente" src="' + esc(state.photoPreview[o.id]) + '"></p>' : '') : '') +
+             (state.photoPreview[o.id]?.path === o.photo_path && Date.now() < state.photoPreview[o.id].expiresAt ? '<p><img style="max-width:100%;border-radius:8px" referrerpolicy="no-referrer" alt="Foto do problema enviada pelo cliente" src="' + esc(state.photoPreview[o.id].url) + '"></p>' : '') : '') +
           (q.length ? q.map(item => '<p><b>Orçamento de ' +
               esc(state.directory.find(p => p.id === item.provider_id)?.display_name || "prestador anterior") +
               ':</b> ' + amount(item.amount_cents) +
@@ -551,7 +571,19 @@
     const activeIds = new Set(state.services.filter(row => relevantCategories.has(row.category_id)).map(row => row.provider_id));
     state.directory = (providers.data || []).filter(row => activeIds.has(row.id));
   }
+  // Revalidar a autorização implica descartar links antigos, inclusive quando
+  // a consulta falha ou o pedido deixa de aparecer sob RLS.
   async function refreshIdentity() {
+    photoRefreshes++;
+    invalidatePhotoScreen();
+    try {
+      return await refreshIdentityData();
+    } finally {
+      photoRefreshes--;
+      invalidatePhotoScreen();
+    }
+  }
+  async function refreshIdentityData() {
     const startedGeneration = identityGeneration;
     const sessionResult = await db.auth.getSession();
     if (identityGeneration !== startedGeneration) return;
@@ -879,23 +911,35 @@
     }
     if (action === "view-photo") {
       const order = state.orders.find(o => o.id === id);
-      if (!order || !order.photo_path || !canViewOrderPhoto(order)) return;
+      if (!order || !order.photo_path || !canViewOrderPhoto(order) ||
+          state.page !== "orders" || document.visibilityState === "hidden" ||
+          photoRefreshes > 0) return;
+      invalidatePhotoScreen();
       const photoGeneration = identityGeneration;
+      const photoContext = photoContextVersion;
       const photoPath = order.photo_path;
+      const expiresAt = Date.now() + PHOTO_TTL_SECONDS * 1000;
+      const stillCurrent = () => photoGeneration === identityGeneration &&
+        photoContext === photoContextVersion && state.page === "orders" &&
+        document.visibilityState !== "hidden" && photoRefreshes === 0 &&
+        Date.now() < expiresAt;
       try {
-        const signed = await db.storage.from("request-photos").createSignedUrl(photoPath, 60);
+        const signed = await db.storage.from("request-photos").createSignedUrl(photoPath, PHOTO_TTL_SECONDS);
         // Evita que uma resposta antiga exponha um link assinado a outra conta ou tela.
-        if (photoGeneration !== identityGeneration || state.page !== "orders") return;
+        if (!stillCurrent()) return;
         const currentOrder = state.orders.find(o => o.id === id && o.photo_path === photoPath);
         if (!currentOrder || !canViewOrderPhoto(currentOrder)) return;
         if (signed.error || !signed.data?.signedUrl) {
           state.error = "Foto privada indisponível: " + errorText(signed.error);
         } else {
-          state.photoPreview[id] = signed.data.signedUrl;
+          state.photoPreview[id] = { url: signed.data.signedUrl, path: photoPath, expiresAt };
+          photoExpiryTimer = setTimeout(() => {
+            if (photoContext === photoContextVersion) invalidatePhotoScreen();
+          }, Math.max(0, expiresAt - Date.now()));
           state.error = "";
         }
       } catch (_error) {
-        if (photoGeneration !== identityGeneration || state.page !== "orders") return;
+        if (!stillCurrent()) return;
         state.error = "Não foi possível carregar a foto privada. Tente novamente.";
       }
       render();
@@ -1343,8 +1387,10 @@
   }
   window.setInterval(sendPresenceHeartbeat,30000);
   document.addEventListener("visibilitychange", () => {
+    invalidatePhotoScreen();
     if (document.visibilityState !== "hidden") sendPresenceHeartbeat();
   });
+  window.addEventListener?.("pagehide", invalidatePhotoScreen);
   db.auth.onAuthStateChange((_event, session) => {
     // Apenas limpar memória dentro do callback de Auth; chamadas ao Supabase depois.
     if (transitionAccount(session?.user || null)) {
