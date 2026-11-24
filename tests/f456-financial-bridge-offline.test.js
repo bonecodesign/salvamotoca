@@ -197,3 +197,17 @@ test("F456: proposta real do módulo F2 entra no mesmo fluxo fictício",()=>{
  assert.equal(s.realPaymentVerified,false);
  assert.equal(B.viewFor(s,C).f5MockChatOpen,true);
 });
+
+test("F456: risk is bound to the same order, quote, currency and event timeline",()=>{
+ const s=complete();
+ const e={id:"evt_risk_bound",kind:"mock_dispute",actorId:"offline_fixture",
+ fixtureReceipt:B.MOCK_RECEIPT,requestId:R,quoteId:Q,currency:"BRL",at:3000,amountCents:29300};
+ for(const patch of [{requestId:X},{quoteId:X},{currency:"USD"},{at:2799},{id:"evt_summary_001"}])
+  assert.throws(()=>B.risk(s,{...e,...patch}),/inválido/);
+ assert.equal(B.settlementReview(B.risk(s,e)).mockHumanReviewCandidate,false);
+});
+test("F456: completion does not reuse an operation event ID",()=>{
+ const s=handoff();
+ assert.throws(()=>B.completion(s,{kind:"submit_summary",id:"evt_handoff_001",
+ actorId:P,at:2600,text:"Servico com materiais inclusos concluido."}),/já usado/);
+});
