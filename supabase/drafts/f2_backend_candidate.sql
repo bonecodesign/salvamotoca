@@ -18,7 +18,7 @@ revoke all on private.f2_release_gate from public,anon,authenticated;
 create table public.f2_provider_capacity (
   provider_id uuid primary key references public.providers(id) on delete cascade,
   service_types text[] not null,
-  coverage_km numeric(6,2) not null check (coverage_km between 0.1 and 30),
+  coverage_km numeric(6,2) not null check (coverage_km between 0.1 and 60),
   updated_at timestamptz not null default now(),
   constraint f2_capabilities_valid check (
     cardinality(service_types) between 1 and 5 and
@@ -155,7 +155,7 @@ begin
      or not p_services <@ array['pneu_furado','troca_camara','troca_pneu',
        'calibragem_valvula','outro']::text[]
      or (select count(distinct s) from unnest(p_services) s) <> cardinality(p_services)
-     or p_coverage_km is null or p_coverage_km not between 0.1 and 30
+     or p_coverage_km is null or p_coverage_km not between 0.1 and 60
   then raise exception 'Capacidades ou cobertura inválidas.'; end if;
   select id into v_provider from public.providers where owner_id=v_user;
   if v_provider is null then raise exception 'Prestador não encontrado.'; end if;
@@ -169,7 +169,7 @@ end;
 $$;
 
 -- Invites são exclusivamente internos; não disparam push, pagamentos nem atendimento.
--- Raios 1/3/10 km são EXEMPLOS PARA TESTE, NÃO parâmetros operacionais aprovados.
+-- SM-DEC-047/048: raios 5/15/60 e praça BH/Contagem/Betim; candidato offline.
 create or replace function public.f2_offer_candidates(
   p_request_id uuid, p_max_offers integer default 3
 ) returns integer language plpgsql security definer set search_path='' as $$
@@ -206,7 +206,7 @@ begin
   if v_round>20 then raise exception 'Limite de rodadas atingido.'; end if;
   -- Preservar prestador originalmente selecionado se não houver NENHUM
   -- candidato. A liberação de foto só muda ao criar ofertas com sucesso.
-  for v_ring in select unnest(array[1,3,10]::integer[]) loop
+  for v_ring in select unnest(array[5,15,60]::integer[]) loop
     for candidate in
       select p.id as provider_id,
         private.f2_distance_km(v_req.latitude,v_req.longitude,p.latitude,p.longitude) as dist
@@ -218,7 +218,7 @@ begin
       join public.f2_provider_capacity cap on cap.provider_id=p.id
         and cap.service_types @> v_req.service_types
       where p.status='approved' and p.is_active
-        and p.city='Belo Horizonte' and p.state_code='MG'
+        and lower(btrim(p.city)) in ('belo horizonte','contagem','betim') and p.state_code='MG'
         -- Na primeira rodada manual, respeitar exclusivamente o escolhido.
         -- Rodadas seguintes podem ampliar após recusa/vencimento.
         and (v_round>1 or coalesce(v_req.f2_mode,'automatic')='automatic'

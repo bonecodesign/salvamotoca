@@ -17,9 +17,14 @@
   const CUSTOMER_COMMISSION_BPS=1000; // 10% pago pelo motociclista, somente sobre o serviço.
   const PROVIDER_COMMISSION_BPS=1000; // 10% descontado do prestador, somente sobre o serviço.
   const PRESENCE_MS=90000;
+  const PILOT_CITIES=Object.freeze(["belo horizonte","contagem","betim"]);
+  const APPROVED_RADII_KM=Object.freeze([5,15,60]);
   function ensure(ok,message){if(!ok)throw new Error(message)}
   function string(v){return typeof v==="string"?v.trim():""}
   function city(v){return string(v).normalize("NFD").replace(/[\u0300-\u036f]/g,"").toLowerCase()}
+  function isPilotPlace(cityName,stateCode){
+    return string(stateCode).toUpperCase()==="MG" && PILOT_CITIES.includes(city(cityName));
+  }
   function integer(v,min,max,name){
     ensure(Number.isSafeInteger(v)&&v>=min&&v<=max,name+" fora da faixa permitida.");
     return v;
@@ -102,8 +107,8 @@
     const last=typeof provider.lastSeenAt==="number"?provider.lastSeenAt:Date.parse(provider.lastSeenAt);
     if(!Number.isFinite(last)||last>now||now-last>PRESENCE_MS)
       return {ok:false,reason:"Presença expirada"};
-    if(city(provider.city)!==city(tow.pickup.city)
-      ||provider.stateCode!==tow.pickup.stateCode)
+    if(!isPilotPlace(tow.pickup.city,tow.pickup.stateCode)
+      ||!isPilotPlace(provider.city,provider.stateCode))
       return {ok:false,reason:"Fora da praça inicial"};
     let capacity;
     try{capacity=validateProviderCapacity(provider.capacity)}
@@ -122,7 +127,7 @@
       return {ok:false,reason:"Recusa recente ou limite da rodada"};
     return {ok:true,distanceKm:km};
   }
-  function findTowProviders({providers,request,radiiKm,now}){
+  function findTowProviders({providers,request,radiiKm=APPROVED_RADII_KM,now}){
     ensure(Array.isArray(providers)&&providers.length<=1000,"Prestadores inválidos.");
     ensure(request&&request.motorcycle,"Solicitação não validada.");
     ensure(Number.isFinite(now),"Horário inválido.");
@@ -171,7 +176,7 @@
   }
   return Object.freeze({
     EQUIPMENT,REBOQUE,BASIC,ALL,PRESENCE_MS,CUSTOMER_COMMISSION_BPS,PROVIDER_COMMISSION_BPS,
-    validateTowRequest,publicSummary,validateProviderCapacity,eligibleProvider,
+    validateTowRequest,publicSummary,validateProviderCapacity,eligibleProvider,isPilotPlace,PILOT_CITIES,APPROVED_RADII_KM,
     findTowProviders,quoteTow,distanceKm,servicesOf
   });
 });

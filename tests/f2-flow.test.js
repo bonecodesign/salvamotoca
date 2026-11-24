@@ -31,7 +31,9 @@ test("F2: tipos múltiplos válidos e reboque bloqueado até F3",()=>{
 test("F2: cidade e estado são comparados sem caixa/acentos",()=>{
   const p=provider("a",{city:"BELO HORIZONTE",stateCode:"mg"});
   assert.equal(distribute([p]).candidates.length,1);
-  assert.equal(distribute([provider("b",{city:"Contagem"})]).status,"no_provider");
+  assert.equal(distribute([provider("b",{city:"Contagem"})]).status,"candidates");
+  assert.equal(distribute([provider("c",{city:"Betim"})]).status,"candidates");
+  assert.equal(distribute([provider("d",{city:"Sabará"})]).status,"no_provider");
 });
 test("F2: somente prestador homologado, ativo, delivery ativo",()=>{
   for(const patch of [{approved:false},{active:false},{deliveryEnabled:false},{serviceActive:false}]){
@@ -244,4 +246,16 @@ test("F2: recusa proposta duplicada antes de escolher vencedor",()=>{
   const offers=sampleOffers();offers[1].id=offers[0].id;
   assert.throws(()=>F2.selectWinningQuote({quotes:offers,quoteId:"quote-a",
     customerId:"cliente",actingUserId:"cliente",now:NOW+1000}),/duplicada/);
+});
+
+test("SM-DEC-047/048: default approved rings and cross-city eligibility",()=>{
+  assert.deepEqual(F2.APPROVED_RADII_KM,[5,15,60]);
+  const run=(patch={},request=REQ)=>F2.distribute({providers:[provider("x",{city:"Contagem",coverageKm:60,...patch})],request,now:NOW});
+  assert.equal(run().radiusKm,5);
+  assert.equal(run({location:{lat:-20.01,lng:-43.938}}).radiusKm,15);
+  assert.equal(run({location:{lat:-20.27,lng:-43.938}}).radiusKm,60);
+  assert.equal(run({location:{lat:-20.60,lng:-43.938}}).status,"no_provider");
+  assert.equal(run({location:{lat:-20.27,lng:-43.938},coverageKm:20}).status,"no_provider");
+  assert.equal(run({}, {...REQ,city:"Sabará"}).status,"no_provider");
+  assert.equal(run({stateCode:"SP"}).status,"no_provider");
 });
