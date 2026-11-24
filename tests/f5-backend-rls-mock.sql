@@ -204,6 +204,22 @@ begin
 end $$;
 reset role;
 
+-- A -> B -> A must not resurrect the original session, even after approval returns.
+update public.providers set status='approved',is_active=true where id='aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa';
+update public.service_requests set provider_id='bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb' where id='cccccccc-cccc-4ccc-8ccc-cccccccccccc';
+update public.service_requests set provider_id='aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa' where id='cccccccc-cccc-4ccc-8ccc-cccccccccccc';
+set role authenticated;
+set request.jwt.claim.sub='11111111-1111-4111-8111-111111111111';
+set app.f5_test_only='local_fixture';
+do $ begin
+ if (select count(*) from public.f5_mock_sessions)<>0 or (select count(*) from public.f5_mock_messages)<>0 or (select count(*) from public.f5_mock_latest_location)<>0
+ then raise exception 'Sessao antiga voltou apos reatribuicao'; end if;
+end $;
+reset role;
+do $ begin
+ if (select count(*) from private.f5_mock_revocations)<>1 then raise exception 'Revogacao nao persistiu'; end if;
+end $;
+
 -- Nenhum fixture nem alteracao do gate deve sobreviver ao teste.
 rollback;
 do $$
