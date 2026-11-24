@@ -21,7 +21,15 @@ export const REQUIRED_PATHS=Object.freeze([
   'supabase/drafts/f5_backend_rls_mock_candidate.sql',
   'supabase/drafts/f6_backend_rls_mock_candidate.sql',
   'f5-offline-flow.js',
-  'f6-offline-completion.js'
+  'f6-offline-completion.js',
+  'admin-supervision-offline.js',
+  'scripts/perf-postgres-isolated.py',
+  'scripts/perf-isolated-journeys.js',
+  'tests/f1-f6-full-journey.test.js',
+  'docs/G1_ACEITE_BACKUP_TESTES_2026-11-23.md',
+  'docs/F1_NATIVE_HTTP_EVIDENCIA_2026-11-24.md',
+  'docs/F1_HOSTED_READONLY_EVIDENCIA_2026-11-24.md',
+  'docs/F7_HOMOLOGACAO_CAPACIDADE_OFFLINE.md'
 ]);
 const REQUIRED_GATES=Object.freeze([
  {id:'F1_BACKUP_RESTORE',label:'Backup restauravel Postgres/Auth/Storage do unico Supabase'},
@@ -30,25 +38,60 @@ const REQUIRED_GATES=Object.freeze([
  {id:'F4_PSP_COMPLIANCE',label:'Contrato PSP Brasil, sandbox, webhooks, conciliacao, tributos e reembolsos'},
  {id:'F5_CHAT_TRACKING',label:'Chat, deslocamento, notificacoes, privacidade e Android fisico'},
  {id:'F6_COMPLETION',label:'Dupla confirmacao real, suporte humano, provas e avaliacoes'},
+ {id:'F7_ADMIN_AUTH',label:'Autenticacao administrativa, controle de acesso e auditoria real'},
+ {id:'F7_HOSTED_CAPACITY',label:'Capacidade e recuperacao no ambiente hospedado autorizado'},
  {id:'F7_LEGAL_HUMAN',label:'Termos, LGPD, seguranca operacional, financeiro e aprovacao humana'},
  {id:'F7_CONTROLLED_PILOT',label:'Autorizacao especifica para piloto assistido e monitoramento'}
 ]);
-function statusForFlag(source,name){
-  // Nomes da lista sao identificadores fixos, nao inputs externos.
-  const matches=[...source.matchAll(new RegExp('\\b'+name+'\\s*:\\s*(true|false)\\b','g'))];
-  if(matches.length!==1)return 'MISSING_OR_DUPLICATED';
-  return matches[0][1]==='false'?'DISABLED':'UNSAFE_ENABLED';
+// Interpret a deliberately small configuration grammar without executing JS.
+// Only one literal window.BJ_CONFIG assignment is allowed. Comments and
+// string literals are tokenized separately, never treated as flag definitions.
+function parseConfig(source){
+  if(source.length>32768)return null;
+  const token=/(?:\s+|\/\/[^\r\n]*|\/\*[\s\S]*?\*\/)|([A-Za-z_$][A-Za-z0-9_$]*|'[^'\\\r\n]*'|[.=:{},;])/gy;
+  const tokens=[];let offset=0;
+  for(const m of source.matchAll(token)){
+    if(m.index!==offset)return null;
+    offset+=m[0].length;if(m[1])tokens.push(m[1]);
+  }
+  if(offset!==source.length)return null;
+  let i=0;
+  for(const expected of ['window','.','BJ_CONFIG','=','{'])
+    if(tokens[i++]!==expected)return null;
+  const values=new Map();
+  const allowed=new Set([...REQUIRED_OFF_FLAGS,'supabaseUrl','supabasePublishableKey']);
+  while(tokens[i]!=='}'){
+    const key=tokens[i++];if(!allowed.has(key)||values.has(key)||tokens[i++]!==':')return null;
+    const value=tokens[i++];
+    if(REQUIRED_OFF_FLAGS.includes(key)){
+      if(value!=='true'&&value!=='false')return null;
+    }else if(typeof value!=='string'||!value.startsWith("'"))return null;
+    values.set(key,value);
+    if(tokens[i]===',')i++;
+    else if(tokens[i]!=='}')return null;
+  }
+  i++;if(tokens[i]===';')i++;
+  if(i!==tokens.length||values.size!==allowed.size)return null;
+  if(!/^'https:\/\/[a-z0-9-]+\.supabase\.co'$/.test(values.get('supabaseUrl'))||
+     !/^'sb_publishable_[A-Za-z0-9_-]+'$/.test(values.get('supabasePublishableKey')))return null;
+  return values;
+}
+function statusForFlag(values,name){
+  if(!values)return 'MISSING_OR_DUPLICATED';
+  return values.get(name)==='false'?'DISABLED':'UNSAFE_ENABLED';
 }
 export function evaluateReadiness({configText,isPresent}){
   if(typeof configText!=='string'||typeof isPresent!=='function')
     throw new TypeError('Arquivo config e localizador obrigatorios.');
-  const flags=REQUIRED_OFF_FLAGS.map(name=>({name,status:statusForFlag(configText,name)}));
+  const parsed=parseConfig(configText);
+  const flags=REQUIRED_OFF_FLAGS.map(name=>({name,status:statusForFlag(parsed,name)}));
   const files=REQUIRED_PATHS.map(path=>({path,present:isPresent(path)===true}));
   const invalidFlags=flags.filter(x=>x.status!=='DISABLED');
   const missing=files.filter(x=>!x.present);
   return {
     project:'Salva Motoca!',
     scope:'offline static preflight only',
+    configurationGrammar:parsed?'PASS_LITERAL_ONLY':'FAIL_CLOSED',
     checkedFlagCount:flags.length,
     checkedFileCount:files.length,
     flags,files,
@@ -59,6 +102,7 @@ export function evaluateReadiness({configText,isPresent}){
     realReadinessVerified:false,
     paymentOrDispatchAuthorized:false,
     reasons:[
+      ...(!parsed?['Configuracao fora da gramatica literal permitida.']:[]),
       ...invalidFlags.map(x=>x.name+': '+x.status),
       ...missing.map(x=>x.path+': missing'),
       'Nenhum arquivo ou CI isolado comprova backup/restauracao, Auth/Storage, PSP, Android, operacao humana ou aprovacao juridica.'
