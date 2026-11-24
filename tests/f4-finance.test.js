@@ -159,3 +159,20 @@ test("F4: materiais separados nunca compõem orçamento aceito",()=>{
   {kind:"part",code:"câmara",amountCents:1000}
  ]),/Tipo de item/);
 });
+
+test("SM-DEC-045/046: F2 and F3 quote handoff to F4 uses same service-only commission",()=>{
+ const F2=require("../f2-flow.js"),F3=require("../f3-tow.js");
+ const tire=F2.quoteBreakdown({serviceTypes:["pneu_furado","troca_camara"],
+  services:[{code:"pneu_furado",amountCents:8000},{code:"troca_camara",amountCents:15000}],travelCents:4000});
+ const tow=F3.quoteTow({serviceTypes:["reboque_moto"],serviceCents:{reboque_moto:23000},travelCents:4000});
+ for(const proposal of [tire,tow]){
+  const items=proposal.rows.map(row=>({kind:row.kind||row.type,code:row.code,amountCents:row.amountCents}));
+  assert.equal(items.some(row=>row.kind==="part"),false);
+  const result=F.costBreakdown({quote:quote(items)});
+  assert.equal(result.quoteSubtotalCents,27000);
+  assert.equal(result.customerSubtotalBeforeProcessingCents,29300);
+  assert.equal(result.providerReceivableCents,24700);
+  assert.equal(result.commissionCents,4600);
+  assert.equal(result.paymentAllowed,false);
+ }
+});

@@ -363,10 +363,8 @@
         content += '<form class="f2-quote-form form" data-offer="' + esc(invite.id) +
           '" data-request="' + esc(order.id) + '"><h4>Orçamento discriminado</h4>' +
           order.service_types.map(code => label("Serviço: " + (F1.SERVICE_TYPES[code] || code) +
-            " (R$)", "number", "service_" + code, "Ex.: 60.00", true)).join("") +
+            " com materiais inclusos (R$)", "number", "service_" + code, "Ex.: 60.00", true)).join("") +
           label("Deslocamento obrigatório (R$)", "number", "travel", "Ex.: 15.00", true) +
-          label("Peça ou material (opcional)", "text", "part_name", "Ex.: Câmara 17", false) +
-          label("Valor da peça (R$; opcional)", "number", "part_price", "Ex.: 45.00", false) +
           label("Descrição adicional (sem contatos)", "text", "details", "Resumo do orçamento", false) +
           '<button class="btn full" type="submit">Enviar orçamento F2 de teste</button></form>';
       }
@@ -450,10 +448,8 @@
         out+='<form class="f3-quote-form form" data-offer="'+esc(invite.id)+
           '" data-request="'+esc(order.id)+'"><h4>Proposta de reboque discriminada</h4>'+
           order.service_types.map(code=>label("Serviço: "+(F1.SERVICE_TYPES[code]||code)+
-            " (R$)","number","service_"+code,"Ex.: 230.00",true)).join("")+
+            " com materiais inclusos (R$)","number","service_"+code,"Ex.: 230.00",true)).join("")+
           label("Deslocamento (R$)","number","travel","Ex.: 40.00",true)+
-          label("Material (opcional)","text","part_name","Cinta de segurança",false)+
-          label("Preço do material (R$)","number","part_price","Ex.: 10.00",false)+
           label("Observações sem contato externo","text","details","Descrição breve",false)+
           '<button class="btn full" type="submit">Enviar proposta F3 de teste</button></form>';
       if(["offered","delivered"].includes(invite.status))
@@ -1158,13 +1154,10 @@
       for(const code of order.service_types)
         amounts[code]=f2AmountCents(data.get("service_"+code));
       const travel=f2AmountCents(data.get("travel"),true);
-      const partName=String(data.get("part_name")||"").trim();
-      const partRaw=String(data.get("part_price")||"").trim();
-      if (Boolean(partName)!==Boolean(partRaw))
-        throw new Error("Preencha material e respectivo valor, ou deixe ambos em branco.");
-      const parts=partName?[{name:partName,amountCents:f2AmountCents(partRaw)}]:[];
+      if (String(data.get("part_name")||"").trim() || String(data.get("part_price")||"").trim())
+        throw new Error("Materiais já estão inclusos no serviço.");
       const priced=window.SMF3Tow.quoteTow({
-        serviceTypes:order.service_types,serviceCents:amounts,travelCents:travel,parts
+        serviceTypes:order.service_types,serviceCents:amounts,travelCents:travel
       });
       const lines=priced.rows.map(row=>({
         kind:row.kind,code:row.code,amountCents:row.amountCents
@@ -1214,21 +1207,15 @@
         code, amountCents: f2AmountCents(data.get("service_" + code))
       }));
       const travelCents = f2AmountCents(data.get("travel"), true);
-      const partName = String(data.get("part_name") || "").trim();
-      const partPrice = String(data.get("part_price") || "").trim();
-      if ((partName && !partPrice) || (!partName && partPrice))
-        throw new Error("Preencha nome e valor do material, ou deixe ambos vazios.");
-      const parts = partName
-        ? [{name:partName,amountCents:f2AmountCents(partPrice)}] : [];
+      if (String(data.get("part_name")||"").trim() || String(data.get("part_price")||"").trim())
+        throw new Error("Materiais já estão inclusos no serviço.");
       window.SMF2Flow.quoteBreakdown({
-        serviceTypes: services, services: amounts, travelCents, parts
+        serviceTypes: services, services: amounts, travelCents
       });
       const lines = amounts.map(item => ({
         kind: "service", code: item.code, amountCents: item.amountCents
       }));
       lines.push({kind:"travel",code:"deslocamento",amountCents:travelCents});
-      for (const part of parts)
-        lines.push({kind:"part",code:part.name,amountCents:part.amountCents});
       const generation = identityGeneration, uid = state.user.id;
       const result = await db.rpc("f2_submit_quote", {
         p_offer_id: offerId, p_items: lines,
