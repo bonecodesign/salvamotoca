@@ -15,7 +15,7 @@
 })(typeof window!=="undefined"?window:null,function(F4,F5,F6) {
  "use strict";
  const MOCK_RECEIPT="F456_LOCAL_FINANCE_NOT_PSP";
- const UUID=/^[0-9a-f]{8}-[0-9a-f-]{27,}$/i;
+ const UUID=/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
  const EVENT=/^[a-z0-9_-]{8,80}$/i;
  const SERVICE_EVENTS=Object.freeze([
    "chat_message","dispatch","provider_location","provider_arrived",
@@ -110,6 +110,7 @@
    stateOk(s);
    requireOk(s.stage==="f6"&&s.risk==="clear"&&s.mockPaymentRecorded,
      "Conclusão bloqueada sem handoff ou durante disputa/estorno.");
+   requireOk(!s.f5.processed.some(x=>x.id===event?.id),"ID de evento já usado na F5.");
    const r=F6.applyOffline(s.f6,event);
    if(r.duplicate)return {state:s,duplicate:true};
    return {state:frozen({...s,f6:r.state,...REAL_DENIAL}),duplicate:false};
@@ -120,21 +121,24 @@
      "Risco só é simulado após fixture de pagamento e uma única vez.");
    requireOk(event&&event.fixtureReceipt===MOCK_RECEIPT &&
       event.actorId==="offline_fixture"&&EVENT.test(event.id||"")&&
+      event.requestId===s.requestId&&event.quoteId===s.quoteId&&event.currency==="BRL"&&
+      Number.isSafeInteger(event.at)&&event.at>=(s.f6?.lastEventAt??s.f5.lastEventAt)&&
+      !s.f5.processed.some(x=>x.id===event.id)&&!s.f6?.processed.some(x=>x.id===event.id)&&
       ["mock_dispute","mock_refund_requested","mock_chargeback"].includes(event.kind)&&
       Number.isSafeInteger(event.amountCents)&&event.amountCents>=1&&
       event.amountCents<=s.amounts.customerSubtotalBeforeProcessingCents,
       "Risco financeiro fictício inválido.");
    return frozen({...s,risk:"mock_hold",riskEvents:frozen([{
-     id:event.id,kind:event.kind,amountCents:event.amountCents
+     id:event.id,kind:event.kind,amountCents:event.amountCents,at:event.at
    }]),...REAL_DENIAL});
  }
- function viewFor(s,viewerId) {
+ function viewFor(s,viewerId,now=s.f5.lastEventAt) {
    stateOk(s);
    const id=typeof viewerId==="string"?viewerId.toLowerCase():"";
    if(id!==s.customerId&&id!==s.providerId)
      return frozen({access:"denied",mockOnly:true,...REAL_DENIAL});
    const participant=id===s.customerId?"customer":"provider";
-   const base=s.stage==="f6"?F6.viewFor(s.f6,id):F5.viewFor(s.f5,id);
+   const base=s.stage==="f6"?F6.viewFor(s.f6,id):F5.viewFor(s.f5,id,now);
    const locked=s.risk!=="clear";
    return frozen({
      access:"participant",role:participant,mockOnly:true,
