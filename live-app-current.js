@@ -1390,7 +1390,7 @@
     invalidatePhotoScreen();
     if (document.visibilityState !== "hidden") sendPresenceHeartbeat();
   });
-  window.addEventListener("pagehide", invalidatePhotoScreen);
+  window.addEventListener?.("pagehide", invalidatePhotoScreen);
   db.auth.onAuthStateChange((_event, session) => {
     // Apenas limpar memória dentro do callback de Auth; chamadas ao Supabase depois.
     if (transitionAccount(session?.user || null)) {
