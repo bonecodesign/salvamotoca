@@ -59,3 +59,8 @@ jobs:
           done
           psql -X -v ON_ERROR_STOP=1 -f tests/integration-history-audit.sql
           echo 'HISTORICAL_REPLAY=DDL_ONLY HOSTED_WRITES=NONE RELEASE=NO_GO'
+      - name: Compatibilidade funcional de múltiplos orçamentos
+        run: |
+          psql -X -v ON_ERROR_STOP=1 -f supabase/drafts/f23_historical_compatibility_candidate.sql
+          psql -X -v ON_ERROR_STOP=1 -f tests/integration-history-multi-quote.sql
+          psql -X -v ON_ERROR_STOP=1 -f tests/integration-history-audit.sql
