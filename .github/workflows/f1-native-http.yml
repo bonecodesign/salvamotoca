@@ -1,0 +1,77 @@
+name: F1 - Supabase Native HTTP isolado
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'tests/f1-native-storage-http.mjs'
+      - '.github/workflows/f1-native-http.yml'
+permissions:
+  contents: read
+concurrency:
+  group: f1-native-http-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+jobs:
+  native-fixture:
+    if: github.repository == 'bonecodesign/salvamotoca' && github.event.pull_request.head.repo.full_name == 'bonecodesign/salvamotoca'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    env:
+      SUPABASE_EXPERIMENTAL_STACK: "1"
+      SUPABASE_YES: "1"
+      F1_NATIVE_FIXTURE_ONLY: "yes"
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: "Executar exclusivamente fixture local com serviços oficiais"
+        shell: bash
+        run: |
+          set -euo pipefail
+          umask 077
+          export SUPABASE_HOME="$RUNNER_TEMP/f1-native-home"
+          root="$GITHUB_WORKSPACE"
+          work="$RUNNER_TEMP/f1-native-project"
+          mkdir -p "$work" "$RUNNER_TEMP/f1-native-bin"
+          cd "$work"
+          base='https://github.com/supabase/cli/releases/download/v3.2.0'
+          file='supabase_3.2.0_linux_amd64.tar.gz'
+          curl -fsSL --proto '=https' "$base/$file" -o "$file"
+          curl -fsSL --proto '=https' "$base/checksums.txt" -o checksums.txt
+          awk -v f="$file" '$2==f || $2=="*"f {print}' checksums.txt > cli.sha256
+          test "$(wc -l < cli.sha256)" = 1
+          sha256sum -c cli.sha256
+          tar -xzf "$file" -C "$RUNNER_TEMP/f1-native-bin" supabase
+          export PATH="$RUNNER_TEMP/f1-native-bin:$PATH"
+          test "$(supabase --version)" = 3.2.0
+          supabase init > "$RUNNER_TEMP/f1-init.log" 2>&1
+          python3 - <<'PY'
+          import pathlib,re,tomllib
+          p=pathlib.Path('supabase/config.toml')
+          s=p.read_text()
+          s,n=re.subn(r'(?m)^major_version\s*=\s*\d+\s*$', 'major_version = 17',s)
+          assert n==1
+          sections={'studio','realtime','analytics','edge_runtime','inbucket','local_smtp','imgproxy','db.seed'}
+          lines=s.splitlines()
+          section=''
+          for i,line in enumerate(lines):
+              m=re.fullmatch(r'\[([^\]]+)\]',line.strip())
+              if m: section=m.group(1)
+              if section in sections and re.match(r'^\s*enabled\s*=',line):
+                  lines[i]='enabled = false'
+          s='\n'.join(lines)+'\n'
+          assert tomllib.loads(s)['db']['major_version']==17
+          p.write_text(s)
+          PY
+          trap 'supabase stack stop > "$RUNNER_TEMP/f1-stop.log" 2>&1 || true; rm -f "$RUNNER_TEMP/f1-native-info.json"' EXIT
+          if ! supabase stack start --runtime native --eager --output-format json > "$RUNNER_TEMP/f1-native-info.json" 2>"$RUNNER_TEMP/f1-start.log"; then
+            echo 'F1_NATIVE_START=FAIL'; exit 1
+          fi
+          echo 'F1_NATIVE_START=PASS'
+          if ! command -v psql >/dev/null; then
+            sudo apt-get install -y postgresql-client >/dev/null
+          fi
+          node "$root/tests/f1-native-storage-http.mjs" "$RUNNER_TEMP/f1-native-info.json" "$root"
+          echo 'F1_LOCAL_ONLY=PASS'
