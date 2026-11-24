@@ -47,7 +47,7 @@ create table public.f6_mock_completions (
  constraint f6_mock_summary_valid check(
   (summary is null and summary_at is null and customer_deadline_at is null)
   or (summary is not null and length(btrim(summary)) between 15 and 600
-   and summary_at is not null
+   and summary_at is not null and customer_deadline_at is not null
    and customer_deadline_at=summary_at+interval '5 minutes')),
  constraint f6_mock_provider_ack_after_summary check(
   provider_confirmed_at is null or
@@ -62,7 +62,9 @@ create table public.f6_mock_completions (
   (customer_confirmed_at is not null and provider_confirmed_at is not null)),
  constraint f6_mock_rating_after_completion check (
   (rating_stars is null and rating_at is null and rating_comment is null)
-  or (rating_stars is not null and rating_at is not null and status='completed')),
+  or (rating_stars is not null and rating_at is not null and status in ('completed','support_review')
+   and customer_confirmed_at is not null and provider_confirmed_at is not null
+   and rating_at>=greatest(customer_confirmed_at,provider_confirmed_at))),
  constraint f6_mock_empty_summary_state check(
   status<>'awaiting_summary' or
   (summary is null and customer_confirmed_at is null
@@ -82,7 +84,12 @@ begin
  if not exists(
   select 1 from public.f5_mock_sessions s
    join public.providers p on p.id=s.provider_id
-  where s.id=new.session_id and s.status='handoff_f6'
+   join public.service_requests r on r.id=s.request_id
+   join public.service_quotes q on q.id=s.quote_id and q.request_id=r.id
+  where s.id=new.session_id
+   and r.customer_id=s.customer_id and r.provider_id=s.provider_id
+   and r.status='awaiting_payment' and q.status='accepted' and q.provider_id=s.provider_id
+   and not exists(select 1 from private.f5_mock_revocations x where x.session_id=s.id) and s.status='handoff_f6'
    and s.mock_paid and s.customer_id=new.customer_id
    and s.provider_owner_id=new.provider_owner_id
    and p.owner_id=new.provider_owner_id
