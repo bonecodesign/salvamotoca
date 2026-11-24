@@ -139,14 +139,13 @@ test("App real: orçamento de prestador preserva centavos e não aciona serviço
   const {browser,page,external}=await app("provider",true);
   try{
     await page.locator('[name="service_pneu_furado"]').fill("80.50");
-    await page.locator('[name="service_troca_camara"]').fill("35.00");
+    await page.locator('[name="service_troca_camara"]').fill("80.25");
     await page.locator('[name="travel"]').fill("15.00");
-    await page.locator('[name="part_name"]').fill("Câmara 17");
-    await page.locator('[name="part_price"]').fill("45.25");
+    assert.equal(await page.locator('[name="part_name"],[name="part_price"]').count(),0);
     await page.locator('.f2-quote-form button[type="submit"]').click();
     await page.waitForFunction(()=>window.__mock.calls.some(x=>x.name==="f2_submit_quote"));
     const data=await page.evaluate(()=>window.__mock.calls.find(x=>x.name==="f2_submit_quote"));
-    assert.deepEqual(data.args.p_items.map(x=>x.amountCents),[8050,3500,1500,4525]);
+    assert.deepEqual(data.args.p_items.map(x=>x.amountCents),[8050,8025,1500]);
     assert.deepEqual(external,[]);
   }finally{await browser.close()}
 });
