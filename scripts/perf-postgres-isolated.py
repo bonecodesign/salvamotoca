@@ -164,8 +164,10 @@ def verify(count):
 def main():
     check(os.environ.get("GITHUB_ACTIONS")=="true" and os.environ.get("SM_PG_LOAD_FIXTURE")=="yes",
           "Refusing non-CI execution")
-    check(scalar("select current_database()='"+DB+"' and current_user='postgres' and inet_server_addr()='127.0.0.1'::inet and current_setting('server_version_num')::int between 170000 and 179999;")=="t",
+    check(scalar("select current_database()='"+DB+"' and current_user='postgres' and inet_server_addr() is not null and current_setting('server_version_num')::int between 170000 and 179999;")=="t",
           "Wrong disposable database")
+    check(scalar("select marker from private.sm_perf_fixture_marker;")=="SM_PG17_CI_ONLY_20261124",
+          "Disposable CI marker missing")
     check(scalar("""select not (select enabled from private.f2_release_gate)
        and not (select enabled from private.f4_release_gate)
        and not exists(select 1 from public.service_requests)
