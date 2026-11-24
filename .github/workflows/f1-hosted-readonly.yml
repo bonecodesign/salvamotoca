@@ -1,0 +1,23 @@
+name: F1 - preflight HTTP hospedado somente leitura
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - '.github/workflows/f1-hosted-readonly.yml'
+      - 'scripts/f1-hosted-readonly.mjs'
+permissions:
+  contents: read
+jobs:
+  read-only:
+    if: github.repository == 'bonecodesign/salvamotoca' && github.event.pull_request.head.repo.full_name == 'bonecodesign/salvamotoca' && github.head_ref == 'f1/hosted-readonly-http-20261124'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 3
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: "GET sem autenticação de usuário, sem dados ou segredos"
+        run: node scripts/f1-hosted-readonly.mjs
