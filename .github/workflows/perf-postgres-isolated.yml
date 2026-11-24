@@ -1,0 +1,61 @@
+name: Desempenho - concorrência e recuperação PostgreSQL descartável
+on:
+  pull_request:
+    paths:
+      - 'scripts/perf-postgres-isolated.py'
+      - 'tests/f2-stage-setup.sql'
+      - 'supabase/drafts/f2_backend_candidate.sql'
+      - 'supabase/drafts/f4_financial_backend_candidate.sql'
+      - 'supabase/drafts/f4_double_entry_mock_candidate.sql'
+      - '.github/workflows/perf-postgres-isolated.yml'
+permissions:
+  contents: read
+jobs:
+  isolated-pg:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: sm_perf_disposable
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d sm_perf_disposable"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      PGHOST: 127.0.0.1
+      PGPORT: 5432
+      PGDATABASE: sm_perf_disposable
+      PGUSER: postgres
+      PGPASSWORD: postgres
+      SM_PG_LOAD_FIXTURE: 'yes'
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Cliente PostgreSQL
+        run: command -v psql || (sudo apt-get update -qq && sudo apt-get install -y postgresql-client)
+      - name: Montar somente esquema sintético
+        run: |
+          test "$PGHOST" = 127.0.0.1
+          test "$PGDATABASE" = sm_perf_disposable
+          psql -X -v ON_ERROR_STOP=1 -f tests/f2-stage-setup.sql
+          psql -X -v ON_ERROR_STOP=1 -f supabase/drafts/f2_backend_candidate.sql
+          psql -X -v ON_ERROR_STOP=1 -f supabase/drafts/f4_financial_backend_candidate.sql
+          psql -X -v ON_ERROR_STOP=1 -f supabase/drafts/f4_double_entry_mock_candidate.sql
+      - name: Carga, conflito, reexecução, desconexão e limpeza
+        run: |
+          set -o pipefail
+          mkdir -p /tmp/sm-pg-load
+          python3 scripts/perf-postgres-isolated.py | tee /tmp/sm-pg-load/results.json
+      - uses: actions/upload-artifact@v4
+        with:
+          name: sm-pg-isolated-load-results
+          path: /tmp/sm-pg-load/results.json
+          retention-days: 3
