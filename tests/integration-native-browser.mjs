@@ -60,8 +60,9 @@ export async function browserNativeJourney({root,origin,call,sql,actors,session,
    const token=/^sm_fixture=([0-9a-f]{64})$/.exec(req.headers.cookie??'')?.[1];
    const login=cookies.get(token);const jwt=login?.jwt;
    if(kind==='logout'&&req.method==='POST'){
-    if(req.headers.origin!==base||!req.headers['content-type']?.startsWith('application/json'))return send(res,403,'{}');
-    const v=JSON.parse(await body(req));if(!v||Object.keys(v).length!==0)return send(res,400,'{}');
+    if(req.headers.origin!==base||req.headers['content-type']?.split(';')[0].trim().toLowerCase()!=='application/json')return send(res,403,'{}');
+    let v;try{v=JSON.parse(await body(req));}catch{return send(res,400,'{}');}
+    if(!v||typeof v!=='object'||Array.isArray(v)||Object.keys(v).length!==0)return send(res,400,'{}');
     // Invalidate local authority even if Auth logout is unavailable.
     cookies.delete(token);
     const clear={'Set-Cookie':'sm_fixture=; Max-Age=0; HttpOnly; SameSite=Strict; Path=/'};
@@ -235,28 +236,39 @@ export async function browserNativeJourney({root,origin,call,sql,actors,session,
   console.log('NATIVE_ADMIN_STALE_STATE=PASS REVOKED_SESSION_CLEARED=PASS');
   // Explicit logout revokes only the current native session and invalidates
   // the proxy cookie. Preserve unrelated sessions for the same account.
+  console.log('NATIVE_LOGOUT_STEP=inspect_current_session');
   const oldCookie=(await a.context().cookies(base)).find(c=>c.name==='sm_fixture');
   assert.ok(oldCookie?.httpOnly);assert.equal(oldCookie.sameSite,'Strict');
   const oldLogin=cookies.get(oldCookie.value);assert.ok(oldLogin?.jwt);
   const sid=JSON.parse(Buffer.from(oldLogin.jwt.split('.')[1],'base64url').toString('utf8')).session_id;
   assert.match(sid,/^[0-9a-f-]{36}$/i);
   const othersBefore=sql("select count(*) from auth.sessions where user_id='"+actors.customer.id+"' and id<>'"+sid+"'");
+  console.log('NATIVE_LOGOUT_STEP=csrf_and_body_validation');
   const csrf=await a.request.post(base+'/customer/logout',{headers:{Origin:'https://example.invalid'},data:{}});
   assert.equal(csrf.status(),403);
+  for(const invalid of ['[]','null','{','{"unexpected":true}']){
+   const bad=await a.request.post(base+'/customer/logout',{headers:{Origin:base,'Content-Type':'application/json'},data:invalid});
+   assert.equal(bad.status(),400,'invalid logout body');
+  }
+  console.log('NATIVE_LOGOUT_STEP=verify_current_access');
   const still=await a.request.post(base+'/customer/receipt',{headers:{Origin:base},data:{eventId:recordedId}});
   assert.equal((await still.json()).recorded,true);
+  console.log('NATIVE_LOGOUT_STEP=explicit_logout');
   const logoutResponse=a.waitForResponse(r=>r.url().endsWith('/customer/logout')&&r.request().method()==='POST');
   await a.locator('#logout').click();
   const ended=await logoutResponse;
   assert.equal(ended.status(),200);assert.deepEqual(await ended.json(),{signedOut:true,nativeRevoked:true});
+  console.log('NATIVE_LOGOUT_STEP=verify_native_revocation');
   await a.getByRole('button',{name:'Entrar'}).waitFor();
   assert.equal(sql("select count(*) from auth.sessions where id='"+sid+"'"),'0');
   assert.equal(sql("select count(*) from auth.sessions where user_id='"+actors.customer.id+"' and id<>'"+sid+"'"),othersBefore);
   assert.equal((await a.context().cookies(base)).filter(c=>c.name==='sm_fixture').length,0);
+  console.log('NATIVE_LOGOUT_STEP=verify_old_authority_denied');
   const stale=await fetch(base+'/customer/state',{headers:{Cookie:'sm_fixture='+oldCookie.value},redirect:'error'});
   assert.equal(stale.status,401);
   const direct=await post('/rest/v1/rpc/f56_fixture_receipt',oldLogin.jwt,{p_session:session,p_event:recordedId});
   assert.ok([400,401,403].includes(direct.status));
+  console.log('NATIVE_LOGOUT_STEP=relogin');
   await a.locator('#email').fill(actors.customer.email);await a.locator('#password').fill(actors.customer.password);
   await a.getByRole('button',{name:'Entrar'}).click();
   await a.waitForSelector('#refresh');await textIs(a,'completion','support_review');
