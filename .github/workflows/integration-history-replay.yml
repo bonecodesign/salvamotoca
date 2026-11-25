@@ -4,6 +4,7 @@ on:
     paths:
       - 'tests/fixtures/hosted-history/**'
       - 'tests/integration-history-*.sql'
+      - 'scripts/f7-atomic-cutover-rehearsal.py'
       - 'tests/fixtures/f56-browser/**'
       - 'tests/f56-browser-pg.test.js'
       - 'supabase/migrations/**'
@@ -64,6 +65,10 @@ jobs:
           echo 'F7_SCHEMA_PARITY=PASS_SELECTED_DDL_SNAPSHOT HOSTED_WRITES=NONE RELEASE=NO_GO'
       - name: Ensaiar congelamento reversível das rotas legadas
         run: psql -X -v ON_ERROR_STOP=1 -f tests/integration-history-legacy-lockdown.sql
+      - name: Ensaiar implantação atômica e reversão sob falha
+        env:
+          SM_ATOMIC_CUTOVER_FIXTURE: 'yes'
+        run: python3 scripts/f7-atomic-cutover-rehearsal.py
       - name: Instalar candidatos somente na fixture
         run: |
           for name in f2_backend_candidate f3_tow_backend_candidate f4_financial_backend_candidate f4_double_entry_mock_candidate f4_risk_settlement_mock_candidate f5_backend_rls_mock_candidate f6_backend_rls_mock_candidate f23_incidents_persistence_candidate f23_incident_intake_candidate f23_incident_historical_access_candidate; do
