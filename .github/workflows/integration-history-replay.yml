@@ -64,3 +64,8 @@ jobs:
           psql -X -v ON_ERROR_STOP=1 -f supabase/drafts/f23_historical_compatibility_candidate.sql
           psql -X -v ON_ERROR_STOP=1 -f tests/integration-history-multi-quote.sql
           psql -X -v ON_ERROR_STOP=1 -f tests/integration-history-audit.sql
+      - name: Reboque exclusivo e separação financeira
+        run: |
+          psql -X -v ON_ERROR_STOP=1 -f supabase/drafts/f34_historical_finance_presence_candidate.sql
+          psql -X -v ON_ERROR_STOP=1 -f tests/integration-history-tow-finance.sql
+          psql -X -v ON_ERROR_STOP=1 -f tests/integration-history-audit.sql
