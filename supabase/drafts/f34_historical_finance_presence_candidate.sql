@@ -5,6 +5,7 @@ begin;
 create function private.f23_guard_legacy_payment()
 returns trigger language plpgsql security definer set search_path='' as $guard$
 begin
+ perform 1 from public.service_requests where id=new.request_id for update;
  if exists(select 1 from public.service_requests r where r.id=new.request_id
    and (r.f2_mode is not null or exists(select 1 from public.f2_request_offers o where o.request_id=r.id)))
  then raise exception 'Pagamento legado não se aplica a pedido gerenciado.'; end if;
@@ -25,6 +26,18 @@ end $guard$;
 revoke all on function private.f23_guard_managed_with_legacy_payment() from public,anon,authenticated;
 create trigger f23_no_managed_with_legacy_payment before update of f2_mode on public.service_requests
  for each row execute function private.f23_guard_managed_with_legacy_payment();
+
+create function private.f23_guard_offer_with_legacy_payment()
+returns trigger language plpgsql security definer set search_path='' as $guard$
+begin
+ perform 1 from public.service_requests where id=new.request_id for update;
+ if exists(select 1 from public.payment_records p where p.request_id=new.request_id)
+ then raise exception 'Pedido com pagamento legado não recebe ofertas gerenciadas.'; end if;
+ return new;
+end $guard$;
+revoke all on function private.f23_guard_offer_with_legacy_payment() from public,anon,authenticated;
+create trigger f23_no_offer_with_legacy_payment before insert on public.f2_request_offers
+ for each row execute function private.f23_guard_offer_with_legacy_payment();
 
 -- Preserve legacy delivery presence and extend it only for a certified tow
 -- provider while both F2 and F3 gates are on. No notification side effects.
