@@ -5,7 +5,7 @@ insert into auth.users(id) values ('11111111-1111-4111-8111-111111111111'),('222
 insert into public.providers(id,owner_id,display_name,city,state_code,latitude,longitude,status,is_active,approved_at) values
  ('aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa','22222222-2222-4222-8222-222222222222','Fixture','Betim','MG',-19.925,-43.939,'approved',true,now());
 insert into public.provider_services(provider_id,category_id,is_active) values ('aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',2,true);
-insert into storage.objects(bucket_id,name) values ('request-photos','11111111-1111-4111-8111-111111111111/77777777-7777-4777-8777-777777777777.jpg');
+insert into storage.objects(bucket_id,name) values ('request-photos','11111111-1111-4111-8111-111111111111/77777777-7777-4777-8777-777777777777.jpg'),('request-photos','11111111-1111-4111-8111-111111111111/88888888-8888-4888-8888-888888888888.jpg');
 set local role authenticated;
 set local request.jwt.claim.sub='22222222-2222-4222-8222-222222222222';
 select public.bj_set_presence(true);
@@ -41,7 +41,7 @@ begin
  begin perform public.bj_answer_quote('77777777-7777-4777-8777-777777777777',true);raise exception 'Answer bypass';exception when insufficient_privilege then null;end;
  begin
   insert into public.service_requests(id,request_key,customer_id,category_id,provider_id,service_types,motorcycle_brand,motorcycle_model,motorcycle_year,photo_path,latitude,longitude,problem_description)
-  values('88888888-8888-4888-8888-888888888888','88888888-8888-4888-8888-888888888888',auth.uid(),2,'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',array['pneu_furado'],'Honda','CG 160',2024,'11111111-1111-4111-8111-111111111111/77777777-7777-4777-8777-777777777777.jpg',-19.924,-43.938,'Fixture');
+  values('88888888-8888-4888-8888-888888888888','88888888-8888-4888-8888-888888888888',auth.uid(),2,'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',array['pneu_furado'],'Honda','CG 160',2024,'11111111-1111-4111-8111-111111111111/88888888-8888-4888-8888-888888888888.jpg',-19.924,-43.938,'Fixture');
   raise exception 'Direct insert bypass';
  exception when insufficient_privilege then null;end;
 end $test$;
