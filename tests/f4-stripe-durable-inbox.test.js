@@ -86,7 +86,26 @@ test("durable Stripe evidence: restart, concurrent retry, distinct event, immuta
  await assert.rejects(sql("delete from private.f4_stripe_fixture_risk"),/imutavel/);
  assert.equal(await sql("select status from private.f4_mock_payment_attempts"),"mock_prepared");
  assert.equal(await sql("select count(*) from private.f4_mock_ledger_entries"),"0");
- console.log("STRIPE_RISK_FIXTURE=PASS REFUND_MAX=2500 DISPUTE_HELD=PASS LATE_SUCCESS_DENIED=PASS CROSS_TYPE_REPLAY_DENIED=PASS");
+
+ // A separate accepted quote receives cancellation BEFORE any success evidence.
+ const rid=randomUUID(),qid=randomUUID();
+ await sql("insert into public.service_requests(id,customer_id,provider_id,category_id,service_types,status) values("+lit(rid)+"::uuid,"+lit(a.customer_id)+"::uuid,"+lit(a.provider_id)+"::uuid,2,array['pneu_furado'],'awaiting_payment');insert into public.service_quotes(id,request_id,provider_id,amount_cents,status) values("+lit(qid)+"::uuid,"+lit(rid)+"::uuid,"+lit(a.provider_id)+"::uuid,27000,'accepted');insert into public.f2_quote_items(quote_id,line_no,kind,code,amount_cents) values("+lit(qid)+"::uuid,1,'service','pneu_furado',23000),("+lit(qid)+"::uuid,2,'travel','deslocamento',4000)");
+ const aid=await sql("set app.f4_test_only='local_fixture';select private.f4_prepare_mock_attempt("+lit(qid)+"::uuid)");
+ await sql("insert into private.f4_stripe_fixture_bindings(attempt_id,intent_id,stripe_customer_id,fee_fixture_cents) values("+lit(aid)+"::uuid,'pi_fixture00002','cus_fixture00001',700)");
+ const cancelBinding={...binding,attemptId:aid,intentId:"pi_fixture00002",quote:{...binding.quote,requestId:rid,quoteId:qid}};
+ const cancelPI={...pi,id:cancelBinding.intentId,transfer_group:"sm_"+aid,metadata:{...pi.metadata,attempt_id:aid,request_id:rid,quote_id:qid},status:"canceled",amount_received:0,latest_charge:null};
+ const cancelRisk=makeRiskInbox({stripe,webhookSecret:secret,binding:cancelBinding,readIntentFixture:async()=>cancelPI,readChargeFixture:async()=>{throw Error("unexpected charge read");},readDisputeFixture:async()=>{throw Error("unexpected dispute read");},storeRiskFixture:storeRisk});
+ assert.equal((await cancelRisk.receive(...riskSigned("evt_cancel00002","payment_intent.canceled",cancelPI))).held,true);
+ const laterPI={...cancelPI,status:"succeeded",amount_received:30000,latest_charge:"ch_fixture00002"};
+ const laterCharge={...ch,id:laterPI.latest_charge,payment_intent:laterPI.id};
+ const laterInbox=makeInbox({stripe,webhookSecret:secret,binding:cancelBinding,readIntentFixture:async()=>laterPI,readChargeFixture:async()=>laterCharge,storeEvidenceFixture:store});
+ await assert.rejects(laterInbox.receive(...riskSigned("evt_latesuccess02","payment_intent.succeeded",laterPI)),/Risco Stripe fixture retido/);
+ const finalReview=JSON.parse(await sql("select private.f4_stripe_fixture_review()"));
+ assert.equal(finalReview.heldAttempts,2);assert.equal(finalReview.canceledAttempts,1);assert.equal(finalReview.evidenceWithoutHold,0);
+ assert.equal(await sql("select count(*) from private.f4_stripe_fixture_evidence"),"1");
+ assert.equal(await sql("select count(*) from private.f4_mock_payment_attempts where status<>'mock_prepared'"),"0");
+ console.log("STRIPE_RISK_FIXTURE=PASS REFUND_MAX=2500 DISPUTE_HELD=PASS CANCEL_BEFORE_SUCCESS=PASS LATE_SUCCESS_DENIED=PASS CROSS_TYPE_REPLAY_DENIED=PASS");
+
  await sql("update private.f4_release_gate set enabled=false");
  await assert.rejects(inbox().receive(...signed("evt_fixture00003")),/indisponivel/);
  console.log("STRIPE_DURABLE_FIXTURE=PASS RECEIPTS=2 EVIDENCE=1 CONCURRENT_DUPLICATE=PASS FRESH_INSTANCE=PASS REAL_PAYMENT=NONE RELEASE=NO_GO");
