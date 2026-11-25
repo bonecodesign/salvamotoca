@@ -4,7 +4,7 @@ create function private.f7_mock_admin_snapshot()
 returns jsonb language plpgsql security definer set search_path='' as $snapshot$
 declare data jsonb;
 begin
- if current_database()<>'sm_history_disposable' then raise exception 'Somente fixture descartavel.';end if;
+ if private.f56_fixture_context() is distinct from true then raise exception 'Somente fixture descartavel.';end if;
  perform private.f23_mock_require_admin();
  -- Return aggregates and a bounded incident queue, not user identifiers, GPS,
  -- chat bodies or private payment events. A case key is an opaque action handle.
