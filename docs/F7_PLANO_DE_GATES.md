@@ -58,3 +58,11 @@ Cada gate só pode ser considerado `PASS` após um registro de **qual prova ocor
 - Quem habilitar flags, configurar PSP ou executar plano de piloto deverá ter autorização explícita e checagem de ambiente separada deste código.
 
 **Resultado de negócio:** projeto avança até a preparação de lançamento, mas nenhum roteiro ou PR equivale a autorização de publicar. Status geral: **NO-GO**.
+
+## Retrato de compatibilidade — 25/11/2026
+
+#151 e #152 validaram integração F1–F7 e navegador com Auth/Storage nativos em ambiente descartável; #156 acrescentou indicadores de risco Stripe e 89 verificações HTTP, sem PSP externo. #157 validou 52 testes de contrato/preflight financeiro offline. #158 validou congelamento reversível de seis RPCs antigas com 15 políticas restritivas, apenas em PostgreSQL descartável. Nenhuma delas autoriza implantação.
+
+Consulta SQL hospedada somente leitura: 11 migrations, 0 usuários Auth, 0 objetos Storage, 0 solicitações/prestadores/orçamentos/pagamentos, 0 tabelas públicas sem RLS, bucket de fotos privado. O advisor indicou seis RPCs legadas executáveis por authenticated (WARN, não prova de exploração) e quatro tabelas RLS sem políticas (INFO, acesso direto fechado). Não aplicar #158 remotamente sem backup recente, revisão e autorização.
+
+O novo ensaio compara a impressão digital de catálogo de nove tabelas operacionais e sete RPCs com o replay histórico: 70 colunas, 51 constraints, 24 índices, 14 políticas, 7 RPCs. O arquivo de referência contém exclusivamente contagens e hashes MD5 de definições DDL, não dados nem segredos. MD5 serve aqui para detectar diferenças acidentais, não autenticar backup. Diferenças de versão PostgreSQL, formatação de funções ou dependências podem gerar divergência; investigar antes de prosseguir, não alterar a referência para forçar aprovação. Cobertura limitada: não inclui todos os grants, triggers, Auth/Storage, dados, extensões, configurações ou segredos. Retrato pontual, não auditoria remota contínua. Backup atual, Auth/Storage hospedados, sandbox Stripe dedicado, validação jurídica e testes físicos seguem pendentes. RELEASE=NO_GO.
