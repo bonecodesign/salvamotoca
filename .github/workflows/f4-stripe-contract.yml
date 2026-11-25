@@ -1,0 +1,30 @@
+name: F4 - contrato Stripe offline
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'f4-stripe-test-reconciliation.js'
+      - 'f4-finance.js'
+      - 'tests/f4-stripe-test-reconciliation.test.js'
+      - '.github/workflows/f4-stripe-contract.yml'
+      - 'docs/F4_DEPENDENCIAS_E_PLANO.md'
+permissions:
+  contents: read
+jobs:
+  stripe-contract:
+    runs-on: ubuntu-latest
+    timeout-minutes: 6
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: SDK oficial fixado para teste de protocolo
+        run: npm install --no-save --no-package-lock --ignore-scripts --no-audit --no-fund stripe@18.5.0
+      - name: Ensaio de assinatura e reconciliação, sem chaves reais
+        run: |
+          node --check f4-stripe-test-reconciliation.js
+          node --test tests/f4-stripe-test-reconciliation.test.js tests/f4-finance.test.js tests/f4-release-guard.test.js
+          echo 'STRIPE_CONTRACT=OFFLINE_ONLY REAL_PAYMENT=NONE RELEASE=NO_GO'

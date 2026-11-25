@@ -19,10 +19,10 @@
 | --- | ---: |
 | Reboque (serviço) | R$ 230,00 |
 | Deslocamento | R$ 40,00 |
-| Material | R$ 10,00 |
-| **Orçamento aceito** | **R$ 280,00** |
+| Materiais | Incluídos no serviço |
+| **Orçamento aceito** | **R$ 270,00** |
 | Taxa do motociclista + comissão do prestador: R$ 23,00 + R$ 23,00 | R$ 46,00 |
-| Saldo econômico destinado ao prestador, **antes de tributos e demais obrigações** | R$ 245,50 |
+| Saldo econômico destinado ao prestador, **antes de tributos e demais obrigações** | R$ 247,00 |
 | Tarifa de processamento | **Não definida**; depende de PSP e meio de pagamento |
 | Total a pagar pelo motociclista | **Não definido** até confirmação do valor da tarifa |
 
@@ -97,3 +97,7 @@ A extensão `supabase/drafts/f4_risk_settlement_mock_candidate.sql` acrescenta *
 `tests/f4-risk-settlement.sql` valida isolamento, estados, estornos e bloqueios; `tests/f4-risk-race.sh` prova idempotência e teto de valores em sessões PostgreSQL simultâneas; `supabase/rollback/f4_risk_only_if_empty.sql` reverte somente com a extensão vazia e gate desligado. Veja `docs/F4_RISCO_ESTORNOS_E_REPASSES.md`.
 
 **Conclusão:** F4 inclui regras financeiras, assinatura mock de eventos, diário fictício de partidas dobradas e fila privada de risco **testados localmente**. Não há dinheiro sob custódia, saldo confirmado nem checkout. A futura arquitetura de produção ainda exige PSP contratado e conciliado, contabilização de estornos parciais reais, chargebacks, limites de retenção, legislação e homologação. **Toda integração real segue bloqueada até revisão e autorização específicas.**
+
+### Candidato Stripe — ensaio de protocolo
+
+`f4-stripe-test-reconciliation.js` verifica assinatura usando SDK oficial em fixture, exige moeda BRL, tentativa, cliente, prestador, orçamento, total e contexto de plataforma de teste. Compara o evento com leituras independentes injetadas de PaymentIntent e Charge, rejeita captura incompleta, disputa, devolução e transferência automática. Deduplicação em memória não é idempotência persistente; o recibo não autoriza pagamento ou operação. SDK fixado para ensaio (não uma escolha de versão de produção), transporte de rede bloqueado nos testes. Não houve chamadas à API Stripe nem criação de objetos. Tarifa de R$ 7 usada nos testes é fictícia, não cotação. Próxima etapa: inbox transacional durável, conciliação de eventos de risco e autorização explícita para sandbox real dedicado ao Salva Motoca!.
