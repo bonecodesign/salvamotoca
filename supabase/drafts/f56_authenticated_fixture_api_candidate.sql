@@ -178,4 +178,26 @@ returns jsonb language sql security invoker set search_path='' as $api$
 $api$;
 revoke all on function public.f56_apply_fixture(uuid,uuid,text,jsonb) from public,anon,authenticated;
 grant execute on function public.f56_apply_fixture(uuid,uuid,text,jsonb) to authenticated;
+-- Minimal read-only receipt for recovery after an uncertain network response.
+-- No payload, outcome, action, actor or timestamps are exposed.
+create function private.f56_fixture_receipt(p_session uuid,p_event uuid)
+returns jsonb language plpgsql stable security definer set search_path='' as $receipt$
+begin
+ if private.f56_fixture_context() is distinct from true or auth.uid() is null
+ or private.f5_mock_enabled() is distinct from true or private.f6_mock_enabled() is distinct from true
+ or not exists(select 1 from private.f4_release_gate where enabled)
+ or p_session is null or p_event is null
+ or private.f5_mock_binding_visible(p_session) is distinct from true
+ then raise exception 'Consulta fixture indisponivel.';end if;
+ return jsonb_build_object('mockOnly',true,'transferAuthorized',false,'recorded',
+ exists(select 1 from private.f56_mock_events where session_id=p_session and event_id=p_event and actor_id=auth.uid()));
+end $receipt$;
+revoke all on function private.f56_fixture_receipt(uuid,uuid) from public,anon,authenticated;
+grant execute on function private.f56_fixture_receipt(uuid,uuid) to authenticated;
+create function public.f56_fixture_receipt(p_session uuid,p_event uuid)
+returns jsonb language sql stable security invoker set search_path='' as $receipt$
+ select private.f56_fixture_receipt(p_session,p_event);
+$receipt$;
+revoke all on function public.f56_fixture_receipt(uuid,uuid) from public,anon,authenticated;
+grant execute on function public.f56_fixture_receipt(uuid,uuid) to authenticated;
 commit;
