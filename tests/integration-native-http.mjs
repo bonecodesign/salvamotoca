@@ -40,7 +40,7 @@ async function actor(label){
  const u=await admin.json();
  const login=await ok('real local JWT '+label,()=>call('/auth/v1/token?grant_type=password',{method:'POST',contentType:'application/json',body:JSON.stringify({email,password})}));
  const a=await login.json();assert.equal(a.user.id,u.id);assert.ok(a.access_token);
- return {id:u.id,jwt:a.access_token};
+ return {id:u.id,jwt:a.access_token,email,password};
 }
 const signBody=JSON.stringify({expiresIn:20});
 function signedPath(v){
@@ -228,6 +228,16 @@ async function main(){
  // PostgREST still recognizes the unexpired signed access token.
  sql("delete from auth.sessions where user_id='"+admin.id+"'");
  await deny('revoked native admin session denied',()=>rpc('f7_mock_admin_snapshot',admin,{}));
+ // Use the first accepted delivery request for a separate browser journey.
+ step='native browser fixture preparation';
+ const browserAttempt=sql("set app.f4_test_only='local_fixture';select private.f4_prepare_mock_attempt('"+quoteIds[0]+"');");
+ assert.match(browserAttempt,/^[0-9a-f-]{36}$/i);
+ const browserEvent='browser_native_'+uuid(),browserSession=uuid();
+ sql("set app.f4_test_only='local_fixture';select private.f4_ingest_mock_event('"+browserAttempt+"','"+browserEvent+"','mock_payment_verified',29300);select private.f4_post_mock_double_entry(id) from private.f4_mock_webhook_receipts where mock_event_id='"+browserEvent+"';");
+ sql("insert into public.f5_mock_sessions(id,request_id,quote_id,customer_id,provider_id,provider_owner_id,mock_paid,status) values ('"+browserSession+"','"+req+"','"+quoteIds[0]+"','"+a.id+"','"+pb+"','"+b.id+"',true,'ready_for_dispatch');");
+ step='native browser Auth and RPC';
+ const {browserNativeJourney}=await import('./integration-native-browser.mjs');
+ await browserNativeJourney({root,origin,call,sql,actors:{customer:a,provider:b,outsider:d,admin},session:browserSession,attempt:browserAttempt,requestId:req});
  sql("delete from private.f56_native_fixture_marker; update private.f5_mock_release_gate set enabled=false; update private.f6_mock_release_gate set enabled=false; update private.f23_mock_support_gate set enabled=false;");
  console.log('NATIVE_F3_F5_F6_F7=PASS REVOKED_AUTH=DENIED REVIEW_HELD=PASS REAL_PAYMENTS=NONE');
 
