@@ -110,6 +110,12 @@ export async function browserNativeJourney({root,origin,call,sql,actors,session,
   const a=await open('customer',375),b=await open('provider',1100),d=await open('outsider',375),admin=await open('admin',375);
   await textIs(a,'stage','ready_for_dispatch');await textIs(b,'stage','ready_for_dispatch');await textIs(d,'stage','Sem acesso');
   await textIs(admin,'sessions','Sessões: 2');
+  await textIs(admin,'stripe-status','Ensaio isolado — somente leitura');
+  await textIs(admin,'stripe-held','Tentativas retidas: 1');
+  await admin.waitForFunction(()=>document.getElementById('stripe-refunds').textContent.includes('25,00'));
+  await textIs(admin,'stripe-evidence','Evidências sem retenção: 0');
+  assert.equal(await admin.locator('#stripe-held').count(),1);
+  console.log('NATIVE_STRIPE_BROWSER=PASS SEPARATE_RISK_DISPLAY=PASS');
   const attack={eventId:randomUUID(),action:'dispatch',payload:{consent:true}};
   assert.ok([400,401,403].includes((await a.request.post(base+'/provider/action',{headers:{Origin:base},data:attack})).status()));
   const noAdmin=await a.request.get(base+'/admin/snapshot');assert.ok([400,401,403].includes(noAdmin.status()));
