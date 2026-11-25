@@ -8,7 +8,12 @@
  $("identity").textContent=labels[role];
  $("provider").hidden=role!=="provider";$("customer").hidden=role!=="customer";
  $("participant").hidden=role==="outsider";
- let busy=false,pending=null,current=null;
+ let busy=false,pending=null,current=null,recoverId=null,uncertain=false;
+ const scope=document.body.dataset.receiptScope;
+ const storageKey=/^[0-9a-f]{32}$/.test(scope||"")?"sm_fixture_receipt:"+scope+":"+role:null;
+ if(storageKey){try{const id=sessionStorage.getItem(storageKey);if(/^[0-9a-f-]{36}$/i.test(id||""))recoverId=id;}catch{}}
+ function remember(id){recoverId=id;if(storageKey){try{sessionStorage.setItem(storageKey,id);}catch{}}}
+ function clearReceipt(){recoverId=null;uncertain=false;if(storageKey){try{sessionStorage.removeItem(storageKey);}catch{}}}
  const endpoint="/"+role+"/";
  const actions=[...document.querySelectorAll("[data-action]")];
  function render(){
@@ -29,10 +34,10 @@
    dispute:["awaiting_both","completed"].includes(s?.completionStatus),
    support_message:s?.completionStatus==="support_review"
   };
-  actions.forEach(b=>b.disabled=busy||!!pending||!s||!allowed[b.dataset.action]);
+  actions.forEach(b=>b.disabled=busy||!!pending||!!recoverId||!s||!allowed[b.dataset.action]);
   $("refresh").disabled=busy;
   $("retry").hidden=!pending;$("retry").disabled=busy||!pending;
-  $("connection").textContent=pending?"Envio sem confirmação. Repita o mesmo evento; não inicie outro.":s?"Situação consultada no servidor de teste.":"Conexão ou acesso indisponível. Atualize para continuar.";
+  $("connection").textContent=pending?"Envio sem confirmação. Repita o mesmo evento; não inicie outro.":recoverId?"Envio anterior sem confirmação. Atualize para consultar o registro; não repita a operação.":s?"Situação consultada no servidor de teste.":"Conexão ou acesso indisponível. Atualize para continuar.";
  }
  async function request(path,options={}){
   const r=await fetch(endpoint+path,{...options,cache:"no-store",credentials:"same-origin",signal:AbortSignal.timeout(10000)});
@@ -49,8 +54,15 @@
  async function refresh(){
   if(busy)return;
   busy=true;render();
-  try{await readState();}
-  finally{busy=false;render();}
+  try{
+   if(recoverId&&!pending&&storageKey){
+    try{
+     const r=await request("receipt",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({eventId:recoverId})});
+     if(r.mockOnly===true&&r.transferAuthorized===false&&r.recorded===true){clearReceipt();$("feedback").textContent="Envio anterior confirmado pelo servidor.";}
+    }catch{}
+   }
+   await readState();
+  }finally{busy=false;render();}
  }
  function payloadFor(action){
   if(action==="dispatch")return {consent:$("consent").checked};
@@ -67,17 +79,20 @@
   try{
    const r=await request("action",{method:"POST",headers:{"Content-Type":"application/json"},body:pending});
    if(r.mockOnly!==true||r.transferAuthorized!==false)throw Error("Resposta fora do escopo.");
-   pending=null;$("feedback").textContent="Evento registrado na fixture.";
+   pending=null;clearReceipt();$("feedback").textContent="Evento registrado na fixture.";
   }catch(e){
-   if(e.definitive){pending=null;$("feedback").textContent=e.message;}
-   else $("feedback").textContent="Envio não confirmado. Repita o mesmo evento quando a conexão retornar.";
+   if(e.definitive&&!uncertain){pending=null;clearReceipt();$("feedback").textContent=e.message;}
+   else if(e.definitive&&storageKey){pending=null;$("feedback").textContent="Registro anterior incerto. Atualize para consultar o recibo.";}
+   else{uncertain=true;$("feedback").textContent="Envio não confirmado. Repita o mesmo evento quando a conexão retornar.";}
   }finally{
    await readState();busy=false;render();
   }
  }
  async function act(action){
-  if(busy||pending||!current)return;
-  pending=JSON.stringify({eventId:crypto.randomUUID(),action,payload:payloadFor(action)});
+  if(busy||pending||recoverId||!current)return;
+  const eventId=crypto.randomUUID();
+  pending=JSON.stringify({eventId,action,payload:payloadFor(action)});
+  if(storageKey)remember(eventId);
   await sendPending();
  }
  actions.forEach(b=>b.addEventListener("click",()=>act(b.dataset.action)));
