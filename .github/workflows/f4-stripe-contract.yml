@@ -5,6 +5,8 @@ on:
     paths:
       - 'f4-stripe-test-reconciliation.js'
       - 'f4-finance.js'
+      - 'supabase/drafts/f4_stripe_durable_inbox_candidate.sql'
+      - 'tests/f4-stripe-durable-inbox.test.js'
       - 'tests/f4-stripe-test-reconciliation.test.js'
       - '.github/workflows/f4-stripe-contract.yml'
       - 'docs/F4_DEPENDENCIAS_E_PLANO.md'
@@ -28,3 +30,47 @@ jobs:
           node --check f4-stripe-test-reconciliation.js
           node --test tests/f4-stripe-test-reconciliation.test.js tests/f4-finance.test.js tests/f4-release-guard.test.js
           echo 'STRIPE_CONTRACT=OFFLINE_ONLY REAL_PAYMENT=NONE RELEASE=NO_GO'
+  durable-inbox:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: f4_stripe_disposable
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d f4_stripe_disposable"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      PGHOST: 127.0.0.1
+      PGPORT: 5432
+      PGUSER: postgres
+      PGPASSWORD: postgres
+      PGDATABASE: f4_stripe_disposable
+      SM_STRIPE_DURABLE_FIXTURE: 'yes'
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Preparar banco descartável e tentativa fictícia
+        run: |
+          test "$PGHOST" = 127.0.0.1
+          test "$PGDATABASE" = f4_stripe_disposable
+          psql -X -v ON_ERROR_STOP=1 -f tests/f2-stage-setup.sql
+          psql -X -v ON_ERROR_STOP=1 -f supabase/drafts/f2_backend_candidate.sql
+          psql -X -v ON_ERROR_STOP=1 -f supabase/drafts/f4_financial_backend_candidate.sql
+          psql -X -v ON_ERROR_STOP=1 -f supabase/drafts/f4_stripe_durable_inbox_candidate.sql
+          psql -X -v ON_ERROR_STOP=1 -f tests/f4-concurrency-setup.sql
+      - name: Ensaio de deduplicação durável sem rede Stripe
+        run: |
+          npm install --no-save --no-package-lock --ignore-scripts --no-audit --no-fund stripe@18.5.0
+          node --test tests/f4-stripe-durable-inbox.test.js
