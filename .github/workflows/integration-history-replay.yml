@@ -4,6 +4,8 @@ on:
     paths:
       - 'tests/fixtures/hosted-history/**'
       - 'tests/integration-history-*.sql'
+      - 'tests/fixtures/f56-browser/**'
+      - 'tests/f56-browser-pg.test.js'
       - 'supabase/migrations/**'
       - 'supabase/drafts/**'
       - '.github/workflows/integration-history-replay.yml'
@@ -12,7 +14,7 @@ permissions:
 jobs:
   replay:
     runs-on: ubuntu-latest
-    timeout-minutes: 8
+    timeout-minutes: 12
     services:
       postgres:
         image: postgres:17
@@ -71,3 +73,14 @@ jobs:
           psql -X -v ON_ERROR_STOP=1 -f supabase/drafts/f56_authenticated_fixture_api_candidate.sql
           psql -X -v ON_ERROR_STOP=1 -f tests/integration-history-tow-finance.sql
           psql -X -v ON_ERROR_STOP=1 -f tests/integration-history-audit.sql
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Preparar navegador de ensaio
+        run: |
+          command -v google-chrome || command -v chromium
+          npm install --no-save --no-package-lock --ignore-scripts --no-audit --no-fund playwright-core@1.56.1
+      - name: Navegador conectado ao banco descartável
+        env:
+          SM_BROWSER_PG_FIXTURE: 'yes'
+        run: node --test tests/f56-browser-pg.test.js
