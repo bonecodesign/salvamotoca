@@ -5,6 +5,7 @@ on:
     paths:
       - 'tests/integration-native-http.mjs'
       - 'tests/integration-native-browser.mjs'
+      - 'f4-stripe-test-reconciliation.js'
       - 'tests/fixtures/f56-browser/**'
       - 'tests/fixtures/native-f56-context.sql'
       - 'tests/fixtures/hosted-history/**'
@@ -35,7 +36,7 @@ jobs:
       - name: Preparar navegador de ensaio
         run: |
           command -v google-chrome || command -v chromium
-          npm install --no-save --no-package-lock --ignore-scripts --no-audit --no-fund playwright-core@1.56.1
+          npm install --no-save --no-package-lock --ignore-scripts --no-audit --no-fund playwright-core@1.56.1 stripe@18.5.0
       - name: "Executar exclusivamente fixture local com serviços oficiais"
         shell: bash
         run: |

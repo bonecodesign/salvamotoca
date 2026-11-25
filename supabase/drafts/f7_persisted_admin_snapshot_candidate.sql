@@ -2,7 +2,7 @@
 begin;
 create function private.f7_mock_admin_snapshot()
 returns jsonb language plpgsql security definer set search_path='' as $snapshot$
-declare data jsonb;
+declare data jsonb;stripe_review jsonb;
 begin
  if private.f56_fixture_context() is distinct from true then raise exception 'Somente fixture descartavel.';end if;
  perform private.f23_mock_require_admin();
@@ -48,7 +48,11 @@ begin
   'commissionReviewCents',(select coalesce(sum(commission_cents),0) from review where eligible is true),
   'queue',(select coalesce(jsonb_agg(jsonb_build_object('caseKey',case_key,'category',category,'status',status,'version',version,'priority',priority) order by (status='reviewed_mock'),priority,opened_at,case_key),'[]'::jsonb) from queue)
  ) into data;
- return data;
+ -- Optional separate Stripe fixture projection. Absence is not zero.
+ if to_regprocedure('private.f4_stripe_fixture_review()') is not null then
+  execute 'select private.f4_stripe_fixture_review()' into stripe_review;
+ end if;
+ return data||jsonb_build_object('stripeFixtureRisk',stripe_review);
 end $snapshot$;
 revoke all on function private.f7_mock_admin_snapshot() from public,anon,authenticated;
 grant execute on function private.f7_mock_admin_snapshot() to authenticated;
