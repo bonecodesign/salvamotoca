@@ -53,7 +53,7 @@ begin
  then raise exception 'Sessao nao autorizada.';end if;
  is_provider:=u=s.provider_owner_id;
  is_customer:=u=s.customer_id;
- if not (is_customer or is_provider) or not s.mock_paid
+ if s.customer_id=s.provider_owner_id or not (is_customer or is_provider) or not s.mock_paid
  then raise exception 'Sessao nao autorizada.';end if;
  if not exists(select 1 from public.providers p where p.id=s.provider_id and p.owner_id=s.provider_owner_id
  and p.status='approved' and p.is_active) then raise exception 'Prestador nao homologado.';end if;
