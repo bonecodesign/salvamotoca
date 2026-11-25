@@ -45,6 +45,8 @@ function makeInbox({stripe,webhookSecret,binding,readIntentFixture,readChargeFix
   busy=true;
   try{
    need(Buffer.isBuffer(raw)&&raw.length>=2&&raw.length<=65536&&typeof signature==="string"&&signature.length<=4096,"Envelope inválido.");
+   const ts=signature.split(",").filter(x=>x.startsWith("t="));
+   need(ts.length===1&&/^t=\d{10}$/.test(ts[0])&&Math.abs(Math.floor(Date.now()/1000)-Number(ts[0].slice(2)))<=300,"Assinatura de teste fora da janela.");
    // Official SDK validates the raw bytes with default Stripe signing protocol.
    let event;try{event=stripe.webhooks.constructEvent(raw,signature,webhookSecret,300);}catch{throw Error("Assinatura de teste inválida.");}
    need(event?.object==="event"&&stripeId(event.id,"evt")&&event.livemode===false&&!event.account&&!event.context,"Evento fora do contexto da plataforma de teste.");
