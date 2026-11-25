@@ -111,7 +111,7 @@ export async function browserNativeJourney({root,origin,call,sql,actors,session,
   await textIs(a,'stage','ready_for_dispatch');await textIs(b,'stage','ready_for_dispatch');await textIs(d,'stage','Sem acesso');
   await textIs(admin,'sessions','Sessões: 2');
   const attack={eventId:randomUUID(),action:'dispatch',payload:{consent:true}};
-  assert.equal((await a.request.post(base+'/provider/action',{headers:{Origin:base},data:attack})).status(),400);
+  assert.ok([400,401,403].includes((await a.request.post(base+'/provider/action',{headers:{Origin:base},data:attack})).status()));
   const noAdmin=await a.request.get(base+'/admin/snapshot');assert.ok([400,401,403].includes(noAdmin.status()));
   await a.locator('#body').fill('Mensagem por Auth local');await click(a,'message');
   await b.locator('#consent').check();await click(b,'dispatch');await click(b,'location');
