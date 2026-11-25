@@ -54,6 +54,14 @@ jobs:
             echo "REPLAY $(basename "$path")"
             psql -X -v ON_ERROR_STOP=1 -f "$path"
           done
+      - name: Comparar catálogo reconstituído com retrato hospedado
+        run: |
+          psql -X -Atq -v ON_ERROR_STOP=1 -f tests/integration-history-fingerprint.sql > /tmp/sm-history-fingerprint.txt
+          if ! diff -u tests/fixtures/hosted-history/catalog-fingerprint-20261125.txt /tmp/sm-history-fingerprint.txt; then
+            echo 'F7_SCHEMA_PARITY=BLOCKED_DDL_DIFFERENCE RELEASE=NO_GO'
+            exit 1
+          fi
+          echo 'F7_SCHEMA_PARITY=PASS_SELECTED_DDL_SNAPSHOT HOSTED_WRITES=NONE RELEASE=NO_GO'
       - name: Ensaiar congelamento reversível das rotas legadas
         run: psql -X -v ON_ERROR_STOP=1 -f tests/integration-history-legacy-lockdown.sql
       - name: Instalar candidatos somente na fixture
