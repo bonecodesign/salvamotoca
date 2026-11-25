@@ -1,9 +1,10 @@
-name: Integração - Supabase Native Auth Storage REST F1-F4
+name: Integração - Supabase Native Auth Storage REST F1-F7
 on:
   pull_request:
     branches: [main]
     paths:
       - 'tests/integration-native-http.mjs'
+      - 'tests/fixtures/native-f56-context.sql'
       - 'tests/fixtures/hosted-history/**'
       - 'supabase/migrations/**'
       - 'supabase/drafts/**'
