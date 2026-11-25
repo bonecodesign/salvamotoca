@@ -31,5 +31,7 @@
    ending=false;b.disabled=false;
   }
  }
+ // A restored history page must obtain current server authorization.
+ addEventListener("pageshow",event=>{if(event.persisted)location.reload();});
  b.addEventListener("click",logout);
 })();
