@@ -54,6 +54,8 @@ jobs:
             echo "REPLAY $(basename "$path")"
             psql -X -v ON_ERROR_STOP=1 -f "$path"
           done
+      - name: Ensaiar congelamento reversível das rotas legadas
+        run: psql -X -v ON_ERROR_STOP=1 -f tests/integration-history-legacy-lockdown.sql
       - name: Instalar candidatos somente na fixture
         run: |
           for name in f2_backend_candidate f3_tow_backend_candidate f4_financial_backend_candidate f4_double_entry_mock_candidate f4_risk_settlement_mock_candidate f5_backend_rls_mock_candidate f6_backend_rls_mock_candidate f23_incidents_persistence_candidate f23_incident_intake_candidate f23_incident_historical_access_candidate; do
