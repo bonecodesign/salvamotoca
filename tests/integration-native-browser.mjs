@@ -42,7 +42,7 @@ export async function browserNativeJourney({root,origin,call,sql,actors,session,
    if(req.socket.remoteAddress!=='127.0.0.1'||req.headers.host!==new URL(base).host)return send(res,403,'{}');
    const u=new URL(req.url,base);if(u.origin!==base||u.search||u.hash)return send(res,400,'{}');
    if(assets[u.pathname]&&req.method==='GET'){const [p,type]=assets[u.pathname];return send(res,200,readFileSync(resolve(dir,p)),{'Content-Type':type});}
-   const m=/^\/(customer|provider|outsider|admin)\/(login|state|action|snapshot|event)?$/.exec(u.pathname);
+   const m=/^\/(customer|provider|outsider|admin)\/(login|state|action|snapshot|event|receipt)?$/.exec(u.pathname);
    if(!m||!rolePaths.has(m[1]))return send(res,404,'{}');
    const [,role,kind]=m;
    if(kind==='login'&&req.method==='POST'){
@@ -52,22 +52,28 @@ export async function browserNativeJourney({root,origin,call,sql,actors,session,
     const r=await post('/auth/v1/token?grant_type=password',undefined,{email:form.get('email'),password:form.get('password')});
     if(!r.ok)return send(res,403,'{}');
     const a=await r.json();if(!a.access_token||!a.user?.id)return send(res,403,'{}');
-    const key=randomBytes(32).toString('hex');cookies.set(key,a.access_token);
+    const key=randomBytes(32).toString('hex');cookies.set(key,{jwt:a.access_token,scope:randomBytes(16).toString('hex')});
     return send(res,303,'',{'Location':'/'+role+'/','Set-Cookie':'sm_fixture='+key+'; HttpOnly; SameSite=Strict; Path=/'});
    }
    const token=/^sm_fixture=([0-9a-f]{64})$/.exec(req.headers.cookie??'')?.[1];
-   const jwt=cookies.get(token);
+   const login=cookies.get(token);const jwt=login?.jwt;
    if(!jwt){
     if(!kind&&req.method==='GET')return html(res,'<!doctype html><html lang="pt-BR"><meta charset="utf-8"><meta name="viewport" content="width=device-width"><title>Autenticação local</title><link rel="stylesheet" href="/fixture.css"><main><h1>Entrar no ensaio Salva Motoca!</h1><form method="post" action="/'+role+'/login"><label for="email">E-mail fictício</label><input id="email" name="email" type="email" required><label for="password">Senha de teste</label><input id="password" name="password" type="password" required><button type="submit">Entrar</button></form></main></html>');
     return send(res,401,'{}');
    }
    if(!kind&&req.method==='GET'){
     const source=readFileSync(resolve(dir,role==='admin'?'admin.html':'index.html'),'utf8');
-    return html(res,source.replace('Identidade simulada','Auth local — conta fictícia').replace('Identidade de ensaio, não autenticação real.','Auth nativo local, conta de ensaio.'));
+    return html(res,source.replace('<body>','<body data-receipt-scope="'+login.scope+'">').replace('Identidade simulada','Auth local — conta fictícia').replace('Identidade de ensaio, não autenticação real.','Auth nativo local, conta de ensaio.'));
    }
    if(kind==='state'&&req.method==='GET')return send(res,200,JSON.stringify(await state(jwt)));
    if(kind==='snapshot'&&req.method==='GET'){
     const r=await post('/rest/v1/rpc/f7_mock_admin_snapshot',jwt,{});return send(res,r.status,r.ok?await r.text():'{}');
+   }
+   if(kind==='receipt'&&req.method==='POST'){
+    if(req.headers.origin!==base||!req.headers['content-type']?.startsWith('application/json'))return send(res,403,'{}');
+    const v=JSON.parse(await body(req));
+    if(!v||Object.keys(v).length!==1||typeof v.eventId!=='string'||!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(v.eventId))return send(res,400,'{}');
+    const r=await post('/rest/v1/rpc/f56_fixture_receipt',jwt,{p_session:session,p_event:v.eventId});return send(res,r.status,r.ok?await r.text():'{}');
    }
    if(req.method==='POST'&&(kind==='action'||kind==='event')){
     if(req.headers.origin!==base||!req.headers['content-type']?.startsWith('application/json'))return send(res,403,'{}');
