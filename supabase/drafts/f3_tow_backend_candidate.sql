@@ -389,7 +389,7 @@ $$;
 create or replace function public.f3_submit_tow_quote(
   p_offer_id uuid,p_items jsonb,p_details text default ''
 ) returns uuid language plpgsql security definer set search_path='' as $$
-declare v_user uuid:=auth.uid();v_offer record;v_req record;v_quote uuid;
+declare v_user uuid:=auth.uid();v_offer record;v_req record;v_quote uuid;v_request_id uuid;
         v_line jsonb;v_kind text;v_code text;v_amount integer;
         v_line_no integer:=0;v_total integer:=0;v_travel integer:=0;
         v_seen text[]:=array[]::text[];
@@ -402,6 +402,8 @@ begin
    or coalesce(p_details,'') ~*
        '(https?://|www[.]|wa[.]me|whats[[:space:]]*app|chave[[:space:]]*pix|@[-_[:alnum:].]+|([0-9][[:space:]().-]*){9,})'
  then raise exception 'Itens inválidos ou descrição contém contato externo.'; end if;
+ select request_id into v_request_id from public.f2_request_offers where id=p_offer_id;
+ perform 1 from public.service_requests where id=v_request_id for update;
  select o.id,o.request_id,o.provider_id,o.status,o.delivered_at
    into v_offer from public.f2_request_offers o
    join public.providers p on p.id=o.provider_id and p.owner_id=v_user
