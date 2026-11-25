@@ -22,6 +22,15 @@
   $("candidates").textContent="Revisões possíveis: "+s.reviewCandidates;
   $("held").textContent="Revisões retidas: "+s.heldReviews;
   $("review-total").textContent="Valores fictícios em revisão: "+new Intl.NumberFormat("pt-BR",{style:"currency",currency:"BRL"}).format(s.providerReviewCents/100);
+  const x=s.stripeFixtureRisk;
+  const valid=x&&x.mockOnly===true&&x.transferAuthorized===false&&x.refundAuthorized===false&&
+   ["heldAttempts","observedRefundCents","disputedAttempts","canceledAttempts","evidenceWithoutHold"].every(k=>Number.isSafeInteger(x[k])&&x[k]>=0);
+  $("stripe-status").textContent=valid?"Ensaio isolado — somente leitura":"Indisponível";
+  $("stripe-held").textContent=valid?"Tentativas retidas: "+x.heldAttempts:"";
+  $("stripe-refunds").textContent=valid?"Estornos observados (fictícios): "+new Intl.NumberFormat("pt-BR",{style:"currency",currency:"BRL"}).format(x.observedRefundCents/100):"";
+  $("stripe-disputed").textContent=valid?"Contestações: "+x.disputedAttempts:"";
+  $("stripe-canceled").textContent=valid?"Cancelamentos: "+x.canceledAttempts:"";
+  $("stripe-evidence").textContent=valid?"Evidências sem retenção: "+x.evidenceWithoutHold:"";
   $("queue").replaceChildren();
   for(const c of s.queue){
    const div=document.createElement("article"),p=document.createElement("p");
