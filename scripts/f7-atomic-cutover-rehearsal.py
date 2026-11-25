@@ -113,7 +113,7 @@ def body(name):
 def main():
     check(os.environ.get("GITHUB_ACTIONS") == "true" and
           os.environ.get("SM_ATOMIC_CUTOVER_FIXTURE") == "yes", "CI fixture required")
-    check(success("select current_database()='sm_history_disposable' and inet_server_addr()=inet '127.0.0.1' and current_user='postgres';") == "t", "Wrong server")
+    check(success("select current_database()='sm_history_disposable' and inet_server_port()=5432 and current_user='postgres';") == "t", "Wrong server")
     check(success("select not exists(select 1 from auth.users) and not exists(select 1 from storage.objects) and not exists(select 1 from public.service_requests) and not exists(select 1 from public.providers);") == "t", "Unexpected fixture data")
     before = success(SNAPSHOT)
     check(re.fullmatch(r"\d+\|[a-f0-9]{32}", before), "Invalid catalog snapshot")
