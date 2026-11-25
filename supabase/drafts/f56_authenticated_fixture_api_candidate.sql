@@ -1,5 +1,26 @@
 -- Disposable integration fixture only. No hosted migration, PSP or actual GPS.
 begin;
+-- Empty by default, only a verified disposable native runner inserts this row.
+create table private.f56_native_fixture_marker(
+ singleton boolean primary key default true check(singleton),
+ purpose text not null check(purpose='SM_NATIVE_EPHEMERAL_CI_ONLY')
+);
+alter table private.f56_native_fixture_marker enable row level security;
+revoke all on private.f56_native_fixture_marker from public,anon,authenticated;
+create function private.f56_fixture_context()
+returns boolean language plpgsql stable security definer set search_path='' as $context$
+declare sid text;
+begin
+ if current_database()='sm_history_disposable' then return true; end if;
+ if current_database()<>'postgres' or auth.uid() is null or not exists(
+  select 1 from private.f56_native_fixture_marker where singleton and purpose='SM_NATIVE_EPHEMERAL_CI_ONLY')
+ then return false; end if;
+ sid:=nullif(current_setting('request.jwt.claims',true),'')::jsonb->>'session_id';
+ if sid is null or sid !~ '^[0-9a-fA-F-]{36}$' then return false; end if;
+ return exists(select 1 from auth.sessions s where s.id=sid::uuid and s.user_id=auth.uid());
+end $context$;
+revoke all on function private.f56_fixture_context() from public,anon,authenticated;
+
 create table private.f56_mock_events(
  session_id uuid not null references public.f5_mock_sessions(id),
  event_id uuid not null,
@@ -22,7 +43,7 @@ declare
  req uuid; t timestamptz; sample timestamptz; digest bytea;
  is_provider boolean; is_customer boolean; result jsonb; expected text[]; next_status text;
 begin
- if current_database()<>'sm_history_disposable' or u is null or p_session is null or p_event is null
+ if private.f56_fixture_context() is distinct from true or u is null or p_session is null or p_event is null
  or private.f5_mock_enabled() is distinct from true or private.f6_mock_enabled() is distinct from true
  or not exists(select 1 from private.f4_release_gate where enabled)
  then raise exception 'API fixture indisponivel.'; end if;
