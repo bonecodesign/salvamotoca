@@ -150,6 +150,31 @@ export async function browserNativeJourney({root,origin,call,sql,actors,session,
   await a.locator('#retry').waitFor({state:'hidden'});
   assert.equal(retryBody,firstBody);
   assert.equal(Number(sql("select count(*) from public.f5_mock_messages where session_id='"+session+"'")),beforeMessages+1);
+  // A second lost response is recovered after a reload, with no message
+  // or credential stored in browser storage and no second mutation.
+  let recordedId;
+  await a.route('**/customer/action',async route=>{
+   recordedId=JSON.parse(route.request().postData()).eventId;
+   const r=await route.fetch();assert.equal(r.status(),200);await route.abort('failed');
+  },{times:1});
+  await a.locator('#body').fill('Mensagem para recuperar após recarga');
+  await a.locator('[data-action="message"]').click();
+  await a.locator('#retry').waitFor({state:'visible'});
+  await a.waitForFunction(()=>!document.getElementById('retry').disabled);
+  const browserStorage=await a.evaluate(()=>({session:Object.entries(sessionStorage),local:Object.entries(localStorage)}));
+  assert.equal(browserStorage.session.length,1);assert.equal(browserStorage.session[0][1],recordedId);assert.deepEqual(browserStorage.local,[]);
+  const own=await a.request.post(base+'/customer/receipt',{headers:{Origin:base},data:{eventId:recordedId}});
+  assert.deepEqual(await own.json(),{mockOnly:true,transferAuthorized:false,recorded:true});
+  const other=await b.request.post(base+'/provider/receipt',{headers:{Origin:base},data:{eventId:recordedId}});
+  assert.equal(other.status(),200);assert.equal((await other.json()).recorded,false);
+  const denied=await d.request.post(base+'/outsider/receipt',{headers:{Origin:base},data:{eventId:recordedId}});
+  assert.ok([400,401,403].includes(denied.status()));
+  await a.reload();
+  await textIs(a,'feedback','Envio anterior confirmado pelo servidor.');
+  await a.waitForFunction(()=>!document.getElementById('refresh').disabled);
+  assert.equal(await a.evaluate(()=>sessionStorage.length),0);
+  assert.equal(Number(sql("select count(*) from public.f5_mock_messages where session_id='"+session+"'")),beforeMessages+2);
+  console.log('NATIVE_RECEIPT_RECOVERY=PASS RELOAD=PASS ACTOR_SCOPE=PASS NO_PAYLOAD_STORAGE=PASS SINGLE_WRITE=PASS');
   // Narrow viewport and keyboard focus, without claiming a physical Android.
   await a.setViewportSize({width:320,height:720});
   assert.ok(await a.evaluate(()=>document.documentElement.scrollWidth<=innerWidth));
