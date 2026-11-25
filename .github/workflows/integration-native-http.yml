@@ -4,6 +4,8 @@ on:
     branches: [main]
     paths:
       - 'tests/integration-native-http.mjs'
+      - 'tests/integration-native-browser.mjs'
+      - 'tests/fixtures/f56-browser/**'
       - 'tests/fixtures/native-f56-context.sql'
       - 'tests/fixtures/hosted-history/**'
       - 'supabase/migrations/**'
@@ -18,7 +20,7 @@ jobs:
   native-fixture:
     if: github.repository == 'bonecodesign/salvamotoca' && github.event.pull_request.head.repo.full_name == 'bonecodesign/salvamotoca'
     runs-on: ubuntu-24.04
-    timeout-minutes: 20
+    timeout-minutes: 25
     env:
       SUPABASE_EXPERIMENTAL_STACK: "1"
       SUPABASE_YES: "1"
@@ -30,6 +32,10 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
+      - name: Preparar navegador de ensaio
+        run: |
+          command -v google-chrome || command -v chromium
+          npm install --no-save --no-package-lock --ignore-scripts --no-audit --no-fund playwright-core@1.56.1
       - name: "Executar exclusivamente fixture local com serviços oficiais"
         shell: bash
         run: |
