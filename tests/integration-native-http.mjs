@@ -224,6 +224,35 @@ async function main(){
  const held=await result('native admin hold retained',()=>rpc('f7_mock_admin_snapshot',admin,{}));
  assert.equal(held.heldReviews,1);assert.equal(held.reviewCandidates,0);assert.equal(held.providerReviewCents,0);
  assert.equal(sql('select count(*) from public.payment_records'),'0');
+ // Separate Stripe protocol evidence on the already-held tow fixture.
+ // No payment/ledger status changes and no remote Stripe call.
+ step='native Stripe risk projection';
+ sql(readFileSync(resolve(root,'supabase/drafts/f4_stripe_durable_inbox_candidate.sql'),'utf8'));
+ sql("insert into private.f4_stripe_fixture_bindings(attempt_id,intent_id,stripe_customer_id,fee_fixture_cents) values ('"+attempt+"','pi_fixture00001','cus_fixture00001',700);");
+ const {default:Stripe}=await import('stripe');
+ const {default:reconciliation}=await import('../f4-stripe-test-reconciliation.js');
+ const stripe=new Stripe('sk_test_fixture_not_a_real_key',{httpClient:{getClientName:()=>'deny-network',makeRequest(){throw Error('Network disabled');}}});
+ const secret='whsec_fixture_'+'s'.repeat(48);
+ const binding={attemptId:attempt,customerId:a.id,providerId:pc,intentId:'pi_fixture00001',stripeCustomerId:'cus_fixture00001',quote:{requestId:towReq,quoteId:towQuote,items:[{kind:'service',code:'reboque_moto',amountCents:23000},{kind:'travel',code:'deslocamento',amountCents:4000}]},processingFeeCents:700,processingFeeFixtureVerified:true};
+ const pi={object:'payment_intent',id:binding.intentId,livemode:false,currency:'brl',amount:30000,amount_received:30000,customer:binding.stripeCustomerId,transfer_group:'sm_'+attempt,transfer_data:null,on_behalf_of:null,application_fee_amount:null,status:'succeeded',latest_charge:'ch_fixture00001',metadata:{project:'salvamotoca',attempt_id:attempt,request_id:towReq,quote_id:towQuote,customer_id:a.id,provider_id:pc}};
+ const ch={object:'charge',id:pi.latest_charge,payment_intent:pi.id,livemode:false,currency:'brl',amount:30000,amount_captured:30000,customer:pi.customer,paid:true,captured:true,status:'succeeded',refunded:false,amount_refunded:2500,disputed:false,transfer:null};
+ const literal=v=>v===null?'null':"convert_from(decode('"+Buffer.from(String(v)).toString('hex')+"','hex'),'UTF8')";
+ const storeRiskFixture=async x=>JSON.parse(sql("set app.f4_test_only='local_fixture';select private.f4_stripe_store_risk_fixture("+[
+  literal(x.attemptId)+'::uuid',literal(x.eventId),literal(x.bodySha256),literal(x.intentId),literal(x.requestId)+'::uuid',literal(x.quoteId)+'::uuid',
+  literal(x.customerId)+'::uuid',literal(x.providerId)+'::uuid',literal(x.stripeCustomerId),Number(x.totalCents),literal(x.kind),literal(x.chargeId),literal(x.disputeId),Number(x.observedCents)].join(',')+');'));
+ const risk=reconciliation.makeRiskInbox({stripe,webhookSecret:secret,binding,readIntentFixture:async()=>pi,readChargeFixture:async()=>ch,readDisputeFixture:async()=>{throw Error('not needed');},storeRiskFixture});
+ const raw=Buffer.from(JSON.stringify({object:'event',id:'evt_fixtureRefund01',livemode:false,type:'charge.refunded',data:{object:ch}}));
+ const sig=stripe.webhooks.generateTestHeaderString({payload:raw.toString('utf8'),secret});
+ assert.equal((await risk.receive(raw,sig)).held,true);
+ assert.equal((await risk.receive(raw,sig)).duplicate,true);
+ const riskView=await result('native admin reads separate Stripe fixture risk',()=>rpc('f7_mock_admin_snapshot',admin,{}));
+ assert.deepEqual(riskView.stripeFixtureRisk,{mockOnly:true,transferAuthorized:false,refundAuthorized:false,heldAttempts:1,observedRefundCents:2500,disputedAttempts:0,canceledAttempts:0,evidenceWithoutHold:0});
+ assert.equal(riskView.heldReviews,1);assert.equal(riskView.realFundsAvailable,null);
+ await deny('native provider cannot read financial admin projection',()=>rpc('f7_mock_admin_snapshot',c,{}));
+ await deny('native outsider cannot read financial admin projection',()=>rpc('f7_mock_admin_snapshot',d,{}));
+ assert.equal(sql("select has_table_privilege('authenticated','private.f4_stripe_fixture_risk','SELECT')"),'f');
+ assert.equal(sql("select status from private.f4_mock_settlement_intents where attempt_id='"+attempt+"'"),'held');
+ console.log('NATIVE_STRIPE_ADMIN=PASS REFUND_OBSERVED=2500 HELD=1 REAL_FUNDS=NONE');
  // Revoke actual local Auth session; the extra guard must reject even if
  // PostgREST still recognizes the unexpired signed access token.
  sql("delete from auth.sessions where user_id='"+admin.id+"'");
