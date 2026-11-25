@@ -1,7 +1,19 @@
 -- Offline candidate only. Dedicated PG17 CI database; not a hosted migration.
 begin;
+-- The native CI runner has already proved loopback, empty DB and enabled
+-- the private marker. No marker is created or enabled by this candidate.
+create function private.f4_stripe_fixture_context()
+returns boolean language plpgsql stable security invoker set search_path='' as $guard$
+declare marked boolean;
+begin
+ if current_database()='f4_stripe_disposable' then return true;end if;
+ if current_database()<>'postgres' or to_regclass('private.f56_native_fixture_marker') is null then return false;end if;
+ execute 'select exists(select 1 from private.f56_native_fixture_marker where singleton and purpose=''SM_NATIVE_EPHEMERAL_CI_ONLY'')' into marked;
+ return marked is true;
+end $guard$;
+revoke all on function private.f4_stripe_fixture_context() from public,anon,authenticated;
 do $guard$ begin
- if current_database()<>'f4_stripe_disposable' then raise exception 'Disposable Stripe fixture required'; end if;
+ if not private.f4_stripe_fixture_context() then raise exception 'Disposable Stripe fixture required';end if;
 end $guard$;
 create table private.f4_stripe_fixture_bindings(
  attempt_id uuid primary key references private.f4_mock_payment_attempts(id),
@@ -57,7 +69,7 @@ create function private.f4_stripe_store_fixture(p_attempt uuid,p_event text,p_ha
 returns jsonb language plpgsql security invoker set search_path='' as $f$
 declare a record;b record;e record;receipt record;rid uuid; inserted_count integer; existed boolean;
 begin
- if current_database()<>'f4_stripe_disposable'
+ if not private.f4_stripe_fixture_context()
  or current_setting('app.f4_test_only',true) is distinct from 'local_fixture'
  or not exists(select 1 from private.f4_release_gate where enabled)
  then raise exception 'Stripe fixture indisponivel';end if;
@@ -118,7 +130,7 @@ create function private.f4_stripe_store_risk_fixture(p_attempt uuid,p_event text
 returns jsonb language plpgsql security invoker set search_path='' as $f$
 declare a record;b record;r record;rid uuid;duplicate boolean;
 begin
- if current_database()<>'f4_stripe_disposable'
+ if not private.f4_stripe_fixture_context()
  or current_setting('app.f4_test_only',true) is distinct from 'local_fixture'
  or not exists(select 1 from private.f4_release_gate where enabled)
  then raise exception 'Stripe fixture indisponivel';end if;
