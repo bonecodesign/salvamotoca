@@ -47,13 +47,13 @@ export async function browserNativeJourney({root,origin,call,sql,actors,session,
    const [,role,kind]=m;
    if(kind==='login'&&req.method==='POST'){
     if(req.headers.origin!==base||!req.headers['content-type']?.startsWith('application/x-www-form-urlencoded'))return send(res,403,'{}');
+    const previous=/^sm_fixture=([0-9a-f]{64})$/.exec(req.headers.cookie??'')?.[1];
+    if(cookies.has(previous))return send(res,409,'{}'); // Sign out before changing identity.
     const form=new URLSearchParams(await body(req));
     if(form.getAll('email').length!==1||form.getAll('password').length!==1)return send(res,400,'{}');
     const r=await post('/auth/v1/token?grant_type=password',undefined,{email:form.get('email'),password:form.get('password')});
     if(!r.ok)return send(res,403,'{}');
     const a=await r.json();if(!a.access_token||!a.user?.id)return send(res,403,'{}');
-    const previous=/^sm_fixture=([0-9a-f]{64})$/.exec(req.headers.cookie??'')?.[1];
-    if(previous)cookies.delete(previous);
     const key=randomBytes(32).toString('hex');cookies.set(key,{jwt:a.access_token,scope:randomBytes(16).toString('hex')});
     return send(res,303,'',{'Location':'/'+role+'/','Set-Cookie':'sm_fixture='+key+'; HttpOnly; SameSite=Strict; Path=/'});
    }
@@ -233,6 +233,38 @@ export async function browserNativeJourney({root,origin,call,sql,actors,session,
   await textIs(admin,'held','');
   await textIs(admin,'queue','Situação indisponível. Atualize a consulta.');
   console.log('NATIVE_ADMIN_STALE_STATE=PASS REVOKED_SESSION_CLEARED=PASS');
+  // Explicit logout revokes only the current native session and invalidates
+  // the proxy cookie. Preserve unrelated sessions for the same account.
+  const oldCookie=(await a.context().cookies(base)).find(c=>c.name==='sm_fixture');
+  assert.ok(oldCookie?.httpOnly);assert.equal(oldCookie.sameSite,'Strict');
+  const oldLogin=cookies.get(oldCookie.value);assert.ok(oldLogin?.jwt);
+  const sid=JSON.parse(Buffer.from(oldLogin.jwt.split('.')[1],'base64url').toString('utf8')).session_id;
+  assert.match(sid,/^[0-9a-f-]{36}$/i);
+  const othersBefore=sql("select count(*) from auth.sessions where user_id='"+actors.customer.id+"' and id<>'"+sid+"'");
+  const csrf=await a.request.post(base+'/customer/logout',{headers:{Origin:'https://example.invalid'},data:{}});
+  assert.equal(csrf.status(),403);
+  const still=await a.request.post(base+'/customer/receipt',{headers:{Origin:base},data:{eventId:recordedId}});
+  assert.equal((await still.json()).recorded,true);
+  const logoutResponse=a.waitForResponse(r=>r.url().endsWith('/customer/logout')&&r.request().method()==='POST');
+  await a.locator('#logout').click();
+  const ended=await logoutResponse;
+  assert.equal(ended.status(),200);assert.deepEqual(await ended.json(),{signedOut:true,nativeRevoked:true});
+  await a.getByRole('button',{name:'Entrar'}).waitFor();
+  assert.equal(sql("select count(*) from auth.sessions where id='"+sid+"'"),'0');
+  assert.equal(sql("select count(*) from auth.sessions where user_id='"+actors.customer.id+"' and id<>'"+sid+"'"),othersBefore);
+  assert.equal((await a.context().cookies(base)).filter(c=>c.name==='sm_fixture').length,0);
+  const stale=await fetch(base+'/customer/state',{headers:{Cookie:'sm_fixture='+oldCookie.value},redirect:'error'});
+  assert.equal(stale.status,401);
+  const direct=await post('/rest/v1/rpc/f56_fixture_receipt',oldLogin.jwt,{p_session:session,p_event:recordedId});
+  assert.ok([400,401,403].includes(direct.status));
+  await a.locator('#email').fill(actors.customer.email);await a.locator('#password').fill(actors.customer.password);
+  await a.getByRole('button',{name:'Entrar'}).click();
+  await a.waitForSelector('#refresh');await textIs(a,'completion','support_review');
+  const newCookie=(await a.context().cookies(base)).find(c=>c.name==='sm_fixture');
+  assert.notEqual(newCookie.value,oldCookie.value);
+  assert.notEqual(await a.evaluate(()=>document.body.dataset.receiptScope),oldLogin.scope);
+  assert.equal(await a.evaluate(()=>sessionStorage.length),0);
+  console.log('NATIVE_LOGOUT=PASS NATIVE_SESSION_REVOKED=PASS OLD_COOKIE_DENIED=PASS OLD_JWT_DENIED=PASS RELOGIN=PASS CSRF_DENIED=PASS');
   assert.equal(sql('select count(*) from public.payment_records'),'0');
   assert.deepEqual(errors,[]);assert.deepEqual(external,[]);
   console.log('NATIVE_BROWSER=PASS AUTH_LOGIN=PASS ROLE_PATH_BYPASS=DENIED GPS_ERASED=PASS REVIEW_HELD=PASS REVOKED_ADMIN=DENIED REAL_PAYMENTS=0');
