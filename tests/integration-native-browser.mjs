@@ -78,7 +78,7 @@ export async function browserNativeJourney({root,origin,call,sql,actors,session,
     const r=await post('/rest/v1/rpc/'+name,jwt,params);return send(res,r.status,r.ok?await r.text():'{}');
    }
    send(res,405,'{}');
-  }catch{send(res,403,'{}');}
+  }catch{if(!res.headersSent)send(res,503,'{}');else res.end();}
  });
  let browser;const errors=[],external=[];
  const chrome=process.env.CHROME_BIN||['/usr/bin/google-chrome','/usr/bin/google-chrome-stable','/usr/bin/chromium','/usr/bin/chromium-browser'].find(existsSync);
@@ -119,9 +119,51 @@ export async function browserNativeJourney({root,origin,call,sql,actors,session,
   const attack={eventId:randomUUID(),action:'dispatch',payload:{consent:true}};
   assert.ok([400,401,403].includes((await a.request.post(base+'/provider/action',{headers:{Origin:base},data:attack})).status()));
   const noAdmin=await a.request.get(base+'/admin/snapshot');assert.ok([400,401,403].includes(noAdmin.status()));
-  await a.locator('#body').fill('Mensagem por Auth local');await click(a,'message');
+  // Exercise an actual committed write with the response lost in transit.
+  // The only retry must carry the same event identifier and payload.
+  const beforeMessages=Number(sql("select count(*) from public.f5_mock_messages where session_id='"+session+"'"));
+  let firstBody,retryBody;
+  const loseResponse=async route=>{
+   if(route.request().method()!=='POST')return route.continue();
+   firstBody=route.request().postData();
+   const committed=await route.fetch();
+   assert.equal(committed.status(),200);
+   await route.abort('failed');
+  };
+  await a.route('**/customer/action',loseResponse,{times:1});
+  await a.locator('#body').fill('Mensagem por Auth local');
+  await a.locator('[data-action="message"]').click();
+  await a.locator('#retry').waitFor({state:'visible'});
+  await a.waitForFunction(()=>!document.getElementById('retry').disabled);
+  assert.equal(Number(sql("select count(*) from public.f5_mock_messages where session_id='"+session+"'")),beforeMessages+1);
+  assert.ok(await a.locator('[data-action="message"]').isDisabled());
+  // Editing the input must not alter the pending body.
+  await a.locator('#body').fill('Texto alterado após falha');
+  await a.route('**/customer/action',route=>{retryBody=route.request().postData();return route.continue();},{times:1});
+  await a.locator('#retry').click();
+  await a.locator('#retry').waitFor({state:'hidden'});
+  assert.equal(retryBody,firstBody);
+  assert.equal(Number(sql("select count(*) from public.f5_mock_messages where session_id='"+session+"'")),beforeMessages+1);
+  // Narrow viewport and keyboard focus, without claiming a physical Android.
+  await a.setViewportSize({width:320,height:720});
+  assert.ok(await a.evaluate(()=>document.documentElement.scrollWidth<=innerWidth));
+  await a.locator('#refresh').focus();
+  await a.keyboard.press('Tab');
+  assert.ok(await a.evaluate(()=>document.activeElement!==document.body));
+  assert.ok(await a.locator('#refresh').evaluate(el=>el.getBoundingClientRect().height>=44));
+  console.log('NATIVE_MOBILE_RETRY=PASS SAME_EVENT_ID=PASS SINGLE_MESSAGE=PASS VIEWPORT_320=PASS');
+
   await b.locator('#consent').check();await click(b,'dispatch');await click(b,'location');
   await a.locator('#refresh').click();await textIs(a,'gps','Localização fictícia visível');
+  await a.context().setOffline(true);
+  await a.locator('#refresh').click();
+  await textIs(a,'stage','Situação indisponível');
+  await textIs(a,'gps','Localização indisponível');
+  assert.ok(await a.locator('[data-action="message"]').isDisabled());
+  await a.context().setOffline(false);
+  await a.locator('#refresh').click({timeout:15000});
+  await textIs(a,'gps','Localização fictícia visível');
+  console.log('NATIVE_MOBILE_OFFLINE=PASS STALE_GPS_CLEARED=PASS RECONNECTED=PASS');
   await d.locator('#refresh').click();await textIs(d,'gps','Localização indisponível');
   await click(b,'arrive');await a.locator('#refresh').click();await textIs(a,'gps','Localização indisponível');
   await click(b,'start');await click(b,'handoff');await click(b,'summary');await click(b,'provider_confirm');
@@ -136,6 +178,11 @@ export async function browserNativeJourney({root,origin,call,sql,actors,session,
   // The path does not choose identity, and the cookie cannot retain revoked Auth authority.
   sql("delete from auth.sessions where user_id='"+actors.admin.id+"'");
   const revoked=await admin.request.get(base+'/admin/snapshot');assert.ok([400,401,403].includes(revoked.status()));
+  await admin.locator('#refresh').click();
+  await textIs(admin,'stripe-status','Indisponível');
+  await textIs(admin,'held','');
+  await textIs(admin,'queue','Situação indisponível. Atualize a consulta.');
+  console.log('NATIVE_ADMIN_STALE_STATE=PASS REVOKED_SESSION_CLEARED=PASS');
   assert.equal(sql('select count(*) from public.payment_records'),'0');
   assert.deepEqual(errors,[]);assert.deepEqual(external,[]);
   console.log('NATIVE_BROWSER=PASS AUTH_LOGIN=PASS ROLE_PATH_BYPASS=DENIED GPS_ERASED=PASS REVIEW_HELD=PASS REVOKED_ADMIN=DENIED REAL_PAYMENTS=0');

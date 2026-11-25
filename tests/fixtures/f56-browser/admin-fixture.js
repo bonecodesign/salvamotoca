@@ -12,7 +12,15 @@
   if(d.mockOnly!==true||d.productionAuthorized!==false)throw Error("Resposta fora da fixture.");
   return d;
  }
+ function clearSnapshot(){
+  for(const id of ["sessions","completed","pending","critical","candidates","held","review-total","stripe-held","stripe-refunds","stripe-disputed","stripe-canceled","stripe-evidence"])$(id).textContent="";
+  $("stripe-status").textContent="Indisponível";
+  $("queue").textContent="Situação indisponível. Atualize a consulta.";
+ }
  async function refresh(){
+  try{await readSnapshot();}catch(e){clearSnapshot();throw e;}
+ }
+ async function readSnapshot(){
   const s=await req("snapshot");
   if(s.transferAuthorized!==false||s.refundAuthorized!==false||s.realFundsAvailable!==null)throw Error("Resposta financeira fora do escopo.");
   $("sessions").textContent="Sessões: "+s.sessions;
@@ -52,6 +60,7 @@
   }catch(e){$("feedback").textContent=e.message;}
   finally{busy=false;$("refresh").disabled=false;try{await refresh();}catch(e){$("feedback").textContent=e.message;}}
  }
- $("refresh").addEventListener("click",()=>refresh().catch(e=>$("feedback").textContent=e.message));
+ $("refresh").addEventListener("click",()=>{if(!busy)refresh().catch(e=>$("feedback").textContent=e.message);});
+ addEventListener("offline",()=>{clearSnapshot();$("feedback").textContent="Conexão indisponível.";});
  refresh().catch(e=>$("feedback").textContent=e.message);
 })();
