@@ -174,6 +174,13 @@ export async function browserNativeJourney({root,origin,call,sql,actors,session,
   await a.waitForFunction(()=>!document.getElementById('refresh').disabled);
   assert.equal(await a.evaluate(()=>sessionStorage.length),0);
   assert.equal(Number(sql("select count(*) from public.f5_mock_messages where session_id='"+session+"'")),beforeMessages+2);
+  // Unrecorded receipts are not evidence that an in-flight event failed.
+  const unknown=await a.request.post(base+'/customer/receipt',{headers:{Origin:base},data:{eventId:randomUUID()}});
+  assert.equal(unknown.status(),200);assert.equal((await unknown.json()).recorded,false);
+  const forged=await a.request.post(base+'/customer/receipt',{headers:{Origin:base},data:{eventId:recordedId,actorId:actors.provider.id}});
+  assert.equal(forged.status(),400);
+  const crossOrigin=await a.request.post(base+'/customer/receipt',{headers:{Origin:'https://example.invalid'},data:{eventId:recordedId}});
+  assert.equal(crossOrigin.status(),403);
   console.log('NATIVE_RECEIPT_RECOVERY=PASS RELOAD=PASS ACTOR_SCOPE=PASS NO_PAYLOAD_STORAGE=PASS SINGLE_WRITE=PASS');
   // Narrow viewport and keyboard focus, without claiming a physical Android.
   await a.setViewportSize({width:320,height:720});
