@@ -5,6 +5,9 @@ on:
     paths:
       - 'f4-stripe-test-reconciliation.js'
       - 'f4-finance.js'
+      - 'f4-stripe-sandbox-readonly.js'
+      - 'scripts/f4-stripe-sandbox-readonly.cjs'
+      - 'tests/f4-stripe-sandbox-readonly.test.js'
       - 'supabase/drafts/f4_stripe_durable_inbox_candidate.sql'
       - 'tests/f4-stripe-durable-inbox.test.js'
       - 'tests/f4-stripe-test-reconciliation.test.js'
@@ -28,7 +31,8 @@ jobs:
       - name: Ensaio de assinatura e reconciliação, sem chaves reais
         run: |
           node --check f4-stripe-test-reconciliation.js
-          node --test tests/f4-stripe-test-reconciliation.test.js tests/f4-finance.test.js tests/f4-release-guard.test.js
+          node --check scripts/f4-stripe-sandbox-readonly.cjs
+          node --test tests/f4-stripe-sandbox-readonly.test.js tests/f4-stripe-test-reconciliation.test.js tests/f4-finance.test.js tests/f4-release-guard.test.js
           echo 'STRIPE_CONTRACT=OFFLINE_ONLY REAL_PAYMENT=NONE RELEASE=NO_GO'
   durable-inbox:
     runs-on: ubuntu-latest
