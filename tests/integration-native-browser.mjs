@@ -78,7 +78,7 @@ export async function browserNativeJourney({root,origin,call,sql,actors,session,
     const r=await post('/rest/v1/rpc/'+name,jwt,params);return send(res,r.status,r.ok?await r.text():'{}');
    }
    send(res,405,'{}');
-  }catch{send(res,403,'{}');}
+  }catch{if(!res.headersSent)send(res,503,'{}');else res.end();}
  });
  let browser;const errors=[],external=[];
  const chrome=process.env.CHROME_BIN||['/usr/bin/google-chrome','/usr/bin/google-chrome-stable','/usr/bin/chromium','/usr/bin/chromium-browser'].find(existsSync);
