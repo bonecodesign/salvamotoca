@@ -100,14 +100,27 @@ end $test$;
 insert into public.f5_mock_sessions(id,request_id,quote_id,customer_id,provider_id,provider_owner_id,mock_paid,status)
  values('55555555-5555-4555-8555-555555555555',:'request_id',:'quote_id','11111111-1111-4111-8111-111111111111',
  'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa','22222222-2222-4222-8222-222222222222',true,'ready_for_dispatch');
-insert into public.f5_mock_messages(session_id,actor_id,body)
- values('55555555-5555-4555-8555-555555555555','11111111-1111-4111-8111-111111111111','Mensagem sintetica');
-update public.f5_mock_sessions set status='en_route',tracking_consent=true;
-insert into public.f5_mock_latest_location(session_id,latitude,longitude,accuracy_meters,sampled_at)
- values('55555555-5555-4555-8555-555555555555',-19.92,-43.93,15,now());
 set local role authenticated;
 set local app.f5_test_only='local_fixture';
 set local app.f6_test_only='local_fixture';
+set local request.jwt.claim.sub='11111111-1111-4111-8111-111111111111';
+do $test$ begin
+ begin
+  perform public.f56_apply_fixture('55555555-5555-4555-8555-555555555555','77777777-7777-4777-8777-000000000001','dispatch','{"consent":true}');
+  raise exception using errcode='ZX020',message='Cliente despachou';
+ exception when others then if sqlstate='ZX020' or sqlerrm not like 'Papel nao autorizado%' then raise;end if;end;
+end $test$;
+select public.f56_apply_fixture('55555555-5555-4555-8555-555555555555','77777777-7777-4777-8777-000000000002','message','{"body":"Mensagem sintetica"}');
+do $test$ begin
+ if (public.f56_apply_fixture('55555555-5555-4555-8555-555555555555','77777777-7777-4777-8777-000000000002','message','{"body":"Mensagem sintetica"}')->>'idempotent')::boolean is distinct from true then raise exception 'Replay falhou';end if;
+ begin
+  perform public.f56_apply_fixture('55555555-5555-4555-8555-555555555555','77777777-7777-4777-8777-000000000002','message','{"body":"Outro texto"}');
+  raise exception using errcode='ZX021',message='Replay divergente';
+ exception when others then if sqlstate='ZX021' or sqlerrm not like 'Evento reutilizado%' then raise;end if;end;
+end $test$;
+set local request.jwt.claim.sub='22222222-2222-4222-8222-222222222222';
+select public.f56_apply_fixture('55555555-5555-4555-8555-555555555555','77777777-7777-4777-8777-000000000003','dispatch','{"consent":true}');
+select public.f56_apply_fixture('55555555-5555-4555-8555-555555555555','77777777-7777-4777-8777-000000000004','location',jsonb_build_object('lat',-19.92,'lng',-43.93,'accuracy',15,'sampledAt',now()));
 set local request.jwt.claim.sub='11111111-1111-4111-8111-111111111111';
 do $test$ begin
  if (select count(*) from public.f5_mock_latest_location)<>1 or (select count(*) from public.f5_mock_messages)<>1 then raise exception 'Participante nao ve fixture';end if;
@@ -115,22 +128,33 @@ end $test$;
 set local request.jwt.claim.sub='33333333-3333-4333-8333-333333333333';
 do $test$ begin
  if (select count(*) from public.f5_mock_latest_location)<>0 or (select count(*) from public.f5_mock_messages)<>0 then raise exception 'Terceiro acessou fixture';end if;
+ begin
+  perform public.f56_apply_fixture('55555555-5555-4555-8555-555555555555','77777777-7777-4777-8777-000000000005','message','{"body":"Terceiro"}');
+  raise exception using errcode='ZX022',message='Terceiro gravou';
+ exception when others then if sqlstate='ZX022' or sqlerrm not like 'Sessao nao autorizada%' then raise;end if;end;
 end $test$;
+set local request.jwt.claim.sub='22222222-2222-4222-8222-222222222222';
+select public.f56_apply_fixture('55555555-5555-4555-8555-555555555555','77777777-7777-4777-8777-000000000006','arrive','{}');
+select public.f56_apply_fixture('55555555-5555-4555-8555-555555555555','77777777-7777-4777-8777-000000000007','start','{}');
+select public.f56_apply_fixture('55555555-5555-4555-8555-555555555555','77777777-7777-4777-8777-000000000008','handoff','{}');
+select public.f56_apply_fixture('55555555-5555-4555-8555-555555555555','77777777-7777-4777-8777-000000000009','summary','{"body":"Resumo sintetico de atendimento"}');
+select public.f56_apply_fixture('55555555-5555-4555-8555-555555555555','77777777-7777-4777-8777-000000000010','provider_confirm','{}');
 reset role;
-update public.f5_mock_sessions set status='arrived',tracking_consent=false;
-update public.f5_mock_sessions set status='in_service';
-update public.f5_mock_sessions set status='handoff_f6';
-insert into public.f6_mock_completions(id,session_id,customer_id,provider_owner_id,status,summary,summary_at,customer_deadline_at,provider_confirmed_at)
- values('66666666-6666-4666-8666-666666666666','55555555-5555-4555-8555-555555555555',
- '11111111-1111-4111-8111-111111111111','22222222-2222-4222-8222-222222222222',
- 'awaiting_both','Resumo sintetico de atendimento',now(),now()+interval '5 minutes',now());
+do $test$ begin
+ if exists(select 1 from public.f5_mock_latest_location) then raise exception 'GPS nao removido';end if;
+end $test$;
 do $test$ begin
  begin
   perform private.f4_queue_mock_settlement_review(current_setting('test.attempt_id')::uuid,'settle_tow_fixture',true,true);
   raise exception using errcode='ZX012',message='Confirmacao unilateral admitida';
  exception when others then if sqlstate='ZX012' or sqlerrm not like 'Revisao exige%' then raise;end if;end;
 end $test$;
-update public.f6_mock_completions set status='completed',customer_confirmed_at=now();
+set local role authenticated;
+set local request.jwt.claim.sub='11111111-1111-4111-8111-111111111111';
+select public.f56_apply_fixture('55555555-5555-4555-8555-555555555555','77777777-7777-4777-8777-000000000011','customer_confirm','{"summaryRead":true}');
+select public.f56_apply_fixture('55555555-5555-4555-8555-555555555555','77777777-7777-4777-8777-000000000012','rating','{"stars":5}');
+reset role;
+select 'F56_AUTHENTICATED_FIXTURE=PASS WRONG_ROLE=DENIED REPLAY=PASS GPS_REMOVED=PASS';
 do $test$
 declare p jsonb;
 begin
