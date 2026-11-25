@@ -35,6 +35,15 @@ function chargeMatches(ch,pi,b){
  ch.customer===b.customer&&ch.status==="succeeded"&&ch.paid===true&&ch.captured===true&&
  ch.refunded===false&&ch.amount_refunded===0&&ch.disputed===false&&ch.transfer==null;
 }
+function verifiedEvent(stripe,webhookSecret,raw,signature){
+   need(Buffer.isBuffer(raw)&&raw.length>=2&&raw.length<=65536&&typeof signature==="string"&&signature.length<=4096,"Envelope inválido.");
+   const ts=signature.split(",").filter(x=>x.startsWith("t="));
+   need(ts.length===1&&/^t=\d{10}$/.test(ts[0])&&Math.abs(Math.floor(Date.now()/1000)-Number(ts[0].slice(2)))<=300,"Assinatura de teste fora da janela.");
+   // Official SDK validates the raw bytes with default Stripe signing protocol.
+   let event;try{event=stripe.webhooks.constructEvent(raw,signature,webhookSecret,300);}catch{throw Error("Assinatura de teste inválida.");}
+   need(event?.object==="event"&&stripeId(event.id,"evt")&&event.livemode===false&&!event.account&&!event.context,"Evento fora do contexto da plataforma de teste.");
+ return event;
+}
 function makeInbox({stripe,webhookSecret,binding,readIntentFixture,readChargeFixture,storeEvidenceFixture=null}){
  need(stripe?.webhooks?.constructEvent&&typeof readIntentFixture==="function"&&typeof readChargeFixture==="function","Dependências de teste ausentes.");
  need(typeof webhookSecret==="string"&&webhookSecret.startsWith("whsec_fixture_")&&webhookSecret.length>=40,"Segredo exclusivamente sintético obrigatório.");
@@ -45,12 +54,7 @@ function makeInbox({stripe,webhookSecret,binding,readIntentFixture,readChargeFix
   need(!busy,"Processamento concorrente: repetir após conclusão.");
   busy=true;
   try{
-   need(Buffer.isBuffer(raw)&&raw.length>=2&&raw.length<=65536&&typeof signature==="string"&&signature.length<=4096,"Envelope inválido.");
-   const ts=signature.split(",").filter(x=>x.startsWith("t="));
-   need(ts.length===1&&/^t=\d{10}$/.test(ts[0])&&Math.abs(Math.floor(Date.now()/1000)-Number(ts[0].slice(2)))<=300,"Assinatura de teste fora da janela.");
-   // Official SDK validates the raw bytes with default Stripe signing protocol.
-   let event;try{event=stripe.webhooks.constructEvent(raw,signature,webhookSecret,300);}catch{throw Error("Assinatura de teste inválida.");}
-   need(event?.object==="event"&&stripeId(event.id,"evt")&&event.livemode===false&&!event.account&&!event.context,"Evento fora do contexto da plataforma de teste.");
+   const event=verifiedEvent(stripe,webhookSecret,raw,signature);
    need(event.type==="payment_intent.succeeded","Tipo não aceito; risco exige fluxo separado.");
    need(captured(event.data?.object,b),"Snapshot não corresponde à tentativa.");
    const hash=crypto.createHash("sha256").update(raw).digest("hex");
@@ -71,4 +75,52 @@ function makeInbox({stripe,webhookSecret,binding,readIntentFixture,readChargeFix
   }finally{busy=false;}
  }});
 }
-module.exports=Object.freeze({makeInbox,DENIAL});
+
+/** Risk evidence only: no refund/dispute outcome or money movement is inferred.
+ * Holds are monotonic. Even a later clean snapshot never clears one. */
+function makeRiskInbox({stripe,webhookSecret,binding,readIntentFixture,readChargeFixture,readDisputeFixture,storeRiskFixture}){
+ need(stripe?.webhooks?.constructEvent&&typeof webhookSecret==="string"&&webhookSecret.startsWith("whsec_fixture_")&&webhookSecret.length>=40,"Dependências de risco inválidas.");
+ need([readIntentFixture,readChargeFixture,readDisputeFixture,storeRiskFixture].every(f=>typeof f==="function"),"Leituras e persistência de risco obrigatórias.");
+ const b=bind(binding);
+ const validCharge=(ch,pi)=>ch&&ch.object==="charge"&&ch.id===pi.latest_charge&&ch.payment_intent===b.intentId&&
+  ch.livemode===false&&ch.currency==="brl"&&ch.amount===b.amount&&ch.customer===b.customer&&
+  ch.amount_captured===b.amount&&ch.paid===true&&ch.captured===true;
+ return Object.freeze({async receive(raw,signature){
+  const event=verifiedEvent(stripe,webhookSecret,raw,signature);
+  const obj=event.data?.object;
+  need(["payment_intent.canceled","charge.refunded","charge.dispute.created"].includes(event.type),"Evento de risco não suportado.");
+  const pi=await readIntentFixture(b.intentId);
+  need(intentMatches(pi,b),"Intenção de risco divergente.");
+  let kind,chargeId=null,disputeId=null,observedCents=0;
+  if(event.type==="payment_intent.canceled"){
+   need(intentMatches(obj,b)&&obj.status==="canceled"&&pi.status==="canceled"&&obj.amount_received===0&&pi.amount_received===0,"Cancelamento não conciliado.");
+   kind="cancellation";
+  }else{
+   need(captured(pi,b),"Intenção capturada de risco inválida.");
+   const ch=await readChargeFixture(pi.latest_charge);
+   need(validCharge(ch,pi),"Cobrança de risco divergente.");
+   chargeId=ch.id;
+   if(event.type==="charge.refunded"){
+    need(validCharge(obj,pi)&&Number.isSafeInteger(obj.amount_refunded)&&obj.amount_refunded>0&&
+     Number.isSafeInteger(ch.amount_refunded)&&ch.amount_refunded>=obj.amount_refunded&&ch.amount_refunded<=b.amount,
+     "Estorno não conciliado.");
+    // Cumulative, not delta. A late smaller snapshot cannot decrease the hold.
+    kind="refund_observed";observedCents=ch.amount_refunded;
+   }else{
+    const validDispute=d=>d&&d.object==="dispute"&&stripeId(d.id,"dp")&&d.charge===ch.id&&
+     d.payment_intent===b.intentId&&d.livemode===false&&d.currency==="brl"&&
+     Number.isSafeInteger(d.amount)&&d.amount>0&&d.amount<=b.amount;
+    need(validDispute(obj),"Contestação divergente.");
+    const dp=await readDisputeFixture(obj.id);
+    need(validDispute(dp)&&dp.id===obj.id&&dp.amount===obj.amount,"Contestação não conciliada.");
+    kind="dispute_observed";disputeId=dp.id;observedCents=dp.amount;
+   }
+  }
+  const r=await storeRiskFixture(Object.freeze({attemptId:b.meta.attempt_id,eventId:event.id,bodySha256:crypto.createHash("sha256").update(raw).digest("hex"),
+   intentId:b.intentId,requestId:b.meta.request_id,quoteId:b.meta.quote_id,customerId:b.meta.customer_id,providerId:b.meta.provider_id,stripeCustomerId:b.customer,
+   totalCents:b.amount,kind,chargeId,disputeId,observedCents}));
+  need(r&&r.held===true&&typeof r.duplicate==="boolean"&&r.realPaymentVerified===false&&r.transferAuthorized===false,"Persistência de risco inválida.");
+  return Object.freeze({duplicate:r.duplicate,held:true,...DENIAL});
+ }});
+}
+module.exports=Object.freeze({makeInbox,makeRiskInbox,DENIAL});
