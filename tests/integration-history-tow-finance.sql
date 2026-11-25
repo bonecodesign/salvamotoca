@@ -75,6 +75,83 @@ begin
   raise exception using errcode='ZX002',message='Pagamento legado em pedido gerenciado';
  exception when others then if sqlstate='ZX002' or sqlerrm not like 'Pagamento legado%' then raise;end if;end;
 end $test$;
+-- An accepted quote alone or a fabricated confirmation does not qualify.
+update private.f5_mock_release_gate set enabled=true;
+update private.f6_mock_release_gate set enabled=true;
+select set_config('test.attempt_id',:'attempt_id',true);
+do $test$
+begin
+ begin
+  insert into public.f5_mock_sessions(request_id,quote_id,customer_id,provider_id,provider_owner_id,mock_paid,status)
+  values(current_setting('test.request_id')::uuid,current_setting('test.quote_id')::uuid,
+   '11111111-1111-4111-8111-111111111111','aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',
+   '22222222-2222-4222-8222-222222222222',true,'ready_for_dispatch');
+  raise exception using errcode='ZX010',message='Sessao sem diario admitida';
+ exception when others then if sqlstate='ZX010' or sqlerrm not like 'Sessao mock exige%' then raise;end if;end;
+end $test$;
+select private.f4_post_mock_double_entry(id) from private.f4_mock_webhook_receipts where mock_event_id='fixture_tow_payment';
+do $test$
+begin
+ begin
+  perform private.f4_queue_mock_settlement_review(current_setting('test.attempt_id')::uuid,'settle_tow_fixture',true,true);
+  raise exception using errcode='ZX011',message='Confirmacoes inventadas admitidas';
+ exception when others then if sqlstate='ZX011' or sqlerrm not like 'Revisao exige%' then raise;end if;end;
+end $test$;
+insert into public.f5_mock_sessions(id,request_id,quote_id,customer_id,provider_id,provider_owner_id,mock_paid,status)
+ values('55555555-5555-4555-8555-555555555555',:'request_id',:'quote_id','11111111-1111-4111-8111-111111111111',
+ 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa','22222222-2222-4222-8222-222222222222',true,'ready_for_dispatch');
+insert into public.f5_mock_messages(session_id,actor_id,body)
+ values('55555555-5555-4555-8555-555555555555','11111111-1111-4111-8111-111111111111','Mensagem sintetica');
+update public.f5_mock_sessions set status='en_route',tracking_consent=true;
+insert into public.f5_mock_latest_location(session_id,latitude,longitude,accuracy_meters,sampled_at)
+ values('55555555-5555-4555-8555-555555555555',-19.92,-43.93,15,now());
+set local role authenticated;
+set local app.f5_test_only='local_fixture';
+set local app.f6_test_only='local_fixture';
+set local request.jwt.claim.sub='11111111-1111-4111-8111-111111111111';
+do $test$ begin
+ if (select count(*) from public.f5_mock_latest_location)<>1 or (select count(*) from public.f5_mock_messages)<>1 then raise exception 'Participante nao ve fixture';end if;
+end $test$;
+set local request.jwt.claim.sub='33333333-3333-4333-8333-333333333333';
+do $test$ begin
+ if (select count(*) from public.f5_mock_latest_location)<>0 or (select count(*) from public.f5_mock_messages)<>0 then raise exception 'Terceiro acessou fixture';end if;
+end $test$;
+reset role;
+update public.f5_mock_sessions set status='arrived',tracking_consent=false;
+update public.f5_mock_sessions set status='in_service';
+update public.f5_mock_sessions set status='handoff_f6';
+insert into public.f6_mock_completions(id,session_id,customer_id,provider_owner_id,status,summary,summary_at,customer_deadline_at,provider_confirmed_at)
+ values('66666666-6666-4666-8666-666666666666','55555555-5555-4555-8555-555555555555',
+ '11111111-1111-4111-8111-111111111111','22222222-2222-4222-8222-222222222222',
+ 'awaiting_both','Resumo sintetico de atendimento',now(),now()+interval '5 minutes',now());
+do $test$ begin
+ begin
+  perform private.f4_queue_mock_settlement_review(current_setting('test.attempt_id')::uuid,'settle_tow_fixture',true,true);
+  raise exception using errcode='ZX012',message='Confirmacao unilateral admitida';
+ exception when others then if sqlstate='ZX012' or sqlerrm not like 'Revisao exige%' then raise;end if;end;
+end $test$;
+update public.f6_mock_completions set status='completed',customer_confirmed_at=now();
+do $test$
+declare p jsonb;
+begin
+ p:=private.f4_queue_mock_settlement_review(current_setting('test.attempt_id')::uuid,'settle_tow_fixture',true,true);
+ if p->>'status' is distinct from 'review_only' or p->'transferAuthorized' is distinct from 'false'::jsonb then raise exception 'Revisao sem transferencia esperada';end if;
+end $test$;
+update private.f23_mock_support_gate set enabled=true;
+set local role authenticated;
+set local request.jwt.claim.sub='11111111-1111-4111-8111-111111111111';
+select public.f23_mock_submit_incident('99999999-9999-4999-8999-999999999999',:'request_id','payment_dispute');
+reset role;
+do $test$
+begin
+ if (select status from private.f4_mock_settlement_intents where attempt_id=current_setting('test.attempt_id')::uuid) is distinct from 'held' then raise exception 'Incidente nao bloqueou revisao';end if;
+ begin
+  perform private.f4_queue_mock_settlement_review(current_setting('test.attempt_id')::uuid,'settle_tow_fixture',true,true);
+  raise exception using errcode='ZX013',message='Revisao com incidente aberto admitida';
+ exception when others then if sqlstate='ZX013' or sqlerrm not like 'Revisao exige%' then raise;end if;end;
+ if exists(select 1 from public.payment_records) then raise exception 'Pagamento real criado';end if;
+end $test$;
+select 'PERSISTED_F456=PASS FORGED_CONFIRMATION=DENIED INCIDENT_HOLD=PASS TRANSFER=NONE';
 -- Historical amount semantics remain intact on a distinct legacy request.
 insert into public.service_requests(id,customer_id,category_id,provider_id,problem_description,status)
  values('88888888-8888-4888-8888-888888888888','11111111-1111-4111-8111-111111111111',2,
