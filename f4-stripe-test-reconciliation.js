@@ -35,9 +35,10 @@ function chargeMatches(ch,pi,b){
  ch.customer===b.customer&&ch.status==="succeeded"&&ch.paid===true&&ch.captured===true&&
  ch.refunded===false&&ch.amount_refunded===0&&ch.disputed===false&&ch.transfer==null;
 }
-function makeInbox({stripe,webhookSecret,binding,readIntentFixture,readChargeFixture}){
+function makeInbox({stripe,webhookSecret,binding,readIntentFixture,readChargeFixture,storeEvidenceFixture=null}){
  need(stripe?.webhooks?.constructEvent&&typeof readIntentFixture==="function"&&typeof readChargeFixture==="function","Dependências de teste ausentes.");
  need(typeof webhookSecret==="string"&&webhookSecret.startsWith("whsec_fixture_")&&webhookSecret.length>=40,"Segredo exclusivamente sintético obrigatório.");
+ need(storeEvidenceFixture===null||typeof storeEvidenceFixture==="function","Persistência de fixture inválida.");
  const b=bind(binding),seen=new Map();let state="awaiting_evidence",busy=false;
  const view=()=>Object.freeze({state,eventCount:seen.size,...DENIAL});
  return Object.freeze({view,async receive(raw,signature){
@@ -53,15 +54,20 @@ function makeInbox({stripe,webhookSecret,binding,readIntentFixture,readChargeFix
    need(event.type==="payment_intent.succeeded","Tipo não aceito; risco exige fluxo separado.");
    need(captured(event.data?.object,b),"Snapshot não corresponde à tentativa.");
    const hash=crypto.createHash("sha256").update(raw).digest("hex");
-   if(seen.has(event.id)){need(seen.get(event.id)===hash,"Replay divergente.");return Object.freeze({duplicate:true,...view()});}
+   if(!storeEvidenceFixture&&seen.has(event.id)){need(seen.get(event.id)===hash,"Replay divergente.");return Object.freeze({duplicate:true,...view()});}
    // Do not trust the webhook snapshot alone. Read both objects independently.
    const pi=await readIntentFixture(b.intentId);
    need(captured(pi,b)&&pi.latest_charge===event.data.object.latest_charge,"Conciliação de intenção falhou.");
    const ch=await readChargeFixture(pi.latest_charge);
    need(chargeMatches(ch,pi,b),"Conciliação de cobrança ou risco falhou.");
    need(seen.size<1000,"Limite de ensaio.");
+   let persisted=null;
+   if(storeEvidenceFixture){
+    persisted=await storeEvidenceFixture(Object.freeze({attemptId:b.meta.attempt_id,eventId:event.id,bodySha256:hash,intentId:b.intentId,chargeId:ch.id,requestId:b.meta.request_id,quoteId:b.meta.quote_id,customerId:b.meta.customer_id,providerId:b.meta.provider_id,stripeCustomerId:b.customer,totalCents:b.amount}));
+    need(persisted&&typeof persisted.duplicate==="boolean"&&typeof persisted.evidenceAlreadyExists==="boolean"&&persisted.realPaymentVerified===false&&persisted.transferAuthorized===false,"Resposta de persistência inválida.");
+   }
    seen.set(event.id,hash);state="test_evidence_reconciled";
-   return Object.freeze({duplicate:false,...view()});
+   return Object.freeze({duplicate:persisted?.duplicate??false,evidenceAlreadyExists:persisted?.evidenceAlreadyExists??false,...view()});
   }finally{busy=false;}
  }});
 }
