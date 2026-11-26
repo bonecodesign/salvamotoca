@@ -74,5 +74,6 @@ jobs:
         shell: bash
         env:
           G1_SUPABASE_DB_URL: ${{ secrets.G1_SUPABASE_DB_URL }}
+          G1_DROPBOX_OAUTH_JSON: ${{ secrets.G1_DROPBOX_OAUTH_JSON }}
           G1_DROPBOX_ACCESS_TOKEN: ${{ secrets.G1_DROPBOX_ACCESS_TOKEN }}
         run: bash scripts/g1-actions-backup-real.sh
