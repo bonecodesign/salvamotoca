@@ -178,3 +178,55 @@ test('PWA: failed or private shell install is rejected without leaving a partial
   assert.equal(h.stores.has('unrelated-cache'),true);
  }
 });
+
+
+// Execute actual startup code with synthetic DOM and no network.
+async function bootHarness({configured=true,partial=false,online=true,secure=true,workerFails=false}={}){
+ const {runInNewContext}=await import('node:vm');
+ const scripts=[],registered=[],nav=[{disabled:false},{disabled:false}],children=[];
+ let reloads=0;
+ function element(tag){return {tag,attributes:{},listeners:{},setAttribute(k,v){this.attributes[k]=v;},addEventListener(k,v){this.listeners[k]=v;}};}
+ const app={replaceChildren(...nodes){children.splice(0,children.length,...nodes);}};
+ const document={getElementById:()=>app,createElement:element,querySelectorAll:()=>nav,body:{appendChild:e=>scripts.push(e)}};
+ const window={isSecureContext:secure,BJ_CONFIG:configured?{supabaseUrl:'https://fixture.supabase.co',supabasePublishableKey:'sb_publishable_fixture'}:partial?{supabaseUrl:'https://fixture.supabase.co'}:{}};
+ const navigator={onLine:online,serviceWorker:{register:async path=>{registered.push(path);if(workerFails)throw Error('unavailable');}}};
+ runInNewContext(readFileSync(resolve(root,'bootstrap.js'),'utf8'),{window,document,navigator,location:{reload:()=>reloads++}});
+ return {scripts,registered,nav,children,window,reloads:()=>reloads};
+}
+test('PWA startup: configured path registers worker and only loads live shell after SDK validation',async()=>{
+ const h=await bootHarness();
+ assert.deepEqual(h.registered,['./sw.js']);
+ assert.equal(h.scripts.length,1);
+ assert.match(h.scripts[0].src,/supabase-js@2\.119\.0$/);
+ h.window.supabase={createClient(){}};
+ h.scripts[0].onload();
+ assert.equal(h.scripts[1].src,'./live-app-current.js');
+ assert.equal(h.children.length,0);
+});
+test('PWA startup: offline, missing SDK, or script error never switches to demo',async()=>{
+ const offline=await bootHarness({online:false});
+ assert.equal(offline.scripts.length,0);
+ assert.equal(offline.children[0].attributes.role,'alert');
+ assert.ok(offline.nav.every(b=>b.disabled));
+ offline.children[1].listeners.click();assert.equal(offline.reloads(),1);
+ for(const fail of ['missing-sdk','sdk-error','live-error']){
+  const h=await bootHarness();
+  if(fail==='missing-sdk')h.scripts[0].onload();
+  if(fail==='sdk-error'){h.scripts[0].onerror();h.scripts[0].onload();}
+  if(fail==='live-error'){h.window.supabase={createClient(){}};h.scripts[0].onload();h.scripts[1].onerror();}
+  assert.equal(h.children[0].attributes.role,'alert');
+  assert.ok(h.nav.every(b=>b.disabled));
+  assert.ok(h.scripts.every(s=>s.src!=='./app.js'));
+ }
+});
+test('PWA startup: invalid partial configuration is unavailable, explicit demo stays separate',async()=>{
+ const partial=await bootHarness({configured:false,partial:true});
+ assert.equal(partial.scripts.length,0);assert.equal(partial.children[0].attributes.role,'alert');
+ const demo=await bootHarness({configured:false,online:false});
+ assert.deepEqual(demo.registered,['./sw.js']);
+ assert.equal(demo.scripts[0].src,'./app.js');
+ const insecure=await bootHarness({secure:false});
+ assert.deepEqual(insecure.registered,[]);
+ const failed=await bootHarness({workerFails:true});
+ assert.equal(failed.scripts.length,1);
+});
