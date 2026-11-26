@@ -263,16 +263,23 @@ export async function browserNativeJourney({root,origin,call,sql,actors,session,
   const still=await a.request.post(base+'/customer/receipt',{headers:{Origin:base},data:{eventId:recordedId}});
   assert.equal((await still.json()).recorded,true);
   console.log('NATIVE_LOGOUT_STEP=explicit_logout');
-  const logoutResponse=a.waitForResponse(r=>r.url().endsWith('/customer/logout')&&r.request().method()==='POST');
+  // Capture the real HTTP result before delivering it to the page.
+  // Reading a Playwright browser Response after location.replace can race
+  // with navigation and lose its body. Do not mock the response or bypass Auth.
+  let logoutStatus,outcome;
+  await a.route('**/customer/logout',async route=>{
+   const actual=await route.fetch({maxRedirects:0});
+   logoutStatus=actual.status();
+   outcome=await actual.json();
+   await route.fulfill({response:actual});
+  },{times:1});
   await a.locator('#logout').click();
-  const ended=await logoutResponse;
-  console.log('NATIVE_PROXY_LOGOUT_HTTP='+ended.status());
-  assert.equal(ended.status(),200);
-  const outcome=await ended.json();
-  console.log('NATIVE_PROXY_LOGOUT_LOCAL='+String(outcome.signedOut===true)+' NATIVE_PROXY_LOGOUT_REVOKED='+String(outcome.nativeRevoked===true));
+  await a.getByRole('button',{name:'Entrar'}).waitFor();
+  console.log('NATIVE_PROXY_LOGOUT_HTTP='+logoutStatus);
+  assert.equal(logoutStatus,200);
+  console.log('NATIVE_PROXY_LOGOUT_LOCAL='+String(outcome?.signedOut===true)+' NATIVE_PROXY_LOGOUT_REVOKED='+String(outcome?.nativeRevoked===true));
   assert.deepEqual(outcome,{signedOut:true,nativeRevoked:true});
   console.log('NATIVE_LOGOUT_STEP=verify_native_revocation');
-  await a.getByRole('button',{name:'Entrar'}).waitFor();
   assert.equal(sql("select count(*) from auth.sessions where id='"+sid+"'"),'0');
   assert.equal(sql("select count(*) from auth.sessions where user_id='"+actors.customer.id+"' and id<>'"+sid+"'"),othersBefore);
   assert.equal((await a.context().cookies(base)).filter(c=>c.name==='sm_fixture').length,0);
