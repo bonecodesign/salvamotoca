@@ -1,10 +1,10 @@
 # FND-07 — Plano de implantação e marcos de lançamento
 
-**Versão 0.1 — roadmap sujeito à evidência, não cronograma prometido.**
+**Versão 0.2 — roadmap sujeito à evidência, não cronograma prometido.**
 
 ## Objetivo final
 
-Lançar um piloto comercial em área limitada de Belo Horizonte com prestadores devidamente homologados, transações protegidas e operação de suporte capaz de resolver falhas.
+Lançar, após autorização, um piloto comercial controlado na praça aprovada de Belo Horizonte, Contagem e Betim com prestadores devidamente homologados, transações protegidas e operação de suporte capaz de resolver falhas.
 
 ## Marcos com dependências
 
@@ -16,7 +16,7 @@ Lançar um piloto comercial em área limitada de Belo Horizonte com prestadores 
 | M3 — Operação assistida | Painel administrativo, notificações, timeout, suporte, contestação | Responsáveis humanos e critérios operacionais | Pendente |
 | M4 — Pagamento protegido | Pix/cartões, webhooks, split e reembolso com conciliação | PSP homologado, contratos e contas empresariais | Pendente |
 | M5 — Conformidade final | Termos, privacidade, contrato de prestador, fiscal e procedimentos | Revisão jurídica e contábil, dados reais minimizados | Pendente |
-| M6 — Piloto BH | Prestadores verificados, área delimitada, atendimento real monitorado | Aprovação go/no-go de todas as áreas | Pendente |
+| M6 — Piloto na praça aprovada | Prestadores verificados, área delimitada, atendimento real monitorado | Aprovação go/no-go de todas as áreas | Pendente |
 | M7 — Melhoria e expansão | Indicadores positivos e crescimento sustentável | Dados operacionais reais e segurança mantida | Não iniciado |
 
 ## Plano imediato — priorização
@@ -58,7 +58,7 @@ Lançar um piloto comercial em área limitada de Belo Horizonte com prestadores 
 | Engenharia | Responsável técnico + testes | A designar |
 | Privacidade e jurídico | Profissional jurídico e responsável pelo tratamento | A designar |
 | Financeiro/fiscal | Contabilidade e responsável financeiro | A designar |
-| Operação e suporte | Responsável operacional com acesso seguro | A designar |
+| Operação e suporte | Fundador inicialmente (SM-DEC-053) | Canal, escala e contingência ainda pendentes |
 
 ## Medição honesta de progresso
 
@@ -67,3 +67,21 @@ Usar progresso por **evidência por marco**, não porcentagem inventada ou ponde
 ## Registro de riscos e alterações
 
 Cada bloqueio deve conter ID, gravidade, evidência, responsável e próxima decisão. Impedir que pendência crítica seja marcada como concluída sem prova verificável.
+
+
+## Caminho crítico — evidências atualizadas em 25/11/2026 BRT
+
+A [matriz F7](../F7_PLANO_DE_GATES.md) é a referência técnica dos gates; não substituir a sua verificação por este roadmap. G1 histórico restaurado (#123); G1 atual ainda pendente. G2–G6 dispõem de ensaios locais integrados, incluindo Auth/Storage/REST (89 verificações HTTP no Native), concorrência e isolamento. #168–170 verificaram cache e abertura offline no Chrome; não são testes de aparelho físico. #171 atualizou minutas jurídicas não vigentes. Nenhum desses marcos autoriza operação comercial.
+
+| Ordem | Ação indispensável | Dependência humana específica | Critério de conclusão |
+|---|---|---|---|
+| 1 | Novo backup cifrado e verificação/restauração correspondente | Acionamento manual protegido no GitHub; custódia privada independente da chave, sem excluir exemplar único | Snapshot atual verificado e restaurável, cobertura declarada |
+| 2 | Homologar F1 no Supabase existente de TESTES e preparar migrações reais sob gates desligados | Autorização específica somente após G1 atual e análise de impacto | Sessões A/B/C, bytes Storage, isolamento e limpeza comprovados |
+| 3 | Homologar pagamentos de teste em Stripe exclusivo | Criar/conectar sandbox dedicado; nenhuma operação live | PSP, valores, webhooks, cancelamento/estorno e conciliação aprovados |
+| 4 | Validar Android, GPS, câmera, notificações e contingência | Aparelho físico e operador autorizado, ambiente fictício seguro | Roteiro com evidência por caso e sem risco crítico aberto |
+| 5 | Concluir governança e conformidade | Identificação empresarial, revisão jurídica/contábil, canal e plantão comprovados | Aceite humano documentado, minutas revisadas, procedimentos testados |
+| 6 | Avaliar piloto assistido | Autorização final explícita e participantes homologados | Todos gates críticos aprovados; plano reversível e limites definidos |
+
+Stripe permanece pendente: não misturar o sandbox compartilhado com outros projetos. Não criar segundo Supabase. Não publicar, contratar, ativar flags nem iniciar cobranças sem autorização. Limites históricos do piloto (SM-DEC-029) exigem confirmação do escopo com a praça posterior SM-DEC-048; não ampliar automaticamente participantes ou metas.
+
+**RELEASE=NO_GO.** Não repetir provas já concluídas sem mudança material ou requisito novo.
