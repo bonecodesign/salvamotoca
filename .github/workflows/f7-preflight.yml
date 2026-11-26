@@ -4,6 +4,7 @@ on:
     paths:
       - 'config.js'
       - 'sw.js'
+      - 'bootstrap.js'
       - 'scripts/f7-preflight-offline.mjs'
       - 'tests/f7-preflight.test.mjs'
       - 'f456-financial-bridge-offline.js'
@@ -16,6 +17,7 @@ on:
     paths:
       - 'config.js'
       - 'sw.js'
+      - 'bootstrap.js'
       - 'scripts/f7-preflight-offline.mjs'
       - 'tests/f7-preflight.test.mjs'
       - 'f456-financial-bridge-offline.js'
