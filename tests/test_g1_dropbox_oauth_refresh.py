@@ -122,6 +122,61 @@ class OAuthRefreshTest(unittest.TestCase):
             self.assertNotIn("fixture-private", output)
             self.assertNotIn("fixture-legacy", output)
 
+    def test_new_token_reaches_only_vault_guard_and_config_is_unset(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            base = Path(tmp)
+            bin_dir = base / "bin"
+            bin_dir.mkdir()
+            marker = base / "vault-checked"
+            db_marker = base / "db-touched"
+            python = bin_dir / "python3"
+            python.write_text("""#!/bin/bash
+if [[ "$1" == *g1-dropbox-oauth-refresh.py ]]; then
+  [[ -z "${G1_DROPBOX_ACCESS_TOKEN+x}" ]] || exit 91
+  [[ -n "${G1_DROPBOX_OAUTH_JSON:-}" ]] || exit 92
+  printf fixture-renewed-token
+else
+  exec "$G1_TEST_PYTHON" "$@"
+fi
+""")
+            curl = bin_dir / "curl"
+            curl.write_text("""#!/bin/bash
+[[ -z "${G1_DROPBOX_OAUTH_JSON+x}" ]] || exit 91
+[[ "$*" == *'Authorization: Bearer fixture-renewed-token'* ]] || exit 92
+[[ "$*" == *'https://api.dropboxapi.com/2/files/get_metadata'* ]] || exit 93
+printf x > "$G1_TEST_MARKER"
+printf '%s' '{".tag":"folder","name":"backup-testes","id":"wrong-vault"}'
+""")
+            for tool in ("psql", "supabase", "docker", "age"):
+                mock = bin_dir / tool
+                mock.write_text('#!/bin/sh\nprintf x > "$G1_TEST_DB_MARKER"\nexit 99\n')
+                mock.chmod(0o700)
+            python.chmod(0o700)
+            curl.chmod(0o700)
+            import sys
+            env = dict(os.environ, PATH=str(bin_dir)+os.pathsep+os.environ["PATH"],
+                       GITHUB_ACTIONS="false", RUNNER_TEMP=tmp,
+                       GITHUB_REPOSITORY="bonecodesign/salvamotoca",
+                       GITHUB_REF="refs/heads/main", GITHUB_EVENT_NAME="workflow_dispatch",
+                       G1_BACKUP_AUTHORIZED="true", G1_CONFIRM="BACKUP_TESTES_SALVAMOTOCA",
+                       G1_SUPABASE_DB_URL="postgresql://postgres.yivkqyjdeouxnwtwfekc:fictional-password@aws-0-sa-east-1.pooler.supabase.com:5432/postgres?sslmode=require",
+                       G1_DROPBOX_PATH="/backup-testes", G1_AGE_RECIPIENT="age1"+"a"*58,
+                       G1_DROPBOX_ACCESS_TOKEN="fixture-legacy",
+                       G1_DROPBOX_OAUTH_JSON=json.dumps(CONFIG),
+                       G1_TEST_MARKER=str(marker), G1_TEST_DB_MARKER=str(db_marker),
+                       G1_TEST_PYTHON=sys.executable)
+            proc = subprocess.run(["bash", str(ROOT/"scripts/g1-actions-backup-real.sh")],
+                                  env=env, capture_output=True, text=True, timeout=10)
+            output = proc.stdout+proc.stderr
+            self.assertEqual(proc.returncode, 23)
+            self.assertIn("G1_DROPBOX_OAUTH_REFRESH=PASS", output)
+            self.assertIn("outro cofre privado", output)
+            self.assertTrue(marker.exists())
+            self.assertFalse(db_marker.exists())
+            self.assertNotIn("fixture-renewed-token", output)
+            self.assertNotIn("fixture-secret", output)
+            self.assertNotIn("fixture-legacy", output)
+
 
 if __name__ == "__main__":
     unittest.main()
