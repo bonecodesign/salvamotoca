@@ -175,3 +175,77 @@ test("Chrome real: arquivo com MIME de JPEG mas bytes corrompidos é recusado", 
     await browser.close();
   }
 });
+
+
+// Use the actual PWA shell, worker and bootstrap over loopback HTTP.
+// No credentials, hosted backend, external SDK or live requests are allowed.
+test("Chrome móvel: cache público real, limpeza do legado e abertura offline segura", async () => {
+  const http = require("node:http");
+  const root = path.resolve(__dirname, "..");
+  const assets = new Set(["index.html","config.js","app.js","bootstrap.js","request-f1.js","f2-flow.js","f3-tow.js","f4-finance.js","live-app-current.js","styles.css","manifest.webmanifest","assets/icon-192.png","assets/icon.svg","sw.js"]);
+  const csp = "default-src 'self'; script-src 'self'; connect-src 'self'; style-src 'self'; img-src 'self' data:; worker-src 'self'; object-src 'none'; base-uri 'none'";
+  const types = {".html":"text/html; charset=utf-8",".js":"application/javascript; charset=utf-8",".css":"text/css; charset=utf-8",".webmanifest":"application/manifest+json",".png":"image/png",".svg":"image/svg+xml"};
+  let privateReads = 0;
+  const server = http.createServer((req,res) => {
+    res.setHeader("Content-Security-Policy",csp);
+    res.setHeader("X-Content-Type-Options","nosniff");
+    res.setHeader("Cache-Control","no-store");
+    if(req.method !== "GET"){res.writeHead(405).end();return;}
+    if(req.url === "/seed"){res.writeHead(200,{"Content-Type":types[".html"]}).end("<!doctype html><title>Seed fixture</title>");return;}
+    if(req.url === "/private-fixture"){privateReads++;res.writeHead(200,{"Content-Type":"text/plain"}).end("synthetic-private-response");return;}
+    const file = req.url === "/" ? "index.html" : req.url.slice(1);
+    if(!assets.has(file)){res.writeHead(404).end();return;}
+    try{
+      // The configuration is deliberately synthetic, never the hosted project.
+      const bytes = file === "config.js" ? "window.BJ_CONFIG={supabaseUrl:'https://fixture.supabase.co',supabasePublishableKey:'sb_publishable_fixture'};" : fs.readFileSync(path.join(root,file));
+      res.writeHead(200,{"Content-Type":types[path.extname(file)],"Cache-Control":"no-cache"}).end(bytes);
+    }catch{res.writeHead(500).end();}
+  });
+  let browser;
+  try {
+    await new Promise((resolve,reject)=>{server.once("error",reject);server.listen(0,"127.0.0.1",resolve);});
+    const base = "http://127.0.0.1:"+server.address().port+"/";
+    assert.ok(executablePath,"Chrome/Chromium não encontrado");
+    browser = await chromium.launch({executablePath,headless:true,args:["--no-sandbox","--disable-dev-shm-usage","--host-resolver-rules=MAP * ~NOTFOUND, EXCLUDE 127.0.0.1"]});
+    const context = await browser.newContext({viewport:{width:375,height:812},isMobile:true,hasTouch:true,deviceScaleFactor:2});
+    const page = await context.newPage();
+    await page.goto(base+"seed");
+    await page.evaluate(async()=>{
+      await (await caches.open("salva-motoca-static-legacy-test")).put("/private-fixture",new Response("old-synthetic-private"));
+      await caches.open("unrelated-test");
+    });
+    await page.goto(base+"index.html");
+    await page.waitForFunction(()=>navigator.serviceWorker.controller!==null,{},{timeout:20000});
+    await page.getByRole("alert").filter({hasText:"Aplicativo indisponível"}).waitFor();
+    assert.equal(await page.locator("[data-page]:enabled").count(),0);
+    const snapshot = () => page.evaluate(async()=>{
+      const names=await caches.keys();
+      const name=names.find(n=>n.startsWith("salva-motoca-static-f7-"));
+      const keys=name?(await (await caches.open(name)).keys()).map(r=>new URL(r.url).pathname).sort():[];
+      return {names,keys};
+    });
+    const before=await snapshot();
+    assert.ok(before.names.includes("unrelated-test"));
+    assert.ok(!before.names.includes("salva-motoca-static-legacy-test"));
+    assert.equal(before.keys.length,14);
+    assert.ok(before.keys.includes("/index.html"));
+    assert.equal(await page.evaluate(async()=>await (await fetch("/private-fixture")).text()),"synthetic-private-response");
+    assert.equal(privateReads,1);
+    assert.deepEqual(await snapshot(),before);
+    await context.setOffline(true);
+    assert.equal(await page.evaluate(async()=>{try{await fetch("/private-fixture",{cache:"no-store"});return false;}catch{return true;}}),true);
+    await page.reload({waitUntil:"domcontentloaded"});
+    await page.getByRole("alert").filter({hasText:"Aplicativo indisponível"}).waitFor();
+    assert.equal(await page.locator("[data-page]:enabled").count(),0);
+    assert.equal(await page.getByRole("button",{name:"Tentar novamente"}).count(),1);
+    assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth));
+    assert.equal(privateReads,1);
+    assert.deepEqual(await snapshot(),before);
+    await context.setOffline(false);
+    await context.close();
+    console.log("PWA_CHROME_CACHE=PASS LEGACY_REMOVED=PASS PRIVATE_NOT_CACHED=PASS OFFLINE_BLOCKED=PASS");
+  } finally {
+    if(browser)await browser.close();
+    if(server.listening){server.closeAllConnections();await new Promise(resolve=>server.close(resolve));}
+  }
+});
