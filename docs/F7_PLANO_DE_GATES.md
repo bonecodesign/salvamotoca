@@ -89,3 +89,12 @@ O último Native registrou 89 verificações HTTP, Auth/Storage/REST locais apro
 - A proteção de rotas antigas (#158) e o ensaio atômico (#160) permanecem candidatos/ensaios; não implantar nem habilitar gates automaticamente.
 
 **Decisão:** RELEASE=NO_GO. Esta atualização documental registra provas já realizadas e prioriza o caminho crítico; não executa backup novo, não grava no Supabase hospedado nem cria serviços.
+
+
+## G1 — conferência atual de cobertura (25/11/2026 BRT)
+
+Leitura direta autorizada no Supabase de TESTES em 26/11/2026 00:14:29 UTC (25/11, BRT): projeto ACTIVE_HEALTHY, PostgreSQL 17; 11 migrations, 13 tabelas públicas e zero sem RLS; zero usuários Auth, sessões e objetos Storage; três policies Storage, zero buckets públicos. Contagens operacionais: zero solicitações, prestadores aprovados, orçamentos e pagamentos; 36 registros de prospecção, 40 ofertas de prospecção e uma configuração comercial. As contagens coincidem com as referências conhecidas, mas não provam igualdade do conteúdo nem snapshot consistente.
+
+Listagem completa do cofre Dropbox privado correto confirma a presença do ciphertext histórico de 22/11 (run #45074685352); nenhum ciphertext mais recente foi encontrado nessa pasta. A identidade privada de recuperação continua no mesmo cofre: separar custódia somente após assegurar cópia independente e validar a recuperação, sem apagar o único exemplar. Nesta conferência não houve leitura da chave, download, upload, movimentação ou exclusão de arquivos.
+
+**Estado:** G1 histórico permanece comprovado (#123). G1 atual = PENDENTE de novo snapshot cifrado, verificação independente e recuperação correspondente. As verificações de hoje são somente leitura. Não reutilizar contagens como prova de integridade; não repetir o restore histórico apenas por falta de registro. O workflow existente continua manual e protegido por confirmação explícita; não criar gatilho alternativo nem burlar o Environment. Sem alteração do Supabase hospedado. RELEASE=NO_GO.
