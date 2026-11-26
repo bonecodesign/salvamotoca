@@ -3,6 +3,7 @@ on:
   pull_request:
     paths:
       - 'config.js'
+      - 'sw.js'
       - 'scripts/f7-preflight-offline.mjs'
       - 'tests/f7-preflight.test.mjs'
       - 'f456-financial-bridge-offline.js'
@@ -14,6 +15,7 @@ on:
       - 'feat/f7-consolidated-preflight-no-go'
     paths:
       - 'config.js'
+      - 'sw.js'
       - 'scripts/f7-preflight-offline.mjs'
       - 'tests/f7-preflight.test.mjs'
       - 'f456-financial-bridge-offline.js'
