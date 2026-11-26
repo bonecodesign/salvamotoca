@@ -233,8 +233,12 @@ test("Chrome móvel: cache público real, limpeza do legado e abertura offline s
     assert.equal(privateReads,1);
     assert.deepEqual(await snapshot(),before);
     await context.setOffline(true);
+    // Stop the origin too: a browser offline toggle alone is not proof that
+    // the service worker cannot fetch a fresh copy from the server.
+    server.closeAllConnections();await new Promise(resolve=>server.close(resolve));
     assert.equal(await page.evaluate(async()=>{try{await fetch("/private-fixture",{cache:"no-store"});return false;}catch{return true;}}),true);
-    await page.reload({waitUntil:"domcontentloaded"});
+    const reloaded=await page.reload({waitUntil:"domcontentloaded"});
+    assert.ok(reloaded?.fromServiceWorker(),"Reload must be served by the actual worker");
     await page.getByRole("alert").filter({hasText:"Aplicativo indisponível"}).waitFor();
     assert.equal(await page.locator("[data-page]:enabled").count(),0);
     assert.equal(await page.getByRole("button",{name:"Tentar novamente"}).count(),1);
