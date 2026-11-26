@@ -1,0 +1,118 @@
+name: "G1 — backup cifrado + restauração descartável (artefato privado)"
+
+on:
+  workflow_dispatch:
+    inputs:
+      confirm:
+        description: "Digite BACKUP_TESTES_SALVAMOTOCA; não inicia produção"
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: g1-test-supabase-encrypted-artifact
+  cancel-in-progress: false
+
+jobs:
+  backup-and-restore:
+    name: "Exportar, restaurar em PostgreSQL 17 e publicar ciphertext temporário"
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    environment: g1-backup-testes
+    env:
+      G1_CONFIRM: ${{ inputs.confirm }}
+      G1_SUPABASE_DB_URL: ${{ secrets.G1_SUPABASE_DB_URL }}
+      G1_AGE_RECIPIENT: ${{ vars.G1_AGE_RECIPIENT }}
+    steps:
+      - name: "Negar execução fora do fluxo de TESTES"
+        shell: bash
+        run: |
+          set -euo pipefail
+          [[ "$GITHUB_REPOSITORY" == "bonecodesign/salvamotoca" ]]
+          [[ "$GITHUB_REF" == "refs/heads/main" ]]
+          [[ "$GITHUB_EVENT_NAME" == "workflow_dispatch" ]]
+          [[ "$G1_CONFIRM" == "BACKUP_TESTES_SALVAMOTOCA" ]]
+          [[ -n "$G1_SUPABASE_DB_URL" ]]
+          [[ "$G1_AGE_RECIPIENT" =~ ^age1[0-9a-z]{58}$ ]]
+          echo "G1_MANUAL_TEST_BACKUP_GUARD=PASS"
+
+      - name: "Exportar SQL consistente e conferir escopo gerenciado"
+        id: export
+        shell: bash
+        run: |
+          set -euo pipefail
+          umask 077
+          tmp="$(mktemp -d "$RUNNER_TEMP/g1-artifact.XXXXXXXX")"
+          echo "tmp=$tmp" >> "$GITHUB_OUTPUT"
+          cleanup() { rm -rf -- "$tmp"; }
+          trap cleanup ERR
+
+          source_count="$(docker run --rm --network host -e PGSSLMODE=require postgres:17             psql "$G1_SUPABASE_DB_URL" -X -tA -v ON_ERROR_STOP=1             -c "select count(*) from storage.objects;")"
+          [[ "$source_count" == "0" ]] || {
+            echo "::error::Storage contém objetos; este fallback SQL não cobre bytes de Storage"
+            exit 23
+          }
+
+          docker run --rm --network host -e PGSSLMODE=require -v "$tmp:/work" postgres:17             pg_dump --dbname="$G1_SUPABASE_DB_URL" --format=p --no-owner --no-privileges             --schema=public --schema=supabase_migrations --file=/work/supabase-testes.sql
+
+          [[ -s "$tmp/supabase-testes.sql" ]]
+          sha256sum "$tmp/supabase-testes.sql" > "$tmp/manifest.sha256"
+          printf '%s\n'             "project_ref=yivkqyjdeouxnwtwfekc"             "environment=TESTES"             "backup_kind=logical_sql"             "storage_objects=0"             "storage_physical_bytes_included=false"             "auth_managed_schema_included=false"             "restore_target=postgresql_17_disposable"             > "$tmp/manifest.txt"
+
+      - name: "Restaurar e validar no PostgreSQL 17 descartável"
+        shell: bash
+        env:
+          G1_TMP: ${{ steps.export.outputs.tmp }}
+        run: |
+          set -euo pipefail
+          umask 077
+          db="g1_restore_$RANDOM"
+          password="$(openssl rand -hex 24)"
+          container="g1-restore-$GITHUB_RUN_ID"
+          cleanup() { docker rm -f "$container" >/dev/null 2>&1 || true; }
+          trap cleanup EXIT
+
+          docker run -d --rm --name "$container"             -e POSTGRES_PASSWORD="$password"             -v "$G1_TMP:/work:ro" postgres:17 >/dev/null
+          until docker exec "$container" pg_isready -U postgres >/dev/null 2>&1; do sleep 1; done
+
+          docker exec -e PGPASSWORD="$password" "$container"             psql -U postgres -d postgres -v ON_ERROR_STOP=1 -c             "create extension if not exists pgcrypto; create schema if not exists auth; create function auth.uid() returns uuid language sql stable as 'select null::uuid';"
+          docker exec -e PGPASSWORD="$password" "$container"             psql -U postgres -d postgres -v ON_ERROR_STOP=1 -f /work/supabase-testes.sql >/dev/null
+
+          restored_tables="$(docker exec -e PGPASSWORD="$password" "$container"             psql -U postgres -d postgres -X -tA -v ON_ERROR_STOP=1 -c             "select count(*) from pg_class c join pg_namespace n on n.oid=c.relnamespace where n.nspname='public' and c.relkind in ('r','p);")"
+          [[ "$restored_tables" =~ ^[1-9][0-9]*$ ]]
+          sha256sum -c /dev/stdin <<EOF
+$(cat "$G1_TMP/manifest.sha256")
+EOF
+          echo "G1_POSTGRES17_DISPOSABLE_RESTORE=PASS"
+          echo "G1_SUPABASE_TEST_ENV_CHANGED=FALSE"
+
+      - name: "Cifrar o dump validado"
+        id: encrypt
+        shell: bash
+        env:
+          G1_TMP: ${{ steps.export.outputs.tmp }}
+        run: |
+          set -euo pipefail
+          umask 077
+          docker run --rm -v "$G1_TMP:/work" alpine:3.21 sh -ec             "apk add --no-cache age >/dev/null && age -r '$G1_AGE_RECIPIENT' -o /work/supabase-testes.sql.age /work/supabase-testes.sql"
+          rm -f -- "$G1_TMP/supabase-testes.sql"
+          tar -C "$G1_TMP" -czf "$G1_TMP/SalvaMotoca-G1-$GITHUB_RUN_ID.tar.gz"             supabase-testes.sql.age manifest.sha256 manifest.txt
+          echo "bundle=$G1_TMP/SalvaMotoca-G1-$GITHUB_RUN_ID.tar.gz" >> "$GITHUB_OUTPUT"
+
+      - name: "Guardar apenas ciphertext como artefato privado de retenção curta"
+        uses: actions/upload-artifact@v4
+        with:
+          name: SalvaMotoca-G1-ciphertext-${{ github.run_id }}
+          path: ${{ steps.encrypt.outputs.bundle }}
+          if-no-files-found: error
+          retention-days: 7
+
+      - name: "Registrar limites honestos do fallback"
+        shell: bash
+        run: |
+          echo "G1_ARTIFACT_PRIVATE_ENCRYPTED=PASS"
+          echo "G1_DROPBOX_COPY=NOT_RUN"
+          echo "G1_AUTH_STORAGE_MANAGED_RECOVERY=NOT_PROVEN"
+          echo "RELEASE=NO_GO"
