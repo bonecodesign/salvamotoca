@@ -32,7 +32,7 @@ async function flush() {
 function makeHarness({ confirm=true, uploadFails=false, insertFails=false, f1Enabled=true,
   switchDuringUpload=false, duplicateAfterLostResponse=false,
   lostUploadResponse=false, conflictingUpload=false, delayedSignedUrl=false,
-  navigateDuringUpload=false, gpsDuringUpload=false }={}) {
+  navigateDuringUpload=false, gpsDuringUpload=false, providerSession=false }={}) {
   const sent={ uploads:[], requests:[], quotes:[], errors:[], signed:[], downloads:[],
     orderSelects:[], requestFilters:[], confirmCalls:0 };
   let rejectUpload=uploadFails;
@@ -40,6 +40,9 @@ function makeHarness({ confirm=true, uploadFails=false, insertFails=false, f1Ena
   let storedDespiteLostResponse=false;
   let currentUserId=CLIENT;
   let authCallback=null;
+  const presencePings=[];
+  let onlineRequested=true, heartbeat=null;
+  const navigatorMock={onLine:true,geolocation:{getCurrentPosition(success,error){pendingGps=success;gpsError=error;gpsCallbacks.push({success,error});}}};
   let pendingGps=null;
   let gpsError=null;
   const gpsCallbacks=[];
@@ -84,6 +87,8 @@ function makeHarness({ confirm=true, uploadFails=false, insertFails=false, f1Ena
           const record=records.service_requests.find(row=>this.filters.every(([key,value])=>row[key]===value));
           return Promise.resolve({data:record?{id:record.id}:null,error:null});
         }
+        if(providerSession && name==="providers") return Promise.resolve({data:{...provider,owner_id:currentUserId},error:null});
+        if(providerSession && name==="bj_provider_presence") return Promise.resolve({data:{provider_id:PROVIDER,online_requested:onlineRequested},error:null});
         return Promise.resolve({data:name==="app_profiles"?{
           user_id:CLIENT,display_name:"Motociclista Teste"}:null,error:null});
       },
@@ -114,7 +119,8 @@ function makeHarness({ confirm=true, uploadFails=false, insertFails=false, f1Ena
   const db={
     from,
     rpc(name){
-      if(name==="bj_online_providers")return Promise.resolve({data:[{provider_id:PROVIDER}],error:null});
+      if(name==="bj_online_providers")return Promise.resolve({data:(!providerSession||onlineRequested)?[{provider_id:PROVIDER}]:[],error:null});
+      if(providerSession && name==="bj_ping_presence")return new Promise(resolve=>presencePings.push(resolve));
       throw new Error("RPC inesperada: "+name);
     },
     auth:{
@@ -197,17 +203,13 @@ function makeHarness({ confirm=true, uploadFails=false, insertFails=false, f1Ena
       f1TestRequestsEnabled:f1Enabled},
     supabase:{createClient:()=>db},SMRequestF1:F1,
     scrollTo(){},
-    setInterval(){},
+    setInterval(fn){heartbeat=fn;},
     addEventListener(name,fn){winListeners[name]=fn;},
     confirm(){sent.confirmCalls++;return confirm;},
     L:null
   };
   const sandbox={
-    window:win,document,navigator:{
-      geolocation:{
-        getCurrentPosition(success,error){pendingGps=success;gpsError=error;gpsCallbacks.push({success,error});}
-      }
-    },console,
+    window:win,document,navigator:navigatorMock,console,
     crypto:{randomUUID:()=>KEY},
     FormData:class {
       constructor(form){this.values=form.fields;}
@@ -226,6 +228,10 @@ function makeHarness({ confirm=true, uploadFails=false, insertFails=false, f1Ena
   vm.runInNewContext(APP,sandbox,{filename:"live-app-current.js",timeout:3000});
   return {
     sent,container,docListeners,formListeners,
+    ping(){return heartbeat();},
+    resolvePing(index,data,error=null){assert.equal(typeof presencePings[index],"function");presencePings[index]({data,error});},
+    pingCount(){return presencePings.length;},
+    async network(online){navigatorMock.onLine=online;winListeners[online?"online":"offline"]();await flush();},
     async navigate(page){
       await docListeners.click({target:{closest:()=>({dataset:{page}})}});
       await flush();
@@ -616,4 +622,38 @@ test("F1: latitude fora do intervalo é recusada",async()=>{
   await h.submit(validFields());
   assert.equal(h.sent.requests.length,1);
   assert.equal(h.sent.requests[0].latitude,null);
+});
+
+test("Presença: desconexão deixa status não confirmado e reconexão exige resposta nova",async()=>{
+  const h=makeHarness({providerSession:true});await flush();await h.navigate("profile");
+  assert.match(h.container.innerHTML,/🟢 Online/);
+  const old=h.ping();assert.equal(h.pingCount(),1);
+  await h.network(false);
+  assert.match(h.container.innerHTML,/Disponibilidade não confirmada/);
+  assert.match(h.container.innerHTML,/data-action="toggle-presence"[^>]* disabled/);
+  await h.ping();assert.equal(h.pingCount(),1);
+  await h.network(true);assert.equal(h.pingCount(),2);
+  h.resolvePing(0,true);await old;
+  assert.match(h.container.innerHTML,/Disponibilidade não confirmada/);
+  h.resolvePing(1,true);await flush();
+  assert.match(h.container.innerHTML,/🟢 Online/);
+});
+test("Presença: retorno da sessão anterior não interrompe o prestador da nova conta",async()=>{
+  const h=makeHarness({providerSession:true});await flush();await h.navigate("profile");
+  const old=h.ping();assert.equal(h.pingCount(),1);
+  await h.switchUser("22222222-2222-4222-8222-222222222222");await h.navigate("profile");
+  const fresh=h.ping();assert.equal(h.pingCount(),2);
+  h.resolvePing(0,false);await old;
+  assert.match(h.container.innerHTML,/🟢 Online/);
+  assert.doesNotMatch(h.container.innerHTML,/Sua disponibilidade foi interrompida/);
+  h.resolvePing(1,true);await fresh;
+  assert.match(h.container.innerHTML,/🟢 Online/);
+});
+test("Presença: erro de servidor não é confirmação online e false remove disponibilidade",async()=>{
+  const h=makeHarness({providerSession:true});await flush();await h.navigate("profile");
+  const first=h.ping();h.resolvePing(0,null,{message:"Rede indisponível"});await first;
+  assert.match(h.container.innerHTML,/Disponibilidade não confirmada/);
+  const second=h.ping();h.resolvePing(1,false);await second;
+  assert.match(h.container.innerHTML,/⚪ Offline/);
+  assert.doesNotMatch(h.container.innerHTML,/🟢 Online/);
 });

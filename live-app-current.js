@@ -31,6 +31,10 @@
   // Cada pedido de GPS tem identidade própria. Respostas antigas não podem
   // reativar localização após mudança de tela, modo ou ocultação da página.
   let gpsRequestVersion = 0;
+  let presenceVersion = 0;
+  let activePresencePing = null;
+  let presenceUncertain = false;
+  function invalidatePresencePing() { presenceVersion++; activePresencePing = null; }
   // A URL emitida não pode ser revogada pelo cliente. O preview é efêmero,
   // nunca persistido, e sua validade local começa ANTES da chamada ao Storage.
   const PHOTO_TTL_SECONDS = 60;
@@ -57,7 +61,9 @@
     if (currentId === nextId) return false;
     identityGeneration++;
     gpsRequestVersion++;
+    invalidatePresencePing(); presenceUncertain = false;
     state.user = nextUser || null;
+    state.loading = false;
     state.profile = null; state.ownProvider = null; state.ownPresence = null;
     state.orders = []; state.quotes = []; clearPhotoPreviews();
     state.f2Offers = []; state.f2QuoteItems = []; state.f2Capacity = null;
@@ -504,9 +510,11 @@
         '</p><p><b>Homologação:</b> ' + esc(own.status) + (own.is_active ? " · habilitado" : " · não habilitado") + '</p>' +
         (own.status === "approved" && own.is_active ?
           '<p><b>Disponibilidade para novos pedidos:</b> ' +
-          (state.ownPresence?.online_requested && state.onlineIds.has(own.id) ? '🟢 Online' : '⚪ Offline') + '</p>' +
+          (navigator.onLine === false || presenceUncertain ? '⚠ Disponibilidade não confirmada' :
+            state.ownPresence?.online_requested && state.onlineIds.has(own.id) ? '🟢 Online' : '⚪ Offline') + '</p>' +
           '<button class="btn full" data-action="toggle-presence" data-online="' +
-          (state.ownPresence?.online_requested ? 'false' : 'true') + '">' +
+          (state.ownPresence?.online_requested ? 'false' : 'true') + '"' +
+          (navigator.onLine === false ? ' disabled' : '') + '>' +
           (state.ownPresence?.online_requested ? 'Ficar offline — parar novos chamados' : 'Ficar online — receber chamados') +
           '</button><p class="small muted">Requer internet e app aberto. Sem contato com o servidor por cerca de 90 segundos, você deixa de aparecer como online.</p>'
           : '<div class="notice">Disponibilidade será liberada após aprovação e habilitação do serviço delivery.</div>') :
@@ -838,16 +846,33 @@
     if (action === "gps") { locate(); return; }
     if (action === "reload") { await allRefresh(); return; }
     if (action === "toggle-presence") {
-      if (state.loading || !state.user || !state.ownProvider) return;
+      if (state.loading || !state.user || !state.ownProvider || navigator.onLine === false) return;
+      invalidatePresencePing();
+      const version = presenceVersion, generation = identityGeneration;
+      const uid = state.user.id, providerId = state.ownProvider.id;
+      const sameAccount = () => generation === identityGeneration && state.user?.id === uid;
+      const current = () => sameAccount() && version === presenceVersion &&
+        state.ownProvider?.id === providerId && navigator.onLine !== false;
       state.loading = true;
       try {
         const desired = target.dataset.online === "true";
         const out = await db.rpc("bj_set_presence",{p_online:desired});
+        if (!current()) return;
         if (out.error) throw out.error;
+        if (out.data !== desired) throw new Error("O servidor não confirmou a disponibilidade solicitada.");
         await refreshDirectory(); await refreshIdentity();
+        if (!current()) return;
+        if (state.ownPresence?.online_requested !== desired ||
+            (desired && !state.onlineIds.has(providerId)))
+          throw new Error("Disponibilidade ainda não confirmada pelo servidor.");
+        presenceUncertain = false;
         state.error = ""; state.message = desired ? "Você está online e pode receber novos chamados de teste." : "Você está offline para novos chamados.";
-      } catch (err) { state.error = errorText(err); }
-      finally { state.loading = false; render(); }
+      } catch (err) {
+        if (sameAccount() && version === presenceVersion) {
+          presenceUncertain = true; state.message = "";
+          state.error = "Não foi possível confirmar a disponibilidade. Atualize a conexão. " + errorText(err);
+        }
+      } finally { if (sameAccount()) { state.loading = false; render(); } }
       return;
     }
     if (action === "f2-toggle-alerts") {
@@ -1412,28 +1437,56 @@
       await refreshIdentity(); state.message = "Orçamento de teste registrado.";
     });
   });
-  let presencePingInFlight = false;
   async function sendPresenceHeartbeat() {
-    if (presencePingInFlight || !state.user || !state.ownProvider ||
-      !state.ownPresence?.online_requested || document.visibilityState === "hidden") return;
-    presencePingInFlight = true;
+    if (activePresencePing || state.loading || !state.user || !state.ownProvider ||
+      !state.ownPresence?.online_requested || document.visibilityState === "hidden" ||
+      navigator.onLine === false) return;
+    const version = presenceVersion, generation = identityGeneration;
+    const uid = state.user.id, providerId = state.ownProvider.id;
+    const ping = {}; activePresencePing = ping;
+    const current = () => activePresencePing === ping && version === presenceVersion &&
+      generation === identityGeneration && state.user?.id === uid &&
+      state.ownProvider?.id === providerId && navigator.onLine !== false;
     try {
       const result = await db.rpc("bj_ping_presence");
+      if (!current()) return;
       if (result.error) throw result.error;
+      if (result.data !== true && result.data !== false)
+        throw new Error("Resposta de disponibilidade não reconhecida.");
       if (result.data === false) {
-        state.ownPresence.online_requested = false;
+        if (state.ownPresence) state.ownPresence.online_requested = false;
+        state.onlineIds.delete(providerId);
+        presenceUncertain = false; state.message = "";
         state.error = "Sua disponibilidade foi interrompida. Verifique o cadastro.";
-        render();
-      } else if (f2Active() && state.page === "orders") {
-        await refreshIdentity();
-        if (state.page === "orders") render();
+        if (state.page === "profile" || state.page === "orders") render();
+      } else {
+        const wasUncertain = presenceUncertain;
+        presenceUncertain = false; state.onlineIds.add(providerId);
+        if (wasUncertain && state.page === "profile") {
+          state.error = ""; state.message = "Disponibilidade confirmada pelo servidor."; render();
+        }
+        if (f2Active() && state.page === "orders") {
+          await refreshIdentity();
+          if (current() && state.page === "orders") render();
+        }
       }
     } catch (err) {
-      // A presença vence automaticamente no banco sem novos pings.
-      state.error = "Falha de conexão: seu status online poderá expirar. " + errorText(err);
+      if (!current()) return;
+      presenceUncertain = true; state.message = "";
+      state.error = "Falha de conexão: disponibilidade não confirmada. " + errorText(err);
       if (state.page === "profile") render();
-    } finally { presencePingInFlight = false; }
+    } finally { if (activePresencePing === ping) activePresencePing = null; }
   }
+  window.addEventListener?.("offline", () => {
+    invalidatePresencePing(); presenceUncertain = true;
+    if (state.page === "profile" && state.ownProvider) {
+      state.message = ""; state.error = "Sem conexão. A disponibilidade não está confirmada."; render();
+    }
+  });
+  window.addEventListener?.("online", () => {
+    if (state.page === "profile" && state.ownProvider) render();
+    void sendPresenceHeartbeat();
+  });
   window.setInterval(sendPresenceHeartbeat,30000);
   document.addEventListener("visibilitychange", () => {
     invalidatePhotoScreen();
