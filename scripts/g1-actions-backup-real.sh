@@ -43,7 +43,7 @@ if [[ -n "${G1_DROPBOX_OAUTH_JSON:-}" ]]; then
   [[ -n "$G1_DROPBOX_ACCESS_TOKEN" ]] || deny 'renovação OAuth vazia'
   # A resposta já foi validada para excluir caracteres de controle.
   if [[ "${GITHUB_ACTIONS:-}" == true ]]; then
-    printf '::add-mask::%s\n' "$G1_DROPBOX_ACCESS_TOKEN"
+    printf '::add-mask::%s\n' "${G1_DROPBOX_ACCESS_TOKEN//%/%25}"
   fi
   echo 'G1_DROPBOX_OAUTH_REFRESH=PASS'
 else
