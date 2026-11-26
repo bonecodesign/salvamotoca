@@ -1,42 +1,43 @@
 # FND-05 — Modelo econômico-financeiro e hipóteses
 
-**Versão 0.2 — estudo interno, não previsão de faturamento**
+**Versão 0.3 — estudo interno, não previsão de faturamento; SM-DEC-045/046**
 
 ## Hipóteses aprovadas ou registradas
 
 - **Mapa e consulta:** gratuitos, sem cobrança pela ida direta à oficina.
-- **Borracharia delivery intermediada:** comissão de **15% aprovada internamente em 12/11/2026** sobre o valor do serviço efetivamente pago e liquidado pelo aplicativo (SM-DEC-014). A aplicação prática permanece condicionada a contratos, regras de estorno, tributação e integração financeira homologada.
-- **Reboque:** já está implementado no produto, mas não possui checkout nem cobrança real habilitados; sua ativação comercial depende de homologação. A comissão aprovada é de **15% sobre o valor do serviço de reboque**, sem incluir deslocamento, tarifa de processamento ou extras.
-- **Preço de serviço:** definido pelo prestador em orçamento discriminado; serviços, deslocamento obrigatório e peças/materiais aparecem separadamente. Cliente aceita ou recusa o total. No piloto não há tabela fixa: valores potencialmente abusivos ou incoerentes podem ser encaminhados para revisão humana, sem ajuste automático.
+- **Borracharia delivery intermediada:** 10% da base do serviço pagos pelo solicitante e 10% descontados do prestador (SM-DEC-045, substitui SM-DEC-014). Aplicação condicionada a contratos, estornos, tributação e PSP homologado.
+- **Reboque:** segue a mesma política de 10% + 10% sobre serviço. Fluxo candidato testado offline; checkout, cobrança e operação real desativados.
+- **Preço de serviço:** definido pelo prestador em orçamento discriminado; duas categorias: SERVIÇO (materiais inclusos) e DESLOCAMENTO. Nenhuma terceira cobrança de materiais; alterações exigem novo orçamento e aceite. Cliente aceita ou recusa o total. No piloto não há tabela fixa: valores potencialmente abusivos ou incoerentes podem ser encaminhados para revisão humana, sem ajuste automático.
 - **Pagamento:** Pix/cartões e split ainda não conectados nem homologados.
 - **Cancelamento pós-pagamento:** se o prestador cancelar, reembolso integral ao cliente, inclusive tarifa de processamento; se o cliente cancelar antes de o prestador marcar “em deslocamento”, reembolso integral; depois disso, valor retido até mediação, sem repasse automático.
-- **Retenção e repasse:** após o aceite, o valor pago fica retido pelo intermediador até a confirmação de conclusão pelas duas partes. Depois, o intermediador realiza o repasse ao prestador conforme regras homologadas; sem confirmação bilateral, não há liberação automática e o caso segue para suporte/mediação. Esta regra depende de PSP compatível e validação jurídica, tributária e contratual.
+- **Retenção e repasse:** objetivo operacional após pagamento confirmado: liberação condicionada à conclusão bilateral e regras de risco, com mediação de divergências. A solução efetiva depende de PSP compatível e revisão jurídica, tributária e contratual; não pressupõe escrow, custódia ou garantia financeira.
 - **Custo inicial de desenvolvimento:** priorizar ferramentas gratuitas quando possível, **não** considerar que a operação real terá custo zero.
 
 ## Unidade econômica de uma transação
 
 Definições (valores em reais):
-- P = preço total aceito e liquidado;
-- c = comissão nominal (referência 0,15);
+- S = preço de serviço com materiais inclusos;
+- L = deslocamento aceito;
+- c = taxa individual sobre S (0,10);
 - F = custo total da transação de pagamento;
 - V = custo variável de infraestrutura, mensagens e suporte atribuível ao pedido;
 - T = tributos incidentes na operação da plataforma, conforme enquadramento;
 - D = perda média esperada com disputas/estornos/fraudes;
 - R = ajustes, reembolsos e repasses reversos.
 
-**Comissão bruta definida para cálculo = P × 0,15**, incidindo sobre o valor do serviço aceito, sem incluir deslocamento, tarifa de processamento ou extras não aprovados.
+**Total cliente = S + L + (S × c) + F. Repasse teórico ao prestador = S + L − (S × c). Receita bruta teórica da plataforma = S × 2c.** F é processamento efetivamente comprovado e informado antes da confirmação; não integra receita de intermediação. Cálculo em centavos conforme contrato F4, sem dupla cobrança de materiais. Valores de terceiros não são receita disponível.
 
-**Resultado de contribuição estimado da plataforma = (P × c) − V − T − D − R.** A tarifa de processamento é cobrada separadamente do cliente e não compõe a comissão do serviço; sua cobrança, liquidação e eventuais reembolsos dependem do PSP homologado.
+**Resultado de contribuição estimado da plataforma = (S × 2c) − V − T − D − R.** A tarifa de processamento é cobrada separadamente do cliente e não compõe a comissão do serviço; sua cobrança, liquidação e eventuais reembolsos dependem do PSP homologado.
 
 O valor financeiro líquido do prestador parte do valor do serviço menos a comissão aplicável, tributos dele, restituições e regras de split. A tarifa de processamento é encargo do cliente e deve aparecer destacada antes da confirmação. Não assumir que o simples percentual de comissão representa margem ou caixa disponível.
 
 ### Exemplo meramente ilustrativo — NÃO é preço de mercado
 
-| Valor aceito hipotético | Comissão de 15% | Parcela antes de outras taxas e tributos |
-| ---: | ---: | ---: |
-| R$ 80,00 | R$ 12,00 | R$ 68,00 |
-| R$ 100,00 | R$ 15,00 | R$ 85,00 |
-| R$ 150,00 | R$ 22,50 | R$ 127,50 |
+| Serviço (S) | Deslocamento (L) | Cliente antes de F | Prestador antes de ajustes | Receita bruta teórica |
+| ---: | ---: | ---: | ---: | ---: |
+| R$ 80,00 | R$ 20,00 | R$ 108,00 | R$ 92,00 | R$ 16,00 |
+| R$ 100,00 | R$ 20,00 | R$ 130,00 | R$ 110,00 | R$ 20,00 |
+| R$ 150,00 | R$ 20,00 | R$ 185,00 | R$ 155,00 | R$ 30,00 |
 
 **Atenção:** números acima ignoram custos de pagamento, suporte, impostos e eventuais devoluções; não são promessa de repasse líquido.
 
@@ -49,8 +50,8 @@ O valor financeiro líquido do prestador parte do valor do serviço menos a comi
 | Pedidos iniciados por dia | quantidade | Hipótese a levantar |
 | Pedidos que recebem orçamento | % | Teste real pendente |
 | Taxa de aceite | % | Teste real pendente |
-| Ticket médio efetivamente pago | R$ | Pesquisa e piloto pendentes |
-| Comissão nominal | % | **15% aprovada internamente**; implementação pendente |
+| Ticket médio de SERVIÇO efetivamente liquidado (sem deslocamento e encargos) | R$ | Pesquisa e piloto pendentes |
+| Comissão nominal | % | **10% + 10% aprovados internamente**; implementação pendente |
 | Taxa de processamento | R$/pedido e % | Negociar com provedor |
 | Custo variável de atendimento | R$/pedido | Medir |
 | Impostos e obrigações | % e R$ | Contador/jurídico definir |
@@ -62,7 +63,7 @@ O valor financeiro líquido do prestador parte do valor do serviço menos a comi
 
 **Pedidos liquidados mensais = pedidos iniciados × % com orçamento × % de aceite × % liquidados.**
 
-**Comissão bruta mensal = pedidos liquidados × ticket médio pago dos serviços × 15%.**
+**Comissão bruta mensal = pedidos liquidados × ticket médio de serviço liquidado × 20% (aproximação; apuração real por transação e arredondamento).**
 
 **Margem de contribuição mensal = comissão bruta − custos variáveis da plataforma − devoluções e ajustes associados.**
 
@@ -92,7 +93,7 @@ O valor financeiro líquido do prestador parte do valor do serviço menos a comi
 
 ## Decisões comerciais pendentes
 
-**A comissão de 15%, a tarifa de processamento como encargo do cliente e a composição transparente do orçamento já estão aprovadas.** Ainda é necessário decidir: preço mínimo de serviço; política de deslocamento por área; eventuais condições promocionais; split automático; calendário de repasses; reserva financeira para contingências; estornos parciais e tratamento de fraudes.
+**A política 10% + 10%, a tarifa de processamento como encargo do cliente e o orçamento serviço/deslocamento já estão aprovados internamente.** Ainda é necessário decidir: preço mínimo de serviço; política de deslocamento por área; eventuais condições promocionais; split automático; calendário de repasses; reserva financeira para contingências; estornos parciais e tratamento de fraudes.
 
 ## Cenários propostos para análise futura
 
