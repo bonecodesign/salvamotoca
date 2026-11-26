@@ -33,7 +33,8 @@ function makeHarness({ confirm=true, uploadFails=false, insertFails=false, f1Ena
   switchDuringUpload=false, duplicateAfterLostResponse=false,
   lostUploadResponse=false, conflictingUpload=false, delayedSignedUrl=false,
   navigateDuringUpload=false, gpsDuringUpload=false, providerSession=false,
-  refreshFailsAfterInsert=false }={}) {
+  refreshFailsAfterInsert=false, receiptStore=new Map(), existingRequests=[],
+  nextKey=KEY, receiptStorageUnavailable=false, receiptLookupFails=false }={}) {
   const sent={ uploads:[], requests:[], quotes:[], errors:[], signed:[], downloads:[],
     orderSelects:[], requestFilters:[], confirmCalls:0 };
   let rejectUpload=uploadFails;
@@ -65,7 +66,7 @@ function makeHarness({ confirm=true, uploadFails=false, insertFails=false, f1Ena
   const categories=[{id:CATEGORY,code:"borracharia_delivery",name:"No local",paid_in_app:true}];
   const services=[{provider_id:PROVIDER,category_id:CATEGORY,is_active:true}];
   const records={providers:[provider],provider_services:services,
-    service_categories:categories,service_requests:[],service_quotes:[]};
+    service_categories:categories,service_requests:existingRequests.slice(),service_quotes:[]};
   function from(name) {
     const query={
       filters:[],
@@ -85,6 +86,7 @@ function makeHarness({ confirm=true, uploadFails=false, insertFails=false, f1Ena
       limit(){return Promise.resolve({data:records[name]||[],error:null});},
       maybeSingle(){
         if(name==="service_requests"){
+          if(receiptLookupFails) return Promise.resolve({data:null,error:{message:"Consulta interrompida"}});
           const record=records.service_requests.find(row=>this.filters.every(([key,value])=>row[key]===value));
           return Promise.resolve({data:record?{id:record.id}:null,error:null});
         }
@@ -209,6 +211,11 @@ function makeHarness({ confirm=true, uploadFails=false, insertFails=false, f1Ena
     BJ_CONFIG:{supabaseUrl:"https://fake.invalid",supabasePublishableKey:"sb_publishable_test",
       f1TestRequestsEnabled:f1Enabled},
     supabase:{createClient:()=>db},SMRequestF1:F1,
+    localStorage:{
+      getItem(key){if(receiptStorageUnavailable)throw new Error("blocked");return receiptStore.get(key)??null;},
+      setItem(key,value){receiptStore.set(key,String(value));},
+      removeItem(key){receiptStore.delete(key);}
+    },
     scrollTo(){},
     setInterval(fn){heartbeat=fn;},
     addEventListener(name,fn){winListeners[name]=fn;},
@@ -217,7 +224,7 @@ function makeHarness({ confirm=true, uploadFails=false, insertFails=false, f1Ena
   };
   const sandbox={
     window:win,document,navigator:navigatorMock,console,
-    crypto:{randomUUID:()=>KEY},
+    crypto:{randomUUID:()=>nextKey},
     FormData:class {
       constructor(form){this.values=form.fields;}
       get(name){const v=this.values[name];return Array.isArray(v)?v[0]:v??null;}
@@ -234,7 +241,9 @@ function makeHarness({ confirm=true, uploadFails=false, insertFails=false, f1Ena
   };
   vm.runInNewContext(APP,sandbox,{filename:"live-app-current.js",timeout:3000});
   return {
-    sent,container,docListeners,formListeners,
+    sent,container,docListeners,formListeners,receiptStore,
+    persistedRequests(){return records.service_requests.slice();},
+    async checkReceipt(){await docListeners.click({target:{closest:()=>({dataset:{action:"check-pending-request"}})}});await flush();},
     ping(){return heartbeat();},
     resolvePing(index,data,error=null){assert.equal(typeof presencePings[index],"function");presencePings[index]({data,error});},
     pingCount(){return presencePings.length;},
@@ -681,4 +690,50 @@ test("F1: criação confirmada não vira falha de envio quando a lista não carr
   assert.match(h.container.innerHTML,/Pedidos e orçamentos/);
   assert.doesNotMatch(h.container.innerHTML,/Leitura da lista interrompida/);
   assert.equal(h.sent.requests.length,1);
+});
+
+const NEXT_KEY="eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee";
+const RECEIPT_SLOT="sm:pending-request:v1:"+CLIENT;
+test("F1: recibo após recarga localiza pedido gravado sem repetir upload ou criação",async()=>{
+  const first=makeHarness({duplicateAfterLostResponse:true});await first.prepare();await first.submit(validFields());
+  assert.deepEqual([...first.receiptStore],[[RECEIPT_SLOT,KEY]]);
+  const second=makeHarness({receiptStore:first.receiptStore,existingRequests:first.persistedRequests(),nextKey:NEXT_KEY});
+  await second.prepare();
+  const blocked=await second.submit(validFields());
+  assert.match(blocked.notice.textContent,/Existe um envio sem confirmação/);
+  assert.equal(second.sent.uploads.length,0);assert.equal(second.sent.requests.length,0);
+  await second.navigate("orders");
+  assert.match(second.container.innerHTML,/Conferir envio/);
+  await second.checkReceipt();
+  assert.match(second.container.innerHTML,/Pedido localizado no servidor/);
+  assert.equal(first.receiptStore.size,0);
+  assert.equal(second.sent.requests.length,0);assert.equal(second.sent.uploads.length,0);
+});
+test("F1: ausência de pedido ou erro na consulta não libera repetição de envio incerto",async()=>{
+  for(const receiptLookupFails of [false,true]){
+    const receiptStore=new Map([[RECEIPT_SLOT,KEY]]);
+    const h=makeHarness({receiptStore,nextKey:NEXT_KEY,receiptLookupFails});
+    await flush();await h.navigate("orders");await h.checkReceipt();
+    assert.match(h.container.innerHTML,receiptLookupFails?/Não foi possível conferir o envio/:/O envio ainda não foi localizado/);
+    assert.equal(receiptStore.get(RECEIPT_SLOT),KEY);
+    assert.equal(h.sent.requests.length,0);assert.equal(h.sent.uploads.length,0);
+  }
+});
+test("F1: recibo de outra conta não é exibido nem consultado",async()=>{
+  const receiptStore=new Map([[RECEIPT_SLOT,KEY]]);
+  const h=makeHarness({receiptStore,nextKey:NEXT_KEY});await flush();
+  await h.switchUser("22222222-2222-4222-8222-222222222222");await h.navigate("orders");
+  assert.doesNotMatch(h.container.innerHTML,/Conferir envio/);
+  await h.checkReceipt();assert.equal(receiptStore.get(RECEIPT_SLOT),KEY);
+  assert.equal(h.sent.requestFilters.length,0);
+});
+test("F1: armazenamento de recibo bloqueado impede upload e criação",async()=>{
+  const h=makeHarness({receiptStorageUnavailable:true});await h.prepare();
+  const result=await h.submit(validFields());
+  assert.match(result.notice.textContent,/Recibo local indisponível/);
+  assert.equal(h.sent.uploads.length,0);assert.equal(h.sent.requests.length,0);
+});
+test("F1: pedido confirmado remove recibo local",async()=>{
+  const h=makeHarness();await h.prepare();await h.submit(validFields());
+  assert.equal(h.receiptStore.size,0);assert.equal(h.sent.requests.length,1);
 });
