@@ -1,6 +1,6 @@
 # JUR-02 — Política de Privacidade — MINUTA NÃO VIGENTE
 
-**Salva Motoca! | Versão preliminar 0.1 | Data: 12/11/2026**
+**Salva Motoca! | Versão preliminar 0.2 | Data: 25/11/2026**
 
 **Não utilizar como aviso final de tratamento antes de inventário de dados, testes e revisão jurídica.**
 
@@ -32,13 +32,13 @@ Não se presume necessidade de tratar dados de crianças e adolescentes para o M
 
 **Localização:** área aproximada para busca; endereço exato apenas quando necessário à etapa legítima de atendimento; coordenadas apenas se fornecidas/autorizadas conforme fluxo.
 
-**Atendimentos:** descrição do problema, identificadores de solicitação, valores de propostas, aceites, recusas, status e histórico de encaminhamentos.
+**Atendimentos:** descrição e foto necessária do problema, marca/modelo/ano da motocicleta, identificadores de solicitação, propostas, aceites, recusas, status e histórico de encaminhamentos. Resumo de execução e eventual foto do resultado devem conter somente dados necessários. A conversão local de foto com remoção de metadados foi testada; a proteção em dispositivo físico e no ambiente hospedado ainda precisa ser comprovada.
 
 **Pagamentos futuros:** identificadores, situação da transação e informações mínimas de conciliação. Dados completos de cartão não deverão ser armazenados pela plataforma.
 
 **Suporte e segurança:** protocolos de contato, reclamações, registros de auditoria e sinais técnicos estritamente necessários para prevenir fraude e garantir disponibilidade.
 
-**Cookies e tecnologia:** autenticação/sessão e mecanismos técnicos necessários; tecnologias opcionais de análise/marketing exigirão inventário e aviso/controles apropriados.
+**Cookies e tecnologia:** autenticação/sessão e mecanismos técnicos necessários; cache do aplicativo restrito a arquivos públicos estáticos, conforme testes locais #168–170. Isso não comprova que todo armazenamento do dispositivo esteja livre de dados de sessão. Tecnologias opcionais de análise/marketing exigirão inventário e aviso/controles apropriados.
 
 ## 4. Finalidades e hipóteses legais
 
@@ -56,7 +56,7 @@ Não afirmar que o titular consentiu com tudo só por usar o aplicativo; consent
 
 ## 5. Como e quando dados podem ser compartilhados
 
-**Prestadores:** apenas dados necessários para realizar o serviço e somente no estágio autorizado; o catálogo público não deverá mostrar documentos privados, contas pessoais nem GPS exato dos clientes.
+**Prestadores:** apenas dados necessários para realizar o serviço e somente no estágio autorizado; o catálogo público não deverá mostrar documentos privados, contas pessoais nem GPS exato dos clientes. Chat interno após pagamento confirmado, sem exposição de contato externo. Localização do profissional compartilhada com o solicitante apenas durante o deslocamento ativo, com consentimento e encerramento na chegada; sem histórico aberto a terceiros. Divergências seguem para suporte autorizado. Esses fluxos são previstos, não homologados em produção.
 
 **Infraestrutura:** fornecedores de hospedagem, autenticação, mapas, e-mails, notificações e meios de pagamento previstos em contratos adequados, com acesso mínimo e obrigações de segurança.
 
