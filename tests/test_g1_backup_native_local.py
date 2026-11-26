@@ -15,8 +15,8 @@ TABLES = [("public",name) for name in ("prestadores_prospeccao","ofertas_prospec
 TABLES += [("supabase_migrations","schema_migrations")]
 CATALOG = [dict(schema=s,table=t,rls=True,kind="r",policies=0) for s,t in TABLES]
 TOC = "\n".join(f"{i}; 0 0 {kind} {s} {t} postgres"
-                for i,(s,t,kind) in enumerate((s,t,k) for s,t in TABLES
-                    for k in ("TABLE","TABLE DATA"),1)).encode()
+                for i,(s,t,kind) in enumerate(
+                    [(s,t,k) for s,t in TABLES for k in ("TABLE","TABLE DATA")],1)).encode()
 URI = "postgresql://postgres.yivkqyjdeouxnwtwfekc:fake-password@aws-0-sa-east-1.pooler.supabase.com:5432/postgres?sslmode=require"
 PATHS = dict(psql="psql",pg_dump="pg_dump",pg_restore="pg_restore",age="age")
 SNAP = dict(catalog=CATALOG,managed={},counts={},roles_metadata={})
