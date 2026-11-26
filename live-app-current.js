@@ -1108,9 +1108,10 @@
       if (services.error) throw services.error;
       await refreshIdentity(); nav("profile"); state.message = "Cadastro e serviços enviados. Aguarde homologação.";
     });
-    if (form.id === "f3-request-form" && state.page === "f3-tow" && form.isConnected) submitForm(form, async data => {
+    if (form.id === "f3-request-form") submitForm(form, async data => {
       if (!f3Active() || !state.user || !window.SMRequestF1)
         throw new Error("Reboque não está homologado para envio.");
+      if (state.page !== "f3-tow" || !form.isConnected) return;
       const uid = state.user.id, generation = identityGeneration;
       const context = requestContextVersion;
       const ensureSession = () => {
@@ -1317,9 +1318,10 @@
       if (identityGeneration !== generation || state.user?.id !== uid) return;
       state.message = "Proposta F2 itemizada enviada para teste, sem pagamento.";
     });
-    if (form.id === "request-form" && state.page === "request-form" && form.isConnected) submitForm(form, async data => {
+    if (form.id === "request-form") submitForm(form, async data => {
       if (config.f1TestRequestsEnabled !== true)
         throw new Error("F1 desativada até a homologação do ambiente de testes.");
+      if (state.page !== "request-form" || !form.isConnected) return;
       if (!state.user || !F1) throw new Error("Faça login para criar o pedido.");
       const requestGeneration = identityGeneration;
       const requestVersion = requestContextVersion;
