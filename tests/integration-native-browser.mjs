@@ -67,7 +67,15 @@ export async function browserNativeJourney({root,origin,call,sql,actors,session,
     cookies.delete(token);
     const clear={'Set-Cookie':'sm_fixture=; Max-Age=0; HttpOnly; SameSite=Strict; Path=/'};
     let revoked=false;
-    if(jwt){try{const r=await post('/auth/v1/logout?scope=local',jwt,{});revoked=r.ok;if(r.body)await r.body.cancel();}catch{}}
+    if(jwt){
+     try{
+      // Auth's logout endpoint accepts scope in the query and no JSON body.
+      const r=await call('/auth/v1/logout?scope=local',{method:'POST',jwt});
+      revoked=r.status===204;
+      console.log('NATIVE_AUTH_LOGOUT_HTTP='+r.status);
+      if(r.body)await r.body.cancel();
+     }catch{console.log('NATIVE_AUTH_LOGOUT_TRANSPORT=FAIL');}
+    }
     return send(res,200,JSON.stringify({signedOut:true,nativeRevoked:revoked}),clear);
    }
    if(!jwt){
@@ -243,6 +251,7 @@ export async function browserNativeJourney({root,origin,call,sql,actors,session,
   const sid=JSON.parse(Buffer.from(oldLogin.jwt.split('.')[1],'base64url').toString('utf8')).session_id;
   assert.match(sid,/^[0-9a-f-]{36}$/i);
   const othersBefore=sql("select count(*) from auth.sessions where user_id='"+actors.customer.id+"' and id<>'"+sid+"'");
+  assert.ok(Number(othersBefore)>=1,'requires another independent session');
   console.log('NATIVE_LOGOUT_STEP=csrf_and_body_validation');
   const csrf=await a.request.post(base+'/customer/logout',{headers:{Origin:'https://example.invalid'},data:{}});
   assert.equal(csrf.status(),403);
@@ -257,7 +266,11 @@ export async function browserNativeJourney({root,origin,call,sql,actors,session,
   const logoutResponse=a.waitForResponse(r=>r.url().endsWith('/customer/logout')&&r.request().method()==='POST');
   await a.locator('#logout').click();
   const ended=await logoutResponse;
-  assert.equal(ended.status(),200);assert.deepEqual(await ended.json(),{signedOut:true,nativeRevoked:true});
+  console.log('NATIVE_PROXY_LOGOUT_HTTP='+ended.status());
+  assert.equal(ended.status(),200);
+  const outcome=await ended.json();
+  console.log('NATIVE_PROXY_LOGOUT_LOCAL='+String(outcome.signedOut===true)+' NATIVE_PROXY_LOGOUT_REVOKED='+String(outcome.nativeRevoked===true));
+  assert.deepEqual(outcome,{signedOut:true,nativeRevoked:true});
   console.log('NATIVE_LOGOUT_STEP=verify_native_revocation');
   await a.getByRole('button',{name:'Entrar'}).waitFor();
   assert.equal(sql("select count(*) from auth.sessions where id='"+sid+"'"),'0');
