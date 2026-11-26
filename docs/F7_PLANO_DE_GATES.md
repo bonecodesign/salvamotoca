@@ -113,3 +113,16 @@ O [roadmap FND-07](fundacao/07_PLANO_DE_IMPLANTACAO.md) v0.2 consolida as depend
 ## Fonte de produto e política de cancelamento
 
 A especificação PRODUTO_OFICIAL, o plano FND-02 e a minuta JUR-04 foram reconciliados com as decisões registradas SM-DEC-035 e 045–050: política 10% + 10%, materiais inclusos, área e raios aprovados, destino externo condicionado de reboque, cancelamento e mediação. Os limites históricos do piloto SM-DEC-029 não são ampliados automaticamente. A correção documental não homologa PSP, contrato, segurança hospedada nem autoriza operação. RELEASE=NO_GO.
+
+
+## Encerramento da rodada técnica local — 26/11/2026 BRT
+
+- #176–178 integrados: proteção de callbacks de GPS, presença durante perda de conexão e confirmação de pedidos mesmo se a leitura posterior falhar. CI F1–F3 aprovada.
+- #179 integrado: recibo local mínimo para recuperação de criação incerta no mesmo dispositivo; sem reenvio automático. Limites: perda do armazenamento local, troca de aparelho, concorrência de abas e resultado inconclusivo.
+- #180 integrado: consulta de pedidos próprios em aberto antes de iniciar outro em dispositivo diferente; confirmação explícita, sem proibir pedidos distintos. Não é exclusão transacional.
+- #181 integrado: duas conexões PostgreSQL 17 concorrentes para a mesma chave de reboque retornam o mesmo ID, com um pedido e um destino preservados; dados divergentes rejeitados. [F3](https://github.com/bonecodesign/salvamotoca/actions/runs/45884391770), [suporte](https://github.com/bonecodesign/salvamotoca/actions/runs/45884391778), [replay](https://github.com/bonecodesign/salvamotoca/actions/runs/45884391694) e [Native Auth/Storage/REST](https://github.com/bonecodesign/salvamotoca/actions/runs/45884391935) aprovados. Nenhum candidato novo foi implantado remotamente.
+- G1: [última tentativa manual](https://github.com/bonecodesign/salvamotoca/actions/runs/45733283616) falhou na conferência do cofre Dropbox antes de conectar ao PostgreSQL; autenticação do banco não verificada nessa execução. #174 e #175 prepararam renovação OAuth e opção local de backup. Listagem privada em 26/11 confirma somente o ciphertext histórico de 22/11. A conexão Dropbox do ChatGPT não renova o segredo do runner.
+- **Próxima ação humana indispensável:** configurar autorização renovável no ambiente protegido `g1-backup-testes` com [script local](../scripts/g1-dropbox-oauth-configure-local.ps1), sem transmitir credenciais ao chat; depois executar [workflow manual](https://github.com/bonecodesign/salvamotoca/actions/workflows/g1-supabase-backup-manual.yml) da main com confirmação prevista, verificar o novo ciphertext e comprovar a restauração correspondente. Não repetir tentativa antiga nem burlar o Environment.
+- SM-DEC-029 conferida: limites históricos de até 15 prestadores, 50 motociclistas convidados e 30 solicitações, meta interna de 80% em até 15 minutos e ausência de incidente crítico sem tratamento. Não ampliar a área do piloto automaticamente pela decisão posterior da praça. Nenhuma nova aprovação foi presumida.
+
+**Decisão: RELEASE=NO_GO.** As seis flags públicas permanecem false. Priorizar os seis passos de FND-07; interromper ciclos de melhorias locais sem requisito crítico novo. G1 atual, G2 hospedado, Android físico, PSP sandbox exclusivo e aprovações humanas seguem pendentes.
