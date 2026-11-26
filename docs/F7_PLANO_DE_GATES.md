@@ -126,3 +126,16 @@ A especificação PRODUTO_OFICIAL, o plano FND-02 e a minuta JUR-04 foram reconc
 - SM-DEC-029 conferida: limites históricos de até 15 prestadores, 50 motociclistas convidados e 30 solicitações, meta interna de 80% em até 15 minutos e ausência de incidente crítico sem tratamento. Não ampliar a área do piloto automaticamente pela decisão posterior da praça. Nenhuma nova aprovação foi presumida.
 
 **Decisão: RELEASE=NO_GO.** As seis flags públicas permanecem false. Priorizar os seis passos de FND-07; interromper ciclos de melhorias locais sem requisito crítico novo. G1 atual, G2 hospedado, Android físico, PSP sandbox exclusivo e aprovações humanas seguem pendentes.
+
+
+## Auditoria de continuidade após PR #182 — 26/11/2026 BRT
+
+Leitura remota e sem gravações no único Supabase de TESTES yivkqyjdeouxnwtwfekc: projeto ACTIVE_HEALTHY, região São Paulo, PostgreSQL 17.11, 11 migrations. O retrato agregado confirmou auth.users=0, sessões=0, objetos Storage=0, solicitações=0, prestadores aprovados=0, orçamentos=0, pagamentos=0, 36 registros de prospecção e 40 ofertas de prospecção. As 13 tabelas públicas estão com RLS habilitado.
+
+O advisor de segurança continua a registrar quatro tabelas com RLS sem policy (INFO, acesso fechado por padrão) e seis RPCs legadas SECURITY DEFINER executáveis por authenticated (WARN). O ensaio reversível #158 permanece apenas local; não foi aplicado no Supabase hospedado. Esses achados exigem revisão no gate G2, mas não justificam mudança remota sem o backup G1 atual.
+
+A autorização renovável preparada no #174 ainda não está comprovada no Environment protegido g1-backup-testes; a última execução manual falhou no cofre Dropbox antes de qualquer conexão ao PostgreSQL. Não houve novo snapshot, upload, restauração ou alteração do Supabase nesta auditoria. A configuração requer o secret G1_DROPBOX_OAUTH_JSON criado privadamente a partir do aplicativo Dropbox existente, seguido do workflow manual protegido e de verificação independente do ciphertext.
+
+A conta Stripe conectada é não-live, mas a auditoria não criou sandbox, conta, chave, cobrança, transferência ou webhook. O sandbox dedicado continua necessário para G4; o test mode compartilhado não deve ser reaproveitado. Os PRs antigos F4 #45 e #47 permanecem históricos/draft e usam regras econômicas supersedidas; não devem ser mesclados. A referência financeira vigente é a cadeia posterior já integrada, com F4 desativada.
+
+**Resultado:** G1 atual, G2 hospedado e G4 sandbox dedicado permanecem BLOCKED; nenhuma evidência local foi promovida a gate remoto. RELEASE=NO_GO.
