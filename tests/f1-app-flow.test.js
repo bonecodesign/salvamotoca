@@ -41,6 +41,8 @@ function makeHarness({ confirm=true, uploadFails=false, insertFails=false, f1Ena
   let currentUserId=CLIENT;
   let authCallback=null;
   let pendingGps=null;
+  let gpsError=null;
+  const gpsCallbacks=[];
   let pendingSignedResolve=null;
   const storedPhotos=new Map();
   const docListeners={}, formListeners={}, winListeners={};
@@ -203,7 +205,7 @@ function makeHarness({ confirm=true, uploadFails=false, insertFails=false, f1Ena
   const sandbox={
     window:win,document,navigator:{
       geolocation:{
-        getCurrentPosition(success){pendingGps=success;}
+        getCurrentPosition(success,error){pendingGps=success;gpsError=error;gpsCallbacks.push({success,error});}
       }
     },console,
     crypto:{randomUUID:()=>KEY},
@@ -262,6 +264,10 @@ function makeHarness({ confirm=true, uploadFails=false, insertFails=false, f1Ena
       const resolve=pendingSignedResolve; pendingSignedResolve=null;
       resolve({data:{signedUrl:"https://storage.invalid/teste?token=NAO-REAL-PRIVADO"},error:null});
     },
+    async resolveGpsAt(index,lat,lng){
+      gpsCallbacks[index].success({coords:{latitude:lat,longitude:lng}}); await flush();
+    },
+    async rejectGps(){assert.equal(typeof gpsError,"function");gpsError({code:1});await flush();},
     async resolveGps(lat=-19.92,lng=-43.94){
       assert.equal(typeof pendingGps,"function","GPS não foi solicitado");
       const callback=pendingGps; pendingGps=null;
@@ -572,4 +578,42 @@ test("F1: resposta pendente não reaparece após ocultar e retornar ao app",asyn
   const h=makeHarness({delayedSignedUrl:true});await h.prepare();await h.submit(validFields());
   const pending=h.openPhoto();await flush();h.visibility("hidden");h.visibility("visible");
   h.resolveSignedPhoto();await pending;assert.doesNotMatch(h.container.innerHTML,/NAO-REAL-PRIVADO/);
+});
+
+test("F1: GPS atrasado depois de sair e voltar não entra no pedido",async()=>{
+  const h=makeHarness();await h.prepare();await h.requestGps();
+  await h.navigate("home");await h.prepare();await h.resolveGps();
+  await h.submit(validFields());
+  assert.equal(h.sent.requests.length,1);
+  assert.equal(h.sent.requests[0].latitude,null);
+});
+test("F1: GPS atrasado após ocultar a tela não entra no pedido",async()=>{
+  const h=makeHarness();await h.prepare();await h.requestGps();
+  h.visibility("hidden");h.visibility("visible");await h.resolveGps();
+  await h.submit(validFields());
+  assert.equal(h.sent.requests.length,1);
+  assert.equal(h.sent.requests[0].latitude,null);
+});
+test("F1: apenas a leitura GPS mais recente pode definir coordenadas",async()=>{
+  const h=makeHarness();await h.prepare();await h.requestGps();await h.requestGps();
+  await h.resolveGpsAt(1,-19.95,-43.99);
+  await h.resolveGpsAt(0,-19.12,-43.12);
+  await h.submit(validFields());
+  assert.equal(h.sent.requests.length,1);
+  assert.equal(h.sent.requests[0].latitude,-19.95);
+  assert.equal(h.sent.requests[0].longitude,-43.99);
+});
+test("F1: recusa de GPS novo não reaproveita coordenadas anteriores",async()=>{
+  const h=makeHarness();await h.prepare();await h.requestGps();await h.resolveGps();
+  await h.requestGps();await h.rejectGps();
+  assert.match(h.container.innerHTML,/Não foi possível obter o GPS/);
+  await h.submit(validFields());
+  assert.equal(h.sent.requests.length,1);
+  assert.equal(h.sent.requests[0].latitude,null);
+});
+test("F1: latitude fora do intervalo é recusada",async()=>{
+  const h=makeHarness();await h.prepare();await h.requestGps();await h.resolveGps(99,-43);
+  await h.submit(validFields());
+  assert.equal(h.sent.requests.length,1);
+  assert.equal(h.sent.requests[0].latitude,null);
 });
