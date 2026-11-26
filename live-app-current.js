@@ -28,6 +28,9 @@
   // O marcador de geração protege tarefas assíncronas iniciadas por outra conta.
   let identityGeneration = 0;
   let requestContextVersion = 0;
+  // Cada pedido de GPS tem identidade própria. Respostas antigas não podem
+  // reativar localização após mudança de tela, modo ou ocultação da página.
+  let gpsRequestVersion = 0;
   // A URL emitida não pode ser revogada pelo cliente. O preview é efêmero,
   // nunca persistido, e sua validade local começa ANTES da chamada ao Storage.
   const PHOTO_TTL_SECONDS = 60;
@@ -53,6 +56,7 @@
     const nextId = nextUser?.id || null;
     if (currentId === nextId) return false;
     identityGeneration++;
+    gpsRequestVersion++;
     state.user = nextUser || null;
     state.profile = null; state.ownProvider = null; state.ownPresence = null;
     state.orders = []; state.quotes = []; clearPhotoPreviews();
@@ -98,6 +102,7 @@
     (type === "number" ? 'min="0" step="0.01" ' : "") +
     (required ? "required" : "") + "></label>";
   const nav = page => {
+    if (page !== state.page) gpsRequestVersion++;
     // Um pedido pendente não pode continuar se o usuário abandonou o formulário.
     if (["request-form", "f3-tow"].includes(state.page) && page !== state.page)
       requestContextVersion++;
@@ -747,20 +752,43 @@
     render();
   }
   function locate() {
-    if (!navigator.geolocation) { state.error = "Este dispositivo não oferece geolocalização."; render(); return; }
+    if (state.loading || document.visibilityState === "hidden") return;
+    const version = ++gpsRequestVersion;
     const startedGeneration = identityGeneration;
-    navigator.geolocation.getCurrentPosition(
-      position => {
-        if (identityGeneration !== startedGeneration) return;
-        state.location = { lat: position.coords.latitude, lng: position.coords.longitude };
-        state.message = "Localização autorizada nesta sessão."; state.error = ""; render();
-      },
-      () => {
-        if (identityGeneration !== startedGeneration) return;
-        state.error = "Não foi possível obter o GPS. Você pode escolher um profissional manualmente."; render();
-      },
-      { enableHighAccuracy: false, maximumAge: 60000, timeout: 12000 }
-    );
+    const page = state.page;
+    const current = () => version === gpsRequestVersion &&
+      identityGeneration === startedGeneration && state.page === page &&
+      document.visibilityState !== "hidden" && !state.loading;
+    // Nunca reutilizar uma coordenada antiga depois de uma nova tentativa.
+    state.location = null; state.error = ""; state.message = "";
+    const failure = message => {
+      if (!current()) return;
+      gpsRequestVersion++;
+      state.location = null; state.message = ""; state.error = message; render();
+    };
+    const unavailable = "Não foi possível obter o GPS. Você pode escolher um profissional manualmente.";
+    if (!navigator.geolocation) {
+      failure("Este dispositivo não oferece geolocalização."); return;
+    }
+    // Não reconstruir um formulário preenchido no início de uma tentativa.
+    if (!["request-form", "f3-tow"].includes(page)) render();
+    try {
+      navigator.geolocation.getCurrentPosition(
+        position => {
+          if (!current()) return;
+          const lat = position?.coords?.latitude, lng = position?.coords?.longitude;
+          if (!Number.isFinite(lat) || !Number.isFinite(lng) ||
+              Math.abs(lat) > 90 || Math.abs(lng) > 180) {
+            failure(unavailable); return;
+          }
+          gpsRequestVersion++;
+          state.location = { lat, lng };
+          state.message = "Localização autorizada nesta sessão."; state.error = ""; render();
+        },
+        () => failure(unavailable),
+        { enableHighAccuracy: false, maximumAge: 0, timeout: 12000 }
+      );
+    } catch (_error) { failure(unavailable); }
   }
   async function submitForm(form, fn) {
     if (state.loading) return;
@@ -990,7 +1018,7 @@
     }
     if (action === "detail") { state.selected = id; nav("detail"); return; }
     if (action === "select-provider") { requestContextVersion++; state.requestKey = null; state.uploadedPhotoKey = null; state.uploadedPhotoSignature = null; state.requestSignature = null; state.selected = id; state.mode = "manual"; nav("request-form"); return; }
-    if (action === "mode") { state.mode = target.dataset.mode; render(); return; }
+    if (action === "mode") { if (state.mode !== target.dataset.mode) gpsRequestVersion++; state.mode = target.dataset.mode; render(); return; }
     if (action === "automatic") {
       const list = available().filter(p => Number.isFinite(distance(p))).sort((a, b) => distance(a) - distance(b));
       if (!list.length) { state.error = "Não há prestadores delivery com coordenadas verificadas próximos para esta simulação."; render(); return; }
@@ -1298,6 +1326,7 @@
       ensureSession();
       // O GPS é capturado no momento da confirmação; respostas tardias não
       // alteram a localização de um pedido já submetido.
+      gpsRequestVersion++; // Invalidar leitura ainda em andamento antes do envio.
       const requestLatitude = state.location?.lat ?? null;
       const requestLongitude = state.location?.lng ?? null;
       const photoSignature = [photo.name, photo.size, photo.lastModified, photo.type].join("|");
@@ -1408,9 +1437,10 @@
   window.setInterval(sendPresenceHeartbeat,30000);
   document.addEventListener("visibilitychange", () => {
     invalidatePhotoScreen();
-    if (document.visibilityState !== "hidden") sendPresenceHeartbeat();
+    if (document.visibilityState === "hidden") gpsRequestVersion++;
+    else sendPresenceHeartbeat();
   });
-  window.addEventListener?.("pagehide", invalidatePhotoScreen);
+  window.addEventListener?.("pagehide", () => { gpsRequestVersion++; invalidatePhotoScreen(); });
   db.auth.onAuthStateChange((_event, session) => {
     // Apenas limpar memória dentro do callback de Auth; chamadas ao Supabase depois.
     if (transitionAccount(session?.user || null)) {
