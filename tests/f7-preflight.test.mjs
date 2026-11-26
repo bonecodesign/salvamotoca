@@ -98,3 +98,83 @@ test('F7: chave nao publicavel ou destino diferente de Supabase falha sem expor 
   assert.ok(!JSON.stringify(r).includes('invalid_demo_value'));
  }
 });
+
+
+// Execute the actual worker in an isolated harness, with no browser or network.
+async function workerHarness({failInstall=false,privateInstall=false}={}){
+ const {runInNewContext}=await import('node:vm');
+ const handlers={},stores=new Map(),calls=[];
+ const scope='https://example.invalid/salvamotoca/';
+ const cacheName='salva-motoca-static-f7-v1';
+ stores.set('salva-motoca-static-f3-draft-v3',new Map([['private-response','legacy']]));
+ stores.set('unrelated-cache',new Map());
+ let offline=false;
+ const caches={
+  open:async name=>{
+   if(!stores.has(name))stores.set(name,new Map());
+   const store=stores.get(name);
+   return {put:async(url,r)=>store.set(url,r),match:async url=>store.get(url)};
+  },
+  keys:async()=>[...stores.keys()],
+  delete:async name=>stores.delete(name)
+ };
+ const fetch=async (input,options)=>{
+  const url=typeof input==='string'?input:input.url;
+  calls.push({url,options});
+  if(offline||failInstall&&url.endsWith('styles.css'))throw Error('offline');
+  return new Response('static fixture',{headers:privateInstall&&url.endsWith('index.html')?{'Cache-Control':'private, no-store'}:{}});
+ };
+ const self={registration:{scope},addEventListener:(name,fn)=>handlers[name]=fn,
+  skipWaiting:async()=>{},clients:{claim:async()=>{}}};
+ runInNewContext(readFileSync(resolve(root,'sw.js'),'utf8'),{self,caches,fetch,URL,Response});
+ const lifecycle=name=>{let pending;handlers[name]({waitUntil:p=>pending=p});return pending;};
+ const request=(url,options={})=>{
+  let response;
+  handlers.fetch({request:new Request(url,options),respondWith:p=>response=p});
+  return response;
+ };
+ return {lifecycle,request,calls,stores,cacheName,scope,setOffline:()=>offline=true};
+}
+test('PWA: public shell only, credential-free install and cleanup of legacy cache',async()=>{
+ const h=await workerHarness();
+ await h.lifecycle('install');
+ assert.equal(h.calls.length,14);
+ assert.ok(h.calls.every(x=>x.options.credentials==='omit'&&x.options.redirect==='error'));
+ assert.equal(h.stores.get(h.cacheName).size,14);
+ await h.lifecycle('activate');
+ assert.equal(h.stores.has('salva-motoca-static-f3-draft-v3'),false);
+ assert.equal(h.stores.has('unrelated-cache'),true);
+});
+test('PWA: private API paths, dynamic queries, authorization and writes never enter worker cache',async()=>{
+ const h=await workerHarness();await h.lifecycle('install');
+ for(const [path,options] of [
+  ['api/private',{}],['index.html?session=fixture',{}],['index.html',{headers:{Authorization:'fixture'}}],
+  ['index.html',{headers:{Range:'bytes=0-8'}}],['index.html',{cache:'no-store'}],
+  ['index.html',{method:'POST'}],['https://outside.invalid/index.html',{}]
+ ]){
+  assert.equal(h.request(new URL(path,h.scope).href,options),undefined);
+ }
+ assert.equal(h.calls.length,14);
+ assert.equal(h.stores.get(h.cacheName).size,14);
+});
+test('PWA: network responses never replace the public cache; offline fallback is static only',async()=>{
+ const h=await workerHarness();await h.lifecycle('install');
+ const url=h.scope+'index.html',original=h.stores.get(h.cacheName).get(url);
+ assert.equal((await h.request(url)).status,200);
+ assert.equal(h.stores.get(h.cacheName).get(url),original);
+ h.setOffline();
+ assert.equal(await h.request(url),original);
+ assert.equal(h.request(h.scope+'api/private'),undefined);
+ h.stores.get(h.cacheName).delete(url);
+ const missing=await h.request(url);
+ assert.equal(missing.status,503);
+ assert.equal(missing.headers.get('Cache-Control'),'no-store');
+});
+test('PWA: failed or private shell install is rejected without leaving a partial cache',async()=>{
+ for(const options of [{failInstall:true},{privateInstall:true}]){
+  const h=await workerHarness(options);
+  await assert.rejects(h.lifecycle('install'));
+  assert.equal(h.stores.has(h.cacheName),false);
+  assert.equal(h.stores.has('unrelated-cache'),true);
+ }
+});
