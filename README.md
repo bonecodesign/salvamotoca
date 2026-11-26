@@ -1,6 +1,6 @@
 # Salva Motoca! Oficial
 
-Marketplace de borracharias, borracharia delivery e reboque de motos para motociclistas e motoboys. **Operação inicial: Belo Horizonte e região metropolitana de MG.**
+Marketplace de borracharias, borracharia delivery e reboque de motos para motociclistas e motoboys. **Praça inicial aprovada: Belo Horizonte, Contagem e Betim (MG), ainda sem operação comercial.**
 
 > **Status: MVP em desenvolvimento — não utilizar para solicitar atendimentos reais ou emergenciais.** O sistema ainda não processa pagamentos nem garante disponibilidade de profissionais.
 
@@ -10,7 +10,7 @@ Marketplace de borracharias, borracharia delivery e reboque de motos para motoci
 - Atendimento de borracheiro no local e reboque de motos mediante orçamento e pagamento na plataforma.
 - Escolha do profissional ou busca automática por proximidade/disponibilidade.
 - Comunicação dentro do aplicativo, sem divulgação pública de telefone/WhatsApp.
-- Comissão de **15%** da plataforma sobre serviços delivery e reboque pagos. Consultar o mapa e ir diretamente à borracharia é gratuito, sem comissão.
+- Política comercial interna vigente (SM-DEC-045/046): **10% sobre o serviço pagos pelo solicitante e 10% descontados do prestador**, materiais inclusos na base de serviço; deslocamento separado e processamento pago pelo cliente. Cobranças ainda desativadas. Consultar o mapa e ir diretamente à borracharia é gratuito, sem comissão.
 - Cadastro e verificação dos prestadores antes de aparecerem no mapa.
 - Desenvolvimento priorizando ferramentas gratuitas e custos iniciais mínimos.
 
