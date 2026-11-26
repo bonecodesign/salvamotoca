@@ -625,7 +625,7 @@ test("F1: latitude fora do intervalo é recusada",async()=>{
 });
 
 test("Presença: desconexão deixa status não confirmado e reconexão exige resposta nova",async()=>{
-  const h=makeHarness({providerSession:true});await h.navigate("profile");
+  const h=makeHarness({providerSession:true});await flush();await h.navigate("profile");
   assert.match(h.container.innerHTML,/🟢 Online/);
   const old=h.ping();assert.equal(h.pingCount(),1);
   await h.network(false);
@@ -639,7 +639,7 @@ test("Presença: desconexão deixa status não confirmado e reconexão exige res
   assert.match(h.container.innerHTML,/🟢 Online/);
 });
 test("Presença: retorno da sessão anterior não interrompe o prestador da nova conta",async()=>{
-  const h=makeHarness({providerSession:true});await h.navigate("profile");
+  const h=makeHarness({providerSession:true});await flush();await h.navigate("profile");
   const old=h.ping();assert.equal(h.pingCount(),1);
   await h.switchUser("22222222-2222-4222-8222-222222222222");await h.navigate("profile");
   const fresh=h.ping();assert.equal(h.pingCount(),2);
@@ -650,7 +650,7 @@ test("Presença: retorno da sessão anterior não interrompe o prestador da nova
   assert.match(h.container.innerHTML,/🟢 Online/);
 });
 test("Presença: erro de servidor não é confirmação online e false remove disponibilidade",async()=>{
-  const h=makeHarness({providerSession:true});await h.navigate("profile");
+  const h=makeHarness({providerSession:true});await flush();await h.navigate("profile");
   const first=h.ping();h.resolvePing(0,null,{message:"Rede indisponível"});await first;
   assert.match(h.container.innerHTML,/Disponibilidade não confirmada/);
   const second=h.ping();h.resolvePing(1,false);await second;
