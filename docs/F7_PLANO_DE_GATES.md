@@ -109,3 +109,7 @@ Listagem completa do cofre Dropbox privado correto confirma a presença do ciphe
 ## Referência executiva de implantação
 
 O [roadmap FND-07](fundacao/07_PLANO_DE_IMPLANTACAO.md) v0.2 consolida as dependências humanas e os critérios de aceite em seis passos. README, FND-04 e FND-05 foram reconciliados com SM-DEC-045–054. O modelo econômico usa serviço com materiais inclusos, taxa individual de 10%, deslocamento fora da base e processamento separado; não estabelece receita realizada ou disponibilidade financeira. A área aprovada não autoriza ampliar automaticamente um piloto. Nenhuma promoção de gate ou mudança de flags. RELEASE=NO_GO.
+
+## Fonte de produto e política de cancelamento
+
+A especificação PRODUTO_OFICIAL, o plano FND-02 e a minuta JUR-04 foram reconciliados com as decisões registradas SM-DEC-035 e 045–050: política 10% + 10%, materiais inclusos, área e raios aprovados, destino externo condicionado de reboque, cancelamento e mediação. Os limites históricos do piloto SM-DEC-029 não são ampliados automaticamente. A correção documental não homologa PSP, contrato, segurança hospedada nem autoriza operação. RELEASE=NO_GO.
