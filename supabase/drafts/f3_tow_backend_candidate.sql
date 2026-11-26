@@ -225,6 +225,12 @@ begin
      and cap.tie_down_points>=2 and cap.max_moto_kg>=p_weight_kg
    where p.id=p_selected_provider and p.status='approved' and p.is_active
  ) then raise exception 'Prestador manual não homologado para reboque.'; end if;
+ -- Serializa chamadas concorrentes da mesma chave antes de consultar a linha.
+ -- FOR UPDATE não bloqueia uma linha ainda inexistente. O lock transacional
+ -- é liberado no commit/rollback; colisões do hash apenas serializam outras chaves.
+ -- Em READ COMMITTED a consulta seguinte enxerga a gravação da primeira chamada.
+ perform pg_catalog.pg_advisory_xact_lock(
+   pg_catalog.hashtextextended('sm:f3:create:'||p_request_key::text,0));
  -- Em reenvios, somente payload estritamente idêntico pode retornar o ID.
  select r.id,r.customer_id,r.photo_path,r.service_types,r.motorcycle_brand,
     r.motorcycle_model,r.motorcycle_year,r.problem_description,r.provider_id,r.f2_mode,

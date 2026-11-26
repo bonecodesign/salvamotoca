@@ -8,6 +8,7 @@ on:
       - 'tests/f3-*.js'
       - 'tests/f3-*.sql'
       - 'tests/f3-rollback-guard.sh'
+      - 'tests/f3-request-concurrency.sh'
       - 'supabase/drafts/f3_tow_backend_candidate.sql'
       - 'supabase/rollback/f3_only_if_empty.sql'
       - 'live-app-current.js'
@@ -24,6 +25,7 @@ on:
       - 'tests/f3-*.js'
       - 'tests/f3-*.sql'
       - 'tests/f3-rollback-guard.sh'
+      - 'tests/f3-request-concurrency.sh'
       - 'supabase/drafts/f3_tow_backend_candidate.sql'
       - 'supabase/rollback/f3_only_if_empty.sql'
       - 'live-app-current.js'
@@ -99,6 +101,8 @@ jobs:
         run: psql -X -v ON_ERROR_STOP=1 -f supabase/drafts/f3_tow_backend_candidate.sql
       - name: Ensaio de segurança, orçamento e direitos com usuários sintéticos
         run: psql -X -v ON_ERROR_STOP=1 -f tests/f3-stage-rls.sql
+      - name: Concorrência real de criação F3 com mesma chave
+        run: bash tests/f3-request-concurrency.sh
       - name: Confirmar gates fechados após rollback dos testes
         run: |
           psql -X -v ON_ERROR_STOP=1 -Atqc "select not enabled from private.f3_release_gate where singleton" | grep -qx t
