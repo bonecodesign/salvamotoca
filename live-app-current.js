@@ -75,6 +75,51 @@
     state.message = ""; state.error = ""; state.page = "home";
     return true;
   }
+  // Recibo mínimo por conta, somente identificador aleatório. Nada de foto,
+  // endereço, GPS, texto, token ou payload. Nunca reenviar automaticamente.
+  const RECEIPT_PREFIX = "sm:pending-request:v1:";
+  const receiptId = /^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$/i;
+  function pendingReceipt(uid) {
+    if (!receiptId.test(uid || "")) throw new Error("Conta inválida para conferir o recibo.");
+    try {
+      const key = window.localStorage.getItem(RECEIPT_PREFIX + uid);
+      if (key !== null && !receiptId.test(key)) throw new Error("invalid");
+      return key;
+    } catch (_error) {
+      throw new Error("Recibo local indisponível. Confira Meus pedidos antes de tentar novamente.");
+    }
+  }
+  function checkPendingReceipt(uid, key) {
+    const pending = pendingReceipt(uid);
+    if (pending && pending !== key)
+      throw new Error("Existe um envio sem confirmação. Confira Meus pedidos antes de criar outro.");
+  }
+  function savePendingReceipt(uid, key) {
+    if (!receiptId.test(key || "")) throw new Error("Identificador de envio inválido.");
+    checkPendingReceipt(uid, key);
+    try {
+      window.localStorage.setItem(RECEIPT_PREFIX + uid, key);
+      if (pendingReceipt(uid) !== key) throw new Error("write");
+    } catch (_error) {
+      throw new Error("Não foi possível guardar o recibo local. O pedido não foi enviado.");
+    }
+  }
+  function clearPendingReceipt(uid, key) {
+    // Falha de limpeza não muda o fato de o pedido ter sido confirmado.
+    try {
+      if (pendingReceipt(uid) === key) window.localStorage.removeItem(RECEIPT_PREFIX + uid);
+    } catch (_error) { /* manter consulta de recuperação como fallback */ }
+  }
+  function receiptNotice() {
+    if (!state.user || config.f1TestRequestsEnabled !== true) return "";
+    try {
+      if (!pendingReceipt(state.user.id)) return "";
+    } catch (_error) {
+      return '<div class="notice bad">Recibo local indisponível. Confira os pedidos no servidor.</div>';
+    }
+    return '<div class="notice" role="status">Há um envio sem confirmação neste dispositivo. Confira antes de criar outro pedido. Nenhum reenvio automático será feito.' +
+      '<button class="btn outline sm" data-action="check-pending-request">Conferir envio</button></div>';
+  }
   const esc = value => String(value ?? "").replace(/[&<>"']/g, ch =>
     ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[ch]);
   const amount = cents => (Number(cents) / 100).toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
@@ -530,6 +575,7 @@
       '<button class="btn" data-page="login">Entrar</button>';
     return header("Pedidos e orçamentos", "Ambiente de testes. Nenhuma cobrança ou atendimento real está ativo.") +
       '<button class="btn outline sm" data-action="reload">Atualizar pedidos</button>' +
+      receiptNotice() +
       (state.orders.length ? state.orders.map(o => {
         const q = state.quotes.filter(x => x.request_id === o.id).sort((a,b) => String(a.created_at).localeCompare(String(b.created_at)));
         const activeQuote = q.find(item => item.status === "proposed" && item.provider_id === o.provider_id);
@@ -848,6 +894,44 @@
     const action = target.dataset.action, id = target.dataset.id;
     if (action === "gps") { locate(); return; }
     if (action === "reload") { await allRefresh(); return; }
+    if (action === "check-pending-request") {
+      if (state.loading || state.page !== "orders" || !state.user ||
+          config.f1TestRequestsEnabled !== true) return;
+      const uid = state.user.id, generation = identityGeneration;
+      const current = () => identityGeneration === generation && state.user?.id === uid &&
+        state.page === "orders";
+      state.loading = true;
+      try {
+        const key = pendingReceipt(uid);
+        if (!key) return;
+        const photoPath = F1.makePhotoPath(uid, key);
+        const result = await db.from("service_requests").select("id")
+          .eq("customer_id", uid).eq("photo_path", photoPath).maybeSingle();
+        if (!current()) return;
+        if (result.error) throw result.error;
+        if (!result.data?.id) {
+          state.error = "O envio ainda não foi localizado. Isso não prova que falhou. Não crie outro pedido; confira novamente ou procure o suporte.";
+          state.message = ""; return;
+        }
+        clearPendingReceipt(uid, key);
+        state.error = ""; state.message = "Pedido localizado no servidor. Não é necessário reenviar.";
+        try { await refreshIdentity(); }
+        catch (_error) {
+          if (current()) state.error = "Pedido localizado, mas a lista não pôde ser atualizada.";
+        }
+      } catch (_error) {
+        if (current()) {
+          state.error = "Não foi possível conferir o envio. Nenhum novo pedido foi criado.";
+          state.message = "";
+        }
+      } finally {
+        if (identityGeneration === generation && state.user?.id === uid) {
+          state.loading = false;
+          if (current()) render();
+        }
+      }
+      return;
+    }
     if (action === "toggle-presence") {
       if (state.loading || !state.user || !state.ownProvider || navigator.onLine === false) return;
       invalidatePresencePing();
@@ -1162,6 +1246,7 @@
         (state.uploadedPhotoKey === state.requestKey &&
          state.uploadedPhotoSignature !== signature))
         throw new Error("Os dados ou a foto mudaram após o envio. Reinicie o formulário.");
+      checkPendingReceipt(uid, state.requestKey);
       const photoPath = F1.makePhotoPath(uid,state.requestKey);
       if (state.uploadedPhotoKey !== state.requestKey) {
         const jpeg = await preparePrivatePhoto(file);
@@ -1184,6 +1269,8 @@
         state.uploadedPhotoSignature = signature;
       }
       ensureSession();
+      const submittedKey = state.requestKey;
+      savePendingReceipt(uid, submittedKey);
       const result = await db.rpc("f3_create_tow_request",{
         p_request_key:state.requestKey,p_photo_path:photoPath,
         p_brand:request.motorcycle.brand,p_model:request.motorcycle.model,
@@ -1199,6 +1286,7 @@
       });
       ensureSession();
       if (result.error) throw result.error;
+      clearPendingReceipt(uid, submittedKey);
       // RPC confirmada: atualizar a lista é outra operação, que pode falhar
       // sem transformar a criação já confirmada em uma tentativa de reenvio.
       state.requestKey=null;state.requestSignature=null;
@@ -1378,6 +1466,7 @@
       }
       if (state.requestSignature !== draftSignature)
         throw new Error("Os dados do pedido mudaram durante uma tentativa anterior. Volte à lista e selecione o prestador novamente."); 
+      checkPendingReceipt(requestUserId, state.requestKey);
       const path = F1.makePhotoPath(requestUserId, state.requestKey);
       if (state.uploadedPhotoKey !== state.requestKey) {
         const jpeg = await preparePrivatePhoto(photo);
@@ -1416,6 +1505,8 @@
       // Coluna F2 só deve ser enviada depois de schema e flags homologados.
       if (f2Active()) requestInsert.f2_mode =
         state.mode === "automatic" ? "automatic" : "manual";
+      const submittedKey = state.requestKey;
+      savePendingReceipt(requestUserId, submittedKey);
       const inserted = await db.from("service_requests").insert(requestInsert);
       ensureSession();
       if (inserted.error && inserted.error.code !== "23505") throw inserted.error;
@@ -1427,6 +1518,7 @@
         ensureSession();
         if (already.error || !already.data) throw new Error("Não foi possível confirmar o pedido repetido. Verifique Meus pedidos.");
       }
+      clearPendingReceipt(requestUserId, submittedKey);
       // A criação foi confirmada pelo servidor (ou pelo recibo sob RLS).
       // Não reabrir o formulário se a leitura posterior da lista falhar.
       state.requestKey = null; state.uploadedPhotoKey = null; state.uploadedPhotoSignature = null; state.requestSignature = null;
