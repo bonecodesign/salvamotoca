@@ -17,6 +17,8 @@
  const endpoint="/"+role+"/";
  const actions=[...document.querySelectorAll("[data-action]")];
  function render(){
+  // In-memory pending state also covers unavailable browser storage.
+  document.body.dataset.operationPending=String(!!pending||!!recoverId);
   const s=current;
   $("stage").textContent=s?(s.sessionStatus||"Sem acesso"):"Situação indisponível";
   $("completion").textContent=s?.completionStatus||"";
