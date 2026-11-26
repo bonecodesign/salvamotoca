@@ -1,8 +1,8 @@
 # FND-04 — Manual operacional do piloto
 
-**Versão:** 0.1 — procedimentos internos, não vigentes em atendimento público.  
-**Praça inicial:** Belo Horizonte, MG.  
-**Escopo:** reparo de pneus de motocicletas em borracharia e delivery intermediado.
+**Versão:** 0.2 — procedimentos internos, não vigentes em atendimento público.  
+**Praça inicial aprovada:** Belo Horizonte, Contagem e Betim, MG (SM-DEC-048).  
+**Escopo:** mapa gratuito, reparo delivery e reboque intermediados; destino externo de reboque somente mediante concordância, disponibilidade e orçamento prévio.
 
 ## 1. Papéis e responsabilidades operacionais
 
@@ -31,9 +31,9 @@
 
 **Antes de enviar:** interface informa claramente que mapa é gratuito e que atendimento delivery é serviço pago quando houver integração e disponibilidade. Em teste, exibir aviso inequívoco de que nenhuma assistência real está sendo prestada.
 
-**Dados mínimos do pedido:** categoria, descrição do problema, dados necessários da moto, região aproximada, endereço detalhado protegido e identificador único/idempotente. Não armazenar mais GPS que o necessário.
+**Dados mínimos do pedido:** uma ou mais categorias compatíveis, descrição, foto do problema, marca, modelo e ano da moto, região aproximada, endereço detalhado protegido e identificador único/idempotente. Não armazenar mais GPS que o necessário.
 
-**Elegibilidade:** cadastro aprovado, serviço delivery ativo, toggle online voluntário, heartbeat recente, mesma área de atendimento quando configurada. Se nenhum elegível: informar indisponibilidade, sem cobrar, e oferecer encerrar/retentar depois.
+**Elegibilidade:** cadastro aprovado, todos os serviços solicitados habilitados, online voluntário, heartbeat recente e cobertura declarada; busca progressiva 5/15/60 km, respeitando a praça e elegibilidade. Se nenhum elegível: informar indisponibilidade, sem cobrar, e oferecer encerrar/retentar depois.
 
 ## 4. Fluxo de propostas e fila
 
@@ -47,7 +47,7 @@
 8. **Encerramento:** o cliente pode encerrar solicitações de teste em estados permitidos; `cancelled` preserva trilha histórica.
 9. **Novo pedido:** recebe outro ID; todas as recusas começam em zero. A administração pode suspender um profissional por razões independentes da fila, com motivação e revisão.
 
-**Se o próprio prestador rejeitar pedido ou ficar offline após atribuição:** política de expiração e reencaminhamento ainda deve ser implementada e aprovada; não equiparar recusa do prestador à recusa do orçamento pelo cliente.
+**Se o próprio prestador rejeitar pedido ou ficar offline após atribuição:** aplicar reencaminhamento apenas na fase elegível e de acordo com regra validada; não equiparar recusa do prestador à recusa do orçamento pelo cliente. Após pagamento ou despacho, encaminhar a suporte quando necessário; não cobrar novamente nem redistribuir automaticamente.
 
 ## 5. Estados de disponibilidade
 
@@ -55,13 +55,13 @@
 - Online manual com heartbeat atualizado: apto a novos pedidos, se habilitado.
 - Sem heartbeat por cerca de 90 segundos: inelegível para novo despacho; preservar pedidos anteriores.
 - Alternância frequente: monitorar eventual abuso sem punir automaticamente por problemas de conexão.
-- Prazos de resposta e tratamento de pedido abandonado: **a definir**. Não inventar SLA.
+- Convite e orçamento: janela de 5 minutos conforme SM-DEC-019/030; 10 ausências em 30 dias encaminhadas à revisão, falhas de entrega não contam e não há sanção automática. Notificações reais pendentes; não anunciar SLA.
 
 ## 6. Atendimento real — roteiro futuro sujeito a homologação
 
-**Antes do deslocamento:** validação de pagamento, confirmação explícita da disponibilidade e liberação mínima necessária do endereço. Mensagem de saída do profissional apenas após autorização.
+**Antes do deslocamento:** validação de pagamento pelo servidor/PSP, chat interno após pagamento confirmado, confirmação de disponibilidade e liberação mínima necessária do endereço. Mensagem de saída apenas após autorização.
 
-**Durante:** estados "a caminho", "cheguei", "em execução" e "concluído" ainda dependem de implementação e teste. Não permitir marcar conclusão sem evidência apropriada e confirmação/contestação conforme política.
+**Durante:** fluxo candidato testado offline; rastreamento consentido do profissional somente durante deslocamento até a chegada. Prestador apresenta resumo, motociclista tem 5 minutos para confirmar ou contestar; conclusão bilateral, sem aceite por silêncio. Sem homologação real.
 
 **Depois:** recibo, avaliação, abertura de disputa e prazo de suporte conforme regras comerciais finais.
 
@@ -82,7 +82,7 @@
 
 ## 8. Suporte e mediação — mínimos para lançar
 
-Criar canal acessível com protocolo, identificação de pedido, tipo de ocorrência, responsável pelo caso e trilha de decisões; proteger dados ao tratar reclamações. Definir horário de suporte e plantão de exceções antes do lançamento. Evitar resolução automatizada de incidentes que envolvam segurança, cobrança ou direitos do consumidor.
+Criar canal acessível com protocolo, identificação de pedido, tipo de ocorrência, responsável pelo caso e trilha de decisões; proteger dados ao tratar reclamações. Suporte digital recebe relatos 24h; atendimento humano de referência seg–sex 9h–18h e plantão crítico inicial pelo fundador (SM-DEC-051–053). Escala, canal, substituto/contingência e disponibilidade precisam ser comprovados antes do lançamento. Evitar resolução automatizada de incidentes que envolvam segurança, cobrança ou direitos do consumidor.
 
 ## 9. Indicadores de controle diário
 
