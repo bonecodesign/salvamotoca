@@ -13,7 +13,7 @@ export async function browserNativeJourney({root,origin,call,sql,actors,session,
  const native=new URL(origin);assert.equal(native.hostname,'127.0.0.1');assert.equal(native.protocol,'http:');
  const dir=resolve(root,'tests/fixtures/f56-browser');
  const cookies=new Map();
- const assets={'/fixture.js':['fixture.js','text/javascript'],'/admin-fixture.js':['admin-fixture.js','text/javascript'],'/fixture.css':['fixture.css','text/css']};
+ const assets={'/fixture.js':['fixture.js','text/javascript'],'/admin-fixture.js':['admin-fixture.js','text/javascript'],'/fixture.css':['fixture.css','text/css'],'/session-fixture.js':['session-fixture.js','text/javascript']};
  const rolePaths=new Set(['customer','provider','outsider','admin']);
  let base;
  function send(res,status,body,headers={}){
@@ -42,11 +42,13 @@ export async function browserNativeJourney({root,origin,call,sql,actors,session,
    if(req.socket.remoteAddress!=='127.0.0.1'||req.headers.host!==new URL(base).host)return send(res,403,'{}');
    const u=new URL(req.url,base);if(u.origin!==base||u.search||u.hash)return send(res,400,'{}');
    if(assets[u.pathname]&&req.method==='GET'){const [p,type]=assets[u.pathname];return send(res,200,readFileSync(resolve(dir,p)),{'Content-Type':type});}
-   const m=/^\/(customer|provider|outsider|admin)\/(login|state|action|snapshot|event|receipt)?$/.exec(u.pathname);
+   const m=/^\/(customer|provider|outsider|admin)\/(login|logout|state|action|snapshot|event|receipt)?$/.exec(u.pathname);
    if(!m||!rolePaths.has(m[1]))return send(res,404,'{}');
    const [,role,kind]=m;
    if(kind==='login'&&req.method==='POST'){
     if(req.headers.origin!==base||!req.headers['content-type']?.startsWith('application/x-www-form-urlencoded'))return send(res,403,'{}');
+    const previous=/^sm_fixture=([0-9a-f]{64})$/.exec(req.headers.cookie??'')?.[1];
+    if(cookies.has(previous))return send(res,409,'{}'); // Sign out before changing identity.
     const form=new URLSearchParams(await body(req));
     if(form.getAll('email').length!==1||form.getAll('password').length!==1)return send(res,400,'{}');
     const r=await post('/auth/v1/token?grant_type=password',undefined,{email:form.get('email'),password:form.get('password')});
@@ -57,13 +59,32 @@ export async function browserNativeJourney({root,origin,call,sql,actors,session,
    }
    const token=/^sm_fixture=([0-9a-f]{64})$/.exec(req.headers.cookie??'')?.[1];
    const login=cookies.get(token);const jwt=login?.jwt;
+   if(kind==='logout'&&req.method==='POST'){
+    if(req.headers.origin!==base||req.headers['content-type']?.split(';')[0].trim().toLowerCase()!=='application/json')return send(res,403,'{}');
+    let v;try{v=JSON.parse(await body(req));}catch{return send(res,400,'{}');}
+    if(!v||typeof v!=='object'||Array.isArray(v)||Object.keys(v).length!==0)return send(res,400,'{}');
+    // Invalidate local authority even if Auth logout is unavailable.
+    cookies.delete(token);
+    const clear={'Set-Cookie':'sm_fixture=; Max-Age=0; HttpOnly; SameSite=Strict; Path=/'};
+    let revoked=false;
+    if(jwt){
+     try{
+      // Auth's logout endpoint accepts scope in the query and no JSON body.
+      const r=await call('/auth/v1/logout?scope=local',{method:'POST',jwt});
+      revoked=r.status===204;
+      console.log('NATIVE_AUTH_LOGOUT_HTTP='+r.status);
+      if(r.body)await r.body.cancel();
+     }catch{console.log('NATIVE_AUTH_LOGOUT_TRANSPORT=FAIL');}
+    }
+    return send(res,200,JSON.stringify({signedOut:true,nativeRevoked:revoked}),clear);
+   }
    if(!jwt){
     if(!kind&&req.method==='GET')return html(res,'<!doctype html><html lang="pt-BR"><meta charset="utf-8"><meta name="viewport" content="width=device-width"><title>Autenticação local</title><link rel="stylesheet" href="/fixture.css"><main><h1>Entrar no ensaio Salva Motoca!</h1><form method="post" action="/'+role+'/login"><label for="email">E-mail fictício</label><input id="email" name="email" type="email" required><label for="password">Senha de teste</label><input id="password" name="password" type="password" required><button type="submit">Entrar</button></form></main></html>');
     return send(res,401,'{}');
    }
    if(!kind&&req.method==='GET'){
     const source=readFileSync(resolve(dir,role==='admin'?'admin.html':'index.html'),'utf8');
-    return html(res,source.replace('<body>','<body data-receipt-scope="'+login.scope+'">').replace('Identidade simulada','Auth local — conta fictícia').replace('Identidade de ensaio, não autenticação real.','Auth nativo local, conta de ensaio.'));
+    return html(res,source.replace('</head>','<script src="/session-fixture.js" defer></script></head>').replace('<body>','<body data-receipt-scope="'+login.scope+'">').replace('</header>','<button id="logout" type="button">Sair da sessão</button><p id="logout-status" role="status" aria-live="polite"></p></header>').replace('Identidade simulada','Auth local — conta fictícia').replace('Identidade de ensaio, não autenticação real.','Auth nativo local, conta de ensaio.'));
    }
    if(kind==='state'&&req.method==='GET')return send(res,200,JSON.stringify(await state(jwt)));
    if(kind==='snapshot'&&req.method==='GET'){
@@ -221,6 +242,61 @@ export async function browserNativeJourney({root,origin,call,sql,actors,session,
   await textIs(admin,'held','');
   await textIs(admin,'queue','Situação indisponível. Atualize a consulta.');
   console.log('NATIVE_ADMIN_STALE_STATE=PASS REVOKED_SESSION_CLEARED=PASS');
+  // Explicit logout revokes only the current native session and invalidates
+  // the proxy cookie. Preserve unrelated sessions for the same account.
+  console.log('NATIVE_LOGOUT_STEP=inspect_current_session');
+  const oldCookie=(await a.context().cookies(base)).find(c=>c.name==='sm_fixture');
+  assert.ok(oldCookie?.httpOnly);assert.equal(oldCookie.sameSite,'Strict');
+  const oldLogin=cookies.get(oldCookie.value);assert.ok(oldLogin?.jwt);
+  const sid=JSON.parse(Buffer.from(oldLogin.jwt.split('.')[1],'base64url').toString('utf8')).session_id;
+  assert.match(sid,/^[0-9a-f-]{36}$/i);
+  const othersBefore=sql("select count(*) from auth.sessions where user_id='"+actors.customer.id+"' and id<>'"+sid+"'");
+  assert.ok(Number(othersBefore)>=1,'requires another independent session');
+  console.log('NATIVE_LOGOUT_STEP=csrf_and_body_validation');
+  const csrf=await a.request.post(base+'/customer/logout',{headers:{Origin:'https://example.invalid'},data:{}});
+  assert.equal(csrf.status(),403);
+  for(const invalid of ['[]','null','{','{"unexpected":true}']){
+   const bad=await a.request.post(base+'/customer/logout',{headers:{Origin:base,'Content-Type':'application/json'},data:invalid});
+   assert.equal(bad.status(),400,'invalid logout body');
+  }
+  console.log('NATIVE_LOGOUT_STEP=verify_current_access');
+  const still=await a.request.post(base+'/customer/receipt',{headers:{Origin:base},data:{eventId:recordedId}});
+  assert.equal((await still.json()).recorded,true);
+  console.log('NATIVE_LOGOUT_STEP=explicit_logout');
+  // Capture the real HTTP result before delivering it to the page.
+  // Reading a Playwright browser Response after location.replace can race
+  // with navigation and lose its body. Do not mock the response or bypass Auth.
+  let logoutStatus,outcome;
+  await a.route('**/customer/logout',async route=>{
+   const actual=await route.fetch({maxRedirects:0});
+   logoutStatus=actual.status();
+   outcome=await actual.json();
+   await route.fulfill({response:actual});
+  },{times:1});
+  await a.locator('#logout').click();
+  await a.getByRole('button',{name:'Entrar'}).waitFor();
+  console.log('NATIVE_PROXY_LOGOUT_HTTP='+logoutStatus);
+  assert.equal(logoutStatus,200);
+  console.log('NATIVE_PROXY_LOGOUT_LOCAL='+String(outcome?.signedOut===true)+' NATIVE_PROXY_LOGOUT_REVOKED='+String(outcome?.nativeRevoked===true));
+  assert.deepEqual(outcome,{signedOut:true,nativeRevoked:true});
+  console.log('NATIVE_LOGOUT_STEP=verify_native_revocation');
+  assert.equal(sql("select count(*) from auth.sessions where id='"+sid+"'"),'0');
+  assert.equal(sql("select count(*) from auth.sessions where user_id='"+actors.customer.id+"' and id<>'"+sid+"'"),othersBefore);
+  assert.equal((await a.context().cookies(base)).filter(c=>c.name==='sm_fixture').length,0);
+  console.log('NATIVE_LOGOUT_STEP=verify_old_authority_denied');
+  const stale=await fetch(base+'/customer/state',{headers:{Cookie:'sm_fixture='+oldCookie.value},redirect:'error'});
+  assert.equal(stale.status,401);
+  const direct=await post('/rest/v1/rpc/f56_fixture_receipt',oldLogin.jwt,{p_session:session,p_event:recordedId});
+  assert.ok([400,401,403].includes(direct.status));
+  console.log('NATIVE_LOGOUT_STEP=relogin');
+  await a.locator('#email').fill(actors.customer.email);await a.locator('#password').fill(actors.customer.password);
+  await a.getByRole('button',{name:'Entrar'}).click();
+  await a.waitForSelector('#refresh');await textIs(a,'completion','support_review');
+  const newCookie=(await a.context().cookies(base)).find(c=>c.name==='sm_fixture');
+  assert.notEqual(newCookie.value,oldCookie.value);
+  assert.notEqual(await a.evaluate(()=>document.body.dataset.receiptScope),oldLogin.scope);
+  assert.equal(await a.evaluate(()=>sessionStorage.length),0);
+  console.log('NATIVE_LOGOUT=PASS NATIVE_SESSION_REVOKED=PASS OLD_COOKIE_DENIED=PASS OLD_JWT_DENIED=PASS RELOGIN=PASS CSRF_DENIED=PASS');
   assert.equal(sql('select count(*) from public.payment_records'),'0');
   assert.deepEqual(errors,[]);assert.deepEqual(external,[]);
   console.log('NATIVE_BROWSER=PASS AUTH_LOGIN=PASS ROLE_PATH_BYPASS=DENIED GPS_ERASED=PASS REVIEW_HELD=PASS REVOKED_ADMIN=DENIED REAL_PAYMENTS=0');
