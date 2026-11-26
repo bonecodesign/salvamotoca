@@ -242,6 +242,24 @@ export async function browserNativeJourney({root,origin,call,sql,actors,session,
   await textIs(admin,'held','');
   await textIs(admin,'queue','Situação indisponível. Atualize a consulta.');
   console.log('NATIVE_ADMIN_STALE_STATE=PASS REVOKED_SESSION_CLEARED=PASS');
+  // Commit a support event but lose the response just before logout.
+  // Preserve only its opaque ID in the test harness, not in a new browser session.
+  let pendingLogoutId;
+  await a.route('**/customer/action',async route=>{
+   const v=JSON.parse(route.request().postData());
+   assert.equal(v.action,'support_message');pendingLogoutId=v.eventId;
+   const actual=await route.fetch();assert.equal(actual.status(),200);
+   await route.abort('failed');
+  },{times:1});
+  await a.locator('#body').fill('Mensagem fictícia antes de sair');
+  await a.locator('[data-action="support_message"]').click();
+  await a.locator('#retry').waitFor({state:'visible'});
+  await a.waitForFunction(()=>!document.getElementById('retry').disabled);
+  assert.match(pendingLogoutId,/^[0-9a-f-]{36}$/i);
+  const eventCount=()=>sql("select count(*) from private.f56_mock_events where session_id='"+session+"' and event_id='"+pendingLogoutId+"'");
+  assert.equal(eventCount(),'1');
+  assert.deepEqual(await a.evaluate(()=>Object.values(sessionStorage)),[pendingLogoutId]);
+  assert.deepEqual(await a.evaluate(()=>Object.entries(localStorage)),[]);
   // Explicit logout revokes only the current native session and invalidates
   // the proxy cookie. Preserve unrelated sessions for the same account.
   console.log('NATIVE_LOGOUT_STEP=inspect_current_session');
@@ -297,6 +315,20 @@ export async function browserNativeJourney({root,origin,call,sql,actors,session,
   assert.notEqual(await a.evaluate(()=>document.body.dataset.receiptScope),oldLogin.scope);
   assert.equal(await a.evaluate(()=>sessionStorage.length),0);
   console.log('NATIVE_LOGOUT=PASS NATIVE_SESSION_REVOKED=PASS OLD_COOKIE_DENIED=PASS OLD_JWT_DENIED=PASS RELOGIN=PASS CSRF_DENIED=PASS');
+  // No automatic replay after login; only an explicitly known opaque ID is
+  // queried by the original actor. This does not implement ID rediscovery.
+  assert.equal(eventCount(),'1');
+  const recovered=await a.request.post(base+'/customer/receipt',{headers:{Origin:base},data:{eventId:pendingLogoutId}});
+  assert.equal(recovered.status(),200);
+  assert.deepEqual(await recovered.json(),{mockOnly:true,transferAuthorized:false,recorded:true});
+  const providerReceipt=await b.request.post(base+'/provider/receipt',{headers:{Origin:base},data:{eventId:pendingLogoutId}});
+  assert.equal(providerReceipt.status(),200);assert.equal((await providerReceipt.json()).recorded,false);
+  const outsiderReceipt=await d.request.post(base+'/outsider/receipt',{headers:{Origin:base},data:{eventId:pendingLogoutId}});
+  assert.ok([400,401,403].includes(outsiderReceipt.status()));
+  assert.equal(eventCount(),'1');
+  assert.equal(await a.evaluate(()=>sessionStorage.length),0);
+  assert.deepEqual(await a.evaluate(()=>Object.entries(localStorage)),[]);
+  console.log('NATIVE_RECEIPT_AFTER_LOGOUT=PASS KNOWN_ID_ONLY=YES AUTHOR_ISOLATION=PASS NO_AUTOMATIC_REPLAY=PASS');
   assert.equal(sql('select count(*) from public.payment_records'),'0');
   assert.deepEqual(errors,[]);assert.deepEqual(external,[]);
   console.log('NATIVE_BROWSER=PASS AUTH_LOGIN=PASS ROLE_PATH_BYPASS=DENIED GPS_ERASED=PASS REVIEW_HELD=PASS REVOKED_ADMIN=DENIED REAL_PAYMENTS=0');
