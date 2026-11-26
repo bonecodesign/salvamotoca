@@ -1,12 +1,12 @@
 # FND-02 — Plano de negócio e modelo de operação
 
-**Versão 0.2 • Planejamento interno • Piloto proposto: Belo Horizonte, MG**
+**Versão 0.3 • Planejamento interno • Praça aprovada: Belo Horizonte, Contagem e Betim (MG); escopo do piloto sujeito a confirmação**
 
 ## 1. Resumo executivo
 
 O Salva Motoca! é um marketplace em construção para o segmento de reparos de pneus de motocicletas. O produto combina um mapa gratuito de borracharias verificadas com um fluxo de solicitação delivery no local do problema. O prestador recebe chamado quando está homologado, habilitado e online; define seu próprio orçamento; o cliente aceita ou recusa. A plataforma mantém o histórico de ofertas e tenta o próximo elegível quando há recusa.
 
-**Modelo econômico aprovado internamente:** comissão de **15% sobre o valor dos serviços delivery de borracharia e reboque efetivamente pagos pelo aplicativo**. Decisão comercial aprovada pelo responsável pelo projeto em 12/11/2026 (SM-DEC-014). Sua execução depende de validação jurídica, tributária, contratual e de meios de pagamento. Consulta ao mapa e visita direta ao estabelecimento não geram comissão. O reboque já integra o produto, mas seu pagamento real e sua política comercial permanecem desativados até homologação.
+**Modelo econômico aprovado internamente (SM-DEC-045/046):** taxa de 10% sobre SERVIÇO (materiais inclusos) paga pelo solicitante e 10% descontados do prestador, para delivery e reboque; deslocamento excluído da base. Sua execução depende de validação jurídica, tributária, contratual e de meios de pagamento. Consulta ao mapa e visita direta ao estabelecimento não geram comissão. O reboque já integra o produto, mas seu pagamento real e sua política comercial permanecem desativados até homologação.
 
 ## 2. Problema e oportunidade
 
@@ -36,16 +36,16 @@ O Salva Motoca! é um marketplace em construção para o segmento de reparos de 
 1. Usuário descobre o app por busca, indicação, QR code no estabelecimento ou comunicação local.
 2. Consulta mapa sem pagar; pode optar por pedir reparo delivery.
 3. Cadastro/login e consentimentos adequados; fornece descrição do problema e informações estritamente necessárias.
-4. Prestador previamente homologado (identificação, telefone, base de atendimento, termos e serviços declarados) e online recebe chamado e responde dentro de janela a definir.
-5. Prestador apresenta orçamento discriminado: valor do serviço e deslocamento, quando aplicável; o cliente vê o total antes do aceite.
-6. Cliente aceita ou recusa; qualquer extra posterior exige novo orçamento discriminado e novo aceite. Após recusa ou ausência, a busca começa pelos prestadores homologados, online e dentro de sua área de atendimento, priorizando os mais próximos e amplia a área progressivamente quando necessário.
+4. Prestador previamente homologado (identificação, telefone, base de atendimento, termos e serviços declarados) e online recebe chamado e responde em janela de 5 minutos, condicionada à homologação de notificações.
+5. Prestador apresenta orçamento discriminado: SERVIÇO (materiais inclusos) e DESLOCAMENTO; o cliente vê o total antes do aceite.
+6. Cliente aceita ou recusa; qualquer extra posterior exige novo orçamento discriminado e novo aceite. Após recusa ou ausência, a busca começa pelos prestadores homologados, online e dentro de sua área de atendimento, priorizando os mais próximos e amplia a área progressivamente em 5, 15 e 60 km quando necessário.
 7. Ao aceitar, há etapa de pagamento protegida **ainda não implementada**; confirmar e executar serviço só depois do processamento financeiro seguro.
 8. Após o serviço, o sistema permite confirmação, eventual disputa e avaliação.
 9. Suporte revisa conflitos e fraude; dados pessoais são tratados com regras de retenção e acesso.
 
 ## 6. Canais e aquisição
 
-**Primeiro piloto:** BH e área de cobertura validada por bairros, não expansão automática para toda região metropolitana.
+**Praça inicial aprovada:** BH, Contagem e Betim, com cobertura validada e sem expansão automática; confirmar limites do piloto fechado antes de iniciá-lo. Reboque pode ter destino externo mediante aceite do prestador e orçamento.
 
 **Hipóteses de aquisição de baixo custo:** visitas institucionais a oficinas, parceria com grupos locais de motociclistas, conteúdo informativo de prevenção e segurança, sinalização voluntária nas oficinas e indicação orgânica. Publicidade e parceria remunerada exigem autorização e orçamento próprio.
 
@@ -60,7 +60,7 @@ O Salva Motoca! é um marketplace em construção para o segmento de reparos de 
 
 ## 8. Fontes de receita e custos
 
-**Receita comercial aprovada internamente:** comissão de **15% sobre o valor do serviço delivery efetivamente pago e liquidado pelo aplicativo**, sujeita a reversões em estornos e cancelamentos. **A tarifa de processamento de Pix/cartão será suportada pelo cliente, exibida separadamente e antes da confirmação.** A comissão de 15% incide somente sobre o valor do serviço, não sobre essa tarifa. Antes da operação real, formalizar base de cálculo, condições de devolução, transparência comercial, tributos, liquidação e split com apoio jurídico e contábil.
+**Receita bruta teórica aprovada internamente:** 10% + 10% sobre o serviço com materiais inclusos (SM-DEC-045/046), sujeita a reversões em estornos e cancelamentos; deslocamento excluído. **A tarifa de processamento efetivamente apurada de Pix/cartão será suportada pelo cliente, exibida separadamente e antes da confirmação.** Não integra receita de intermediação. Antes da operação real, formalizar base de cálculo, condições de devolução, transparência comercial, tributos, liquidação e split com apoio jurídico e contábil.
 
 **Custos a apurar:** processamento de pagamentos, infraestrutura, mapas e mensagens, suporte, chargebacks/fraudes, marketing, formalização jurídica, tributos, contabilidade, seguro e eventuais responsabilidades de atendimento.
 
@@ -78,7 +78,7 @@ Não há prova de margem positiva, faturamento ou cobertura de custos. Não comu
 
 ## 10. Indicadores de validação
 
-Piloto fechado em Belo Horizonte: até 15 prestadores homologados, 50 motociclistas convidados e ao menos 30 solicitações de teste. Critérios internos: 80% das solicitações com ao menos um orçamento em até 15 minutos e nenhum incidente crítico de segurança ou privacidade sem tratamento. Não são promessas públicas de serviço.
+Piloto fechado em Belo Horizonte: até 15 prestadores homologados, 50 motociclistas convidados e até 30 solicitações de teste, conforme limite histórico SM-DEC-029, sujeito à confirmação do escopo. Critérios internos: 80% das solicitações com ao menos um orçamento em até 15 minutos e nenhum incidente crítico de segurança ou privacidade sem tratamento. Não são promessas públicas de serviço.
 
 Profissionais homologados e efetivamente disponíveis; solicitações por área e horário; porcentagem que recebe ao menos um orçamento; tempo até primeira resposta; taxa de aceite; chamadas sem prestador; cancelamentos; avaliações; incidentes; custo de suporte por pedido; comissões líquidas após devoluções.
 

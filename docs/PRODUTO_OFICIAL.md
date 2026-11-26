@@ -4,7 +4,7 @@
 
 **Proposta:** conectar motociclistas a borracharias, borracheiros delivery e fornecedores de reboque de motos, em formato de marketplace.
 
-**Área inicial de operação:** Belo Horizonte (BH) e região metropolitana de Minas Gerais.
+**Praça inicial aprovada:** Belo Horizonte, Contagem e Betim (MG). Operação comercial ainda desativada. Esta especificação segue SM-DEC-045–054 do registro de decisões.
 
 ## Acesso gratuito
 
@@ -12,13 +12,13 @@ O aplicativo e a consulta ao mapa de borracharias são gratuitos. O usuário pod
 
 ## Serviços intermediados
 
-A contratação dentro da plataforma cobre **borracharia no local do problema** e **reboque de motos**, ambos sujeitos à comissão de **15%** sobre o valor do serviço pago. Um mesmo fornecedor pode atender às duas modalidades.
+A contratação dentro da plataforma cobre **borracharia no local do problema** e **reboque de motos**, ambos sujeitos à política interna de **10% sobre o serviço pagos pelo solicitante e 10% descontados do prestador**, ainda sem cobrança real. Um mesmo fornecedor pode atender às duas modalidades.
 
-O cliente pode escolher um profissional ou solicitar busca automática. O profissional informa orçamento discriminado entre serviço e deslocamento, quando aplicável; o cliente vê o total antes de aceitar. Qualquer extra posterior exige novo orçamento e novo aceite. A divisão financeira e os repasses dependem de integração homologada com um provedor de pagamentos. Quando ativada, a tarifa de processamento será um encargo do cliente, mostrada separadamente antes da confirmação; a comissão de 15% incidirá somente sobre o valor do serviço. Nesta fase, os pagamentos reais estão desativados.
+O cliente pode escolher um profissional ou solicitar busca automática. O profissional informa orçamento em duas categorias: SERVIÇO (materiais inclusos) e DESLOCAMENTO; o cliente vê o total antes de aceitar. Qualquer extra posterior exige novo orçamento e novo aceite. A divisão financeira e os repasses dependem de integração homologada com um provedor de pagamentos. Quando ativada, a tarifa de processamento será um encargo do cliente, mostrada separadamente antes da confirmação; as duas taxas de 10% incidirão somente sobre o valor do serviço, com processamento efetivamente apurado e informado antes do aceite financeiro. Nesta fase, os pagamentos reais estão desativados.
 
 ## Comunicação
 
-Telefones e links externos não são exibidos nos perfis. Chamados delivery usam fluxos de orçamento e comunicação interna.
+Telefones e links externos não são exibidos nos perfis. Chamados delivery e reboque usam comunicação interna liberada somente após pagamento confirmado.
 
 ## Profissionais e administração
 
@@ -26,17 +26,17 @@ Os prestadores se cadastram e passam por verificação antes de aparecerem como 
 
 ## Disponibilidade online e decisão sobre orçamento
 
-O prestador homologado escolhe **ficar online** ou **ficar offline**. Apenas quem oferece delivery, está habilitado e tem comunicação recente com o servidor entra na fila de novos pedidos.
+O prestador homologado escolhe **ficar online** ou **ficar offline**. Apenas prestadores homologados, habilitados para todos os serviços solicitados, online, com cobertura declarada e comunicação recente entram na fila. A busca pode receber chamados a qualquer hora, sem promessa de atendimento.
 
 - **Aceitar:** pedido fica aguardando pagamento; não há cobrança nem despacho enquanto a integração financeira não existir.
-- **Recusar:** a primeira recusa mantém o prestador elegível para outra oportunidade mais adiante na mesma rodada; após duas recusas do mesmo solicitante na mesma solicitação, fica de fora daquela rodada. O pedido segue para o próximo profissional online elegível, priorizando os mais próximos e sem retornar imediatamente ao recém-recusado. A área de busca se amplia gradualmente apenas quando necessário, respeitando sempre a área de atendimento declarada pelo prestador. Encerrar e criar novo pedido reinicia as contagens.
+- **Recusar:** a primeira recusa mantém o prestador elegível para outra oportunidade mais adiante na mesma rodada; após duas recusas do mesmo solicitante na mesma solicitação, fica de fora daquela rodada. O pedido segue para o próximo profissional online elegível, priorizando os mais próximos e sem retornar imediatamente ao recém-recusado. A busca se amplia progressivamente em 5, 15 e 60 km apenas quando necessário, respeitando a praça inicial e a cobertura declarada. Encerrar e criar novo pedido reinicia as contagens.
 - **Conexão perdida:** a presença efetiva expira automaticamente. Desligar a disponibilidade bloqueia novos pedidos e preserva os já recebidos.
 
 ## Serviços oficiais e regras comerciais
 
 1. **📍🛞 Mapa de borracharias físicas:** download, consulta e rotas gratuitos, sem comissão pela simples consulta.
-2. **🛞 Delivery de borracharia:** atendimento para reparo de pneu no local, com solicitação, comunicação, orçamento e pagamento dentro da plataforma; comissão de **15%** sobre o valor do serviço efetivamente pago. Deslocamento e tarifa de processamento não compõem essa comissão.
-3. **🚚 Reboque de motos:** remoção ou transporte com solicitação, comunicação, orçamento e pagamento dentro da plataforma; **a mesma comissão de 15%**.
+2. **🛞 Delivery de borracharia:** atendimento para reparo de pneu no local, com solicitação, comunicação, orçamento e pagamento dentro da plataforma; taxas de **10% do solicitante + 10% do prestador** sobre o valor do serviço efetivamente pago. Deslocamento e tarifa de processamento não compõem essa comissão.
+3. **🚚 Reboque de motos:** remoção ou transporte com solicitação, comunicação, orçamento e pagamento dentro da plataforma; **a mesma política de 10% + 10%**.
 
 O prestador pode oferecer uma ou ambas as modalidades pagas em um único cadastro, com oferta, preço, disponibilidade e cobertura independentes.
 
@@ -82,24 +82,24 @@ O pedido só é oferecido a prestadores que declararam atender os serviços sele
 
 - O reboque usa o mesmo ciclo da borracharia: solicitação, orçamento, pagamento, chat, rastreamento, chegada, comprovação, confirmação e avaliação.
 - Antes de ficar elegível, o prestador de reboque declara sua capacidade e equipamento compatíveis com motocicletas.
-- Só recebe chamados de reboque compatíveis com o que declarou atender.
+- Só recebe chamados de reboque compatíveis com o que declarou atender. Destino externo à praça inicial é possível apenas mediante concordância do prestador, disponibilidade e orçamento prévio; os raios de busca não limitam a distância do transporte.
 
 ## Comissão de reboque
 
-- Sobre o valor do serviço de reboque incide comissão de **15%** para a plataforma.
+- Sobre o valor do serviço de reboque incidem as duas taxas de **10%**, uma do solicitante e outra do prestador.
 - Deslocamento, tarifa de processamento e extras não integram essa base de cálculo.
 - A regra só será ativada junto com pagamentos reais homologados.
 
 ## Controle de preços no piloto
 
 - Não há tabela fixa de preços nesta fase.
-- Prestadores definem valores de serviço, deslocamento e peças de forma discriminada; o motociclista escolhe entre os orçamentos.
+- Prestadores definem valores de serviço (materiais inclusos) e deslocamento de forma discriminada; o motociclista escolhe entre os orçamentos.
 - Valores potencialmente abusivos ou incoerentes podem ser suspensos para revisão humana.
 - A plataforma não altera preços automaticamente; haverá registro e possibilidade de contestação.
 
 ## Orçamento itemizado
 
-- Todo orçamento informa separadamente cada serviço selecionado, o **deslocamento obrigatório** e cada peça ou material.
+- Todo orçamento consolida SERVIÇO (inclui materiais, com detalhamento interno dos serviços quando necessário) e DESLOCAMENTO. Não cobrar materiais como terceira categoria.
 - O total final é exibido antes do pagamento.
 - Nenhum item adicional pode ser cobrado sem novo orçamento discriminado e novo aceite.
 
@@ -133,9 +133,9 @@ O pedido só é oferecido a prestadores que declararam atender os serviços sele
 
 ## Retenção e repasse após conclusão
 
-- Depois do pagamento, o valor fica retido pelo intermediador de pagamentos.
+- Após pagamento confirmado, a regra pretendida é condicionar a liberação financeira à conclusão bilateral; o mecanismo depende de PSP compatível e revisão jurídica. Não pressupõe escrow ou custódia garantida.
 - Com a confirmação de conclusão pelas duas partes, o repasse ao prestador é liberado.
-- A comissão de 15% incide somente sobre o serviço.
+- As taxas de 10% do solicitante e 10% do prestador incidem somente sobre o serviço.
 - Sem confirmação bilateral, não há liberação automática: o caso vai para suporte e mediação.
 - A regra só será ativada com intermediador compatível e validações jurídica, tributária e contratual.
 
@@ -163,7 +163,7 @@ O pedido só é oferecido a prestadores que declararam atender os serviços sele
 ## Piloto fechado em Belo Horizonte
 
 - Até 15 prestadores homologados e 50 motociclistas convidados.
-- Pelo menos 30 solicitações de teste.
+- Até 30 solicitações de teste (limite histórico SM-DEC-029); confirmar abrangência do piloto com a praça aprovada antes de iniciar.
 - Critério interno: 80% das solicitações devem receber ao menos um orçamento em até 15 minutos, sem incidente crítico de segurança ou privacidade sem tratamento.
 - Uma abertura maior só é considerada após revisar os resultados. Esses critérios não são promessa pública de atendimento.
 
@@ -176,7 +176,7 @@ O pedido só é oferecido a prestadores que declararam atender os serviços sele
 
 ## Confirmação e avaliação rápidas
 
-- Após o prestador enviar o resumo do serviço, o motociclista tem **5 minutos** para confirmar no aplicativo.
+- Após o prestador enviar o resumo do serviço, o motociclista tem **5 minutos** para confirmar ou contestar no aplicativo; silêncio não equivale a aceite.
 - Após confirmar, faz a avaliação do prestador.
 - Se houver divergência, aciona o chat para suporte; o chat permanece aberto até a resolução.
 
