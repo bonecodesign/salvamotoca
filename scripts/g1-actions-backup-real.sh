@@ -16,7 +16,7 @@ deny() { printf '%s\n' "G1 INTERROMPIDO: $1" >&2; exit 23; }
 [[ "${G1_BACKUP_AUTHORIZED:-}" == 'true' ]] || deny 'disparo manual não autorizado'
 [[ "${G1_CONFIRM:-}" == 'BACKUP_TESTES_SALVAMOTOCA' ]] || deny 'confirmação incorreta'
 [[ -n "${G1_SUPABASE_DB_URL:-}" ]] || deny 'sem secret da conexão'
-[[ -n "${G1_DROPBOX_ACCESS_TOKEN:-}" ]] || deny 'sem secret Dropbox'
+[[ -n "${G1_DROPBOX_OAUTH_JSON:-}" || -n "${G1_DROPBOX_ACCESS_TOKEN:-}" ]] || deny 'sem secret Dropbox'
 [[ -n "${G1_AGE_RECIPIENT:-}" ]] || deny 'sem recipient age'
 [[ "$G1_AGE_RECIPIENT" =~ ^age1[0-9a-z]{58}$ ]] || deny 'recipient age inválido'
 [[ "${G1_DROPBOX_PATH:-}" == '/backup-testes' ]] || deny 'destino Dropbox inesperado'
@@ -34,6 +34,23 @@ tmp="$(mktemp -d "$RUNNER_TEMP/g1-backup.XXXXXXXX")"
 cleanup() { rm -rf -- "$tmp"; }
 trap cleanup EXIT
 cd "$tmp"
+# Preferir OAuth renovável; configuração presente mas inválida nunca cai para token legado.
+if [[ -n "${G1_DROPBOX_OAUTH_JSON:-}" ]]; then
+  unset G1_DROPBOX_ACCESS_TOKEN
+  if ! G1_DROPBOX_ACCESS_TOKEN="$(python3 "$script_dir/g1-dropbox-oauth-refresh.py")"; then
+    deny 'renovação OAuth Dropbox recusada; conferir autorização privada'
+  fi
+  [[ -n "$G1_DROPBOX_ACCESS_TOKEN" ]] || deny 'renovação OAuth vazia'
+  # A resposta já foi validada para excluir caracteres de controle.
+  if [[ "${GITHUB_ACTIONS:-}" == true ]]; then
+    printf '::add-mask::%s\n' "${G1_DROPBOX_ACCESS_TOKEN//%/%25}"
+  fi
+  echo 'G1_DROPBOX_OAUTH_REFRESH=PASS'
+else
+  echo 'G1_DROPBOX_OAUTH_REFRESH=LEGACY_TEMPORARY_TOKEN'
+fi
+unset G1_DROPBOX_OAUTH_JSON
+export G1_DROPBOX_ACCESS_TOKEN
 # Verificar identidade EXATA do cofre privado antes de consultar o banco.
 # Upload com HTTP 200 e hash válido pode ocorrer na conta/App Folder errada.
 # SHA-256 do ID do cofre real no App Folder (sem segredo):

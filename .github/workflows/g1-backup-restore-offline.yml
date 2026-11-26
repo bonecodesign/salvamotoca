@@ -6,6 +6,8 @@ on:
       - "docs/G1_GITHUB_ACTIONS_VIABILIDADE.md"
       - ".github/workflows/g1-supabase-backup-manual.yml"
       - "scripts/g1-actions-backup-real.sh"
+      - "scripts/g1-dropbox-oauth-refresh.py"
+      - "tests/test_g1_dropbox_oauth_refresh.py"
       - "scripts/g1-validate-db-url.py"
       - "tests/test_g1_db_url_validation.py"
       - ".github/workflows/g1-postgres-auth-readonly.yml"
@@ -149,6 +151,7 @@ jobs:
         run: |
           set -euo pipefail
           bash -n scripts/g1-actions-backup-real.sh
+          python3 -m unittest discover -s tests -p 'test_g1_dropbox_oauth_refresh.py' -v
           test -f .github/workflows/g1-supabase-backup-manual.yml
           grep -q 'workflow_dispatch:' .github/workflows/g1-supabase-backup-manual.yml
           if grep -qE '^[[:space:]]*(pull_request|push|schedule|pull_request_target):' .github/workflows/g1-supabase-backup-manual.yml; then
