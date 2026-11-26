@@ -1,6 +1,6 @@
 # JUR-04 — Política de Cancelamentos, Reembolsos e Mediação — MINUTA NÃO VIGENTE
 
-**Salva Motoca! | Versão 0.1 | Revisão jurídica, consumerista e financeira obrigatória**
+**Salva Motoca! | Versão 0.2 | Revisão jurídica, consumerista e financeira obrigatória**
 
 ## Objetivo
 
@@ -18,9 +18,9 @@ Definir uma estrutura transparente de tratamento de cancelamentos, não comparec
 
 **Cancelar antes de pagamento confirmado:** em ambiente real, interromper contratação pendente sem registrar débito; conferir eventuais autorizações de pagamento pendentes pelo provedor.
 
-**Cancelar após pagamento e antes de deslocamento:** aplicar regras transparentes e direitos legais, com apuração de eventual tarifa de serviço, se juridicamente admissível e previamente informada.
+**Cancelar após pagamento e antes de deslocamento:** a política interna SM-DEC-035 prevê reembolso integral ao cliente, sujeito a revisão jurídica e homologação financeira. Não criar desconto automático por tarifa.
 
-**Cancelar após início de deslocamento:** apurar trabalho efetivamente autorizado, informação prévia do preço, direito de arrependimento quando aplicável, justificativas e responsabilidades, sem cobrança automática irreversível.
+**Cancelar após início de deslocamento:** preservar valores para mediação, sem liberação automática ao prestador; apurar trabalho autorizado, preço, direitos aplicáveis, justificativas e responsabilidades. O mecanismo financeiro depende de PSP compatível e revisão jurídica; não pressupõe custódia.
 
 **Serviço realizado ou alegadamente realizado:** tratar qualidade, desacordo com orçamento, dano e direito à correção/reparação, conforme lei e evidências, com revisão humana.
 
@@ -31,6 +31,9 @@ Definir uma estrutura transparente de tratamento de cancelamentos, não comparec
 | Orçamento recusado | Marcar recusado e procurar próximo | Não cobrar |
 | Nenhum prestador online | Informar indisponibilidade | Não cobrar |
 | Cliente encerra pedido de teste | Registrar cancelado e trilha | Não cobrar |
+| Prestador cancela após pagamento | Registrar cancelamento | Política interna: reembolso integral inclusive processamento; validar PSP e revisão jurídica |
+| Cliente cancela antes do deslocamento, após pagamento | Registrar cancelamento | Política interna: reembolso integral; validar PSP e revisão jurídica |
+| Cliente cancela após início de deslocamento | Encaminhar para mediação | Sem repasse automático |
 | Prestador não comparece | Registrar incidente, confirmar fatos e oferecer solução adequada | Analisar reembolso conforme direitos e contrato |
 | Valor cobrado diferente do aceito | Interromper cobrança adicional, registrar evidências | Corrigir/estornar quando cabível |
 | Prestador diz que cliente estava ausente | Conferir registro e versões das partes | Evitar penalização automática |
@@ -52,7 +55,7 @@ Definir uma estrutura transparente de tratamento de cancelamentos, não comparec
 
 ## 4. Política financeira a deliberar
 
-A futura regra deverá informar: etapa exata de confirmação do pagamento, prazo de captura, reserva/retensão, estorno integral ou parcial, custos de processamento, taxa de deslocamento devidamente previamente informada, responsabilidades por falhas de serviço, prazos do provedor e procedimentos de contestação.
+A política interna SM-DEC-035 orienta a minuta, mas não está vigente. A futura regra deverá informar: etapa exata de confirmação do pagamento, prazo de captura, reserva/retensão, estorno integral ou parcial, custos de processamento, taxa de deslocamento devidamente previamente informada, responsabilidades por falhas de serviço, prazos do provedor e procedimentos de contestação.
 
 Não presumir que "não reembolsável" seja juridicamente válido; analisar as situações concretas sob o CDC e a legislação de contratos digitais.
 
