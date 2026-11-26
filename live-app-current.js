@@ -120,11 +120,14 @@
     window.scrollTo(0, 0);
     // Cada sessão obtém as informações atuais ao entrar em Pedidos.
     if (page === "orders" && state.user) {
+      const generation = identityGeneration, uid = state.user.id;
+      const current = () => state.page === "orders" &&
+        identityGeneration === generation && state.user?.id === uid;
       refreshIdentity()
-        .then(() => { if (state.page === "orders") render(); })
+        .then(() => { if (current()) render(); })
         .catch(err => {
-          if (state.page === "orders") {
-            state.error = errorText(err);
+          if (current()) {
+            state.error = "Não foi possível atualizar a lista de pedidos. " + errorText(err);
             render();
           }
         });
@@ -1105,7 +1108,7 @@
       if (services.error) throw services.error;
       await refreshIdentity(); nav("profile"); state.message = "Cadastro e serviços enviados. Aguarde homologação.";
     });
-    if (form.id === "f3-request-form") submitForm(form, async data => {
+    if (form.id === "f3-request-form" && state.page === "f3-tow" && form.isConnected) submitForm(form, async data => {
       if (!f3Active() || !state.user || !window.SMRequestF1)
         throw new Error("Reboque não está homologado para envio.");
       const uid = state.user.id, generation = identityGeneration;
@@ -1195,12 +1198,13 @@
       });
       ensureSession();
       if (result.error) throw result.error;
+      // RPC confirmada: atualizar a lista é outra operação, que pode falhar
+      // sem transformar a criação já confirmada em uma tentativa de reenvio.
       state.requestKey=null;state.requestSignature=null;
       state.uploadedPhotoKey=null;state.uploadedPhotoSignature=null;
-      await refreshIdentity();
-      ensureSession();
       nav("orders");
       state.message = "Pedido de reboque de TESTE registrado. Nenhum transporte real foi acionado.";
+      render();
     });
     if (form.id === "f3-capacity-form") submitForm(form, async data => {
       if (!f3Active() || !state.user || !state.ownProvider)
@@ -1313,7 +1317,7 @@
       if (identityGeneration !== generation || state.user?.id !== uid) return;
       state.message = "Proposta F2 itemizada enviada para teste, sem pagamento.";
     });
-    if (form.id === "request-form") submitForm(form, async data => {
+    if (form.id === "request-form" && state.page === "request-form" && form.isConnected) submitForm(form, async data => {
       if (config.f1TestRequestsEnabled !== true)
         throw new Error("F1 desativada até a homologação do ambiente de testes.");
       if (!state.user || !F1) throw new Error("Faça login para criar o pedido.");
@@ -1421,9 +1425,12 @@
         ensureSession();
         if (already.error || !already.data) throw new Error("Não foi possível confirmar o pedido repetido. Verifique Meus pedidos.");
       }
+      // A criação foi confirmada pelo servidor (ou pelo recibo sob RLS).
+      // Não reabrir o formulário se a leitura posterior da lista falhar.
       state.requestKey = null; state.uploadedPhotoKey = null; state.uploadedPhotoSignature = null; state.requestSignature = null;
-      await refreshIdentity(); nav("orders");
+      nav("orders");
       state.message = "Pedido completo de TESTE registrado. Nenhum pagamento ou despacho foi realizado.";
+      render();
     });
     if (form.classList.contains("quote-form")) submitForm(form, async data => {
       const orderId = form.dataset.id;
