@@ -66,3 +66,26 @@ Cada gate só pode ser considerado `PASS` após um registro de **qual prova ocor
 Consulta SQL hospedada somente leitura: 11 migrations, 0 usuários Auth, 0 objetos Storage, 0 solicitações/prestadores/orçamentos/pagamentos, 0 tabelas públicas sem RLS, bucket de fotos privado. O advisor indicou seis RPCs legadas executáveis por authenticated (WARN, não prova de exploração) e quatro tabelas RLS sem políticas (INFO, acesso direto fechado). Não aplicar #158 remotamente sem backup recente, revisão e autorização.
 
 O novo ensaio compara a impressão digital de catálogo de nove tabelas operacionais e sete RPCs com o replay histórico: 70 colunas, 51 constraints, 24 índices, 14 políticas, 7 RPCs. O arquivo de referência contém exclusivamente contagens e hashes MD5 de definições DDL, não dados nem segredos. MD5 serve aqui para detectar diferenças acidentais, não autenticar backup. Diferenças de versão PostgreSQL, formatação de funções ou dependências podem gerar divergência; investigar antes de prosseguir, não alterar a referência para forçar aprovação. Cobertura limitada: não inclui todos os grants, triggers, Auth/Storage, dados, extensões, configurações ou segredos. Retrato pontual, não auditoria remota contínua. Backup atual, Auth/Storage hospedados, sandbox Stripe dedicado, validação jurídica e testes físicos seguem pendentes. RELEASE=NO_GO.
+
+
+## Consolidação de evidências — PRs #160–165 (25/11/2026 BRT)
+
+| PR integrado | Prova local | Limitação |
+|---|---|---|
+| [#160](https://github.com/bonecodesign/salvamotoca/pull/160) | Ensaio atômico dos 15 candidatos, duas falhas injetadas e retorno ao catálogo de referência | Não demonstra recuperação após commit hospedado |
+| [#161](https://github.com/bonecodesign/salvamotoca/pull/161) | Resposta perdida após gravação, reenvio do mesmo evento, uma mensagem, reconexão e viewport 320px | Não é teste de aparelho físico |
+| [#162](https://github.com/bonecodesign/salvamotoca/pull/162) | Recibo mínimo após recarga, isolamento do autor e nenhum conteúdo armazenado | Não recupera identificador perdido |
+| [#163](https://github.com/bonecodesign/salvamotoca/pull/163) | Logout nativo local, revogação da sessão, cookie/JWT antigos negados, novo login e CSRF negado ([CI](https://github.com/bonecodesign/salvamotoca/actions/runs/45725831431)) | Não homologa Auth hospedado |
+| [#164](https://github.com/bonecodesign/salvamotoca/pull/164) | Recibo por ID conhecido após novo login, isolamento do autor e nenhuma repetição automática ([CI](https://github.com/bonecodesign/salvamotoca/actions/runs/45726075779)) | Não implementa descoberta de IDs ou fila durável |
+| [#165](https://github.com/bonecodesign/salvamotoca/pull/165) | Aviso antes da saída, cancelamento preservando recibo, confirmação explícita e revogação; [Native](https://github.com/bonecodesign/salvamotoca/actions/runs/45726334299) e [replay](https://github.com/bonecodesign/salvamotoca/actions/runs/45726334239) aprovados | Não é interface de produção ou autorização de lançamento |
+
+O último Native registrou 89 verificações HTTP, Auth/Storage/REST locais aprovados, nenhuma escrita hospedada e nenhum pagamento real. Não somar verificações repetidas entre runs como se fossem testes distintos. G2, G3, G5 e G6 ganharam provas locais; nenhum gate remoto foi promovido. 
+
+### Próximo caminho crítico (sem repetir o histórico G1)
+
+- Reutilizar o aceite real histórico G1 (#123): arquivo cifrado em dois destinos privados e restauração independente comprovada. Para a próxima intervenção hospedada, verificar primeiro o snapshot recente, escopo e cobertura atuais; não copiar dados ou chaves para CI pública. Se houver diferença ou novo dado, exigir procedimento de backup adequado e prova de recuperação correspondente. A confirmação manual e os controles de ambiente existentes permanecem obrigatórios.
+- G2: aproveitar o roteiro de homologação privada F1 já reforçado no #142. Somente após G1 atual e autorização específica, validar usuários fictícios, bytes, expiração e limpeza com as garantias do roteiro. Não criar outro projeto.
+- Em paralelo, revisar as evidências e critérios pendentes de G4 (sandbox financeiro dedicado, sem live), Android físico e governança G7. Não confundir mais testes de fixture com conclusão desses bloqueios.
+- A proteção de rotas antigas (#158) e o ensaio atômico (#160) permanecem candidatos/ensaios; não implantar nem habilitar gates automaticamente.
+
+**Decisão:** RELEASE=NO_GO. Esta atualização documental registra provas já realizadas e prioriza o caminho crítico; não executa backup novo, não grava no Supabase hospedado nem cria serviços.
