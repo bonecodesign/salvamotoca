@@ -1,6 +1,6 @@
 # JUR-01 — Termos de Uso — MINUTA NÃO VIGENTE
 
-**Salva Motoca! | Versão preliminar 0.1 | Data: 12/11/2026**  
+**Salva Motoca! | Versão preliminar 0.2 | Data: 25/11/2026**  
 **ATENÇÃO:** texto de trabalho. Não publicar como contrato, exigir aceite de usuários ou iniciar operações comerciais sem análise jurídica, adequação ao funcionamento real, preenchimento das lacunas e aprovação formal.
 
 **Operador/empresa responsável:** [RAZÃO SOCIAL A DEFINIR]  
@@ -10,7 +10,7 @@
 
 ## 1. Objeto da plataforma
 
-O Salva Motoca! é uma plataforma digital em desenvolvimento para consulta gratuita de borracharias e, quando habilitado comercialmente, intermediação de solicitações de reparo de pneus de motocicletas no local indicado pelo usuário.
+O Salva Motoca! é uma plataforma digital em desenvolvimento para consulta gratuita de borracharias e, quando habilitado comercialmente, intermediação de solicitações de reparo de pneus de motocicletas no local indicado pelo usuário e de reboque de motocicletas.
 
 As borracharias e borracheiros que anunciam serviços podem ser terceiros independentes, mediante relação contratual a ser formalizada. As responsabilidades concretas do operador da plataforma, do prestador e de eventuais parceiros serão definidas conforme a atuação efetiva de cada um e a legislação aplicável. Nenhuma disposição destes termos exclui direitos legalmente assegurados ao consumidor.
 
@@ -32,7 +32,9 @@ O tratamento de dados pessoais será explicado em política de privacidade espec
 
 **Pedido delivery:** o usuário descreve o problema e informa a área relevante. Prestadores homologados e que optaram por estar online podem receber a solicitação. O status online não garante prontidão, chegada, preço ou execução do serviço.
 
-**Orçamento:** o prestador apresenta valor e descrição. O usuário poderá aceitar ou recusar antes da contratação. No futuro, o preço total, encargos aplicáveis, condições de serviço e etapas de pagamento deverão estar claros previamente.
+**Orçamento:** o prestador apresenta valor e descrição. O usuário poderá aceitar ou recusar antes da contratação. A proposta consolida SERVIÇO (materiais inclusos) e DESLOCAMENTO; nenhum extra será cobrado sem novo orçamento e aceite. O preço total e os encargos deverão ser discriminados antes da contratação. A solicitação prevê foto do problema, marca, modelo e ano da moto, com minimização de dados pessoais.
+
+**Cobertura proposta (SM-DEC-047–050):** origem em Belo Horizonte, Contagem ou Betim; busca progressiva de prestadores elegíveis em 5, 15 e 60 km, respeitada a cobertura declarada. Destino de reboque pode ser externo à praça, mediante disponibilidade, concordância do prestador e orçamento prévio. Busca de profissionais online a qualquer hora não significa garantia de atendimento nem de suporte humano ininterrupto.
 
 ## 5. Regras de recusa e encaminhamento
 
@@ -44,7 +46,7 @@ Essa contagem não é bloqueio permanente. Encerrado o pedido e criado outro, o 
 
 Aceitar o orçamento no ambiente de desenvolvimento somente registra a intenção do usuário e move o pedido ao estado "aguardando pagamento". A contratação financeira real só ocorrerá após habilitação do provedor e publicação de condições completas.
 
-Antes do lançamento, será definida a etapa exata em que se considera concluída a contratação, bem como os direitos de cancelamento, estorno, reparação e contestação previstos em lei.
+**Regra comercial interna SM-DEC-045/046, ainda não vigente perante usuários:** taxa do solicitante de 10% sobre SERVIÇO, comissão do prestador de 10% sobre a mesma base; deslocamento excluído da base. Processamento pago separadamente pelo cliente, somente quando apurado e informado de maneira verificável. Chat interno somente após confirmação de pagamento pelo sistema. A conclusão exige resumo e confirmação bilateral; o cliente tem janela prevista de 5 minutos para confirmar ou contestar, sem presumir aceite pelo silêncio. A liberação financeira depende de PSP homologado e condições verificadas, sem afirmar custódia ou garantia de valores. A etapa jurídica de contratação e os direitos de cancelamento, estorno, reparação e contestação continuam sujeitos a revisão.
 
 ## 7. Deveres de utilização
 
@@ -56,7 +58,7 @@ A plataforma poderá empregar medidas proporcionais de prevenção a fraudes e a
 
 ## 8. Qualidade do serviço e solução de problemas
 
-Solicitações sobre execução de serviço, preço divergente, não comparecimento, cobrança indevida ou danos serão encaminhadas ao suporte previsto em [CANAL A DEFINIR], com protocolo. Os canais e prazos deverão constar de versão final antes de qualquer atendimento real.
+Solicitações sobre execução de serviço, preço divergente, não comparecimento, cobrança indevida ou danos serão encaminhadas ao suporte previsto em [CANAL A DEFINIR], com protocolo. O modelo proposto é suporte digital com recebimento de relatos a qualquer hora e atendimento humano em horário comercial (referência seg–sex, 9h–18h) mais plantão crítico, condicionado à escala comprovada. Incidentes de segurança exigem prioridade e orientação para serviços oficiais de emergência. Disputas financeiras exigem revisão humana e bloqueio de liberação automática. Os canais, prazos e responsáveis deverão constar de versão final antes de qualquer atendimento real.
 
 O usuário mantém os direitos assegurados pelas normas aplicáveis, independentemente da descrição da plataforma como intermediadora.
 

@@ -1,6 +1,6 @@
 # JUR-03 — Instrumento de Adesão do Prestador — MINUTA NÃO VIGENTE
 
-**Salva Motoca! | Versão preliminar 0.1**
+**Salva Motoca! | Versão preliminar 0.2 | 25/11/2026**
 
 **ATENÇÃO:** este texto é um roteiro contratual, não uma proposta de contrato pronta para assinatura. Depende de revisão jurídica (inclusive trabalhista, consumerista e tributária), validação do modelo operacional e identificação das partes.
 
@@ -11,7 +11,7 @@
 
 ## 1. Finalidade da parceria
 
-A plataforma poderá divulgar prestadores homologados para consulta no mapa gratuito e, quando a contratação financeira estiver habilitada, intermediar solicitações para reparos de pneus de motocicletas no local. O serviço material é descrito e orçado pelo próprio prestador, observadas as condições legais e operacionais aplicáveis.
+A plataforma poderá divulgar prestadores homologados para consulta no mapa gratuito e, quando a contratação financeira estiver habilitada, intermediar solicitações para reparos de pneus de motocicletas no local e reboque de motocicletas. O serviço material é descrito e orçado pelo próprio prestador, observadas as condições legais e operacionais aplicáveis.
 
 Este texto não estabelece por si só a natureza trabalhista, civil ou empresarial da relação. A qualificação dependerá das condições reais de trabalho e da legislação, que prevalecerá sobre cláusulas meramente declarativas.
 
@@ -29,7 +29,7 @@ Pedidos já atribuídos exigem regra específica de desistência e reencaminhame
 
 ## 4. Preço e proposta
 
-O prestador apresentará **valor final e descrição** de cada orçamento, inclusive condições de deslocamento e insumos pertinentes. O valor e a base de eventuais acréscimos deverão ser compreensíveis para o cliente antes do aceite.
+O prestador apresentará **valor final e descrição** em duas categorias: SERVIÇO, com materiais inclusos, e DESLOCAMENTO. Materiais não constituem terceira cobrança. O prestador declara a cobertura e os equipamentos adequados; o destino externo à praça inicial de reboque exige concordância expressa e orçamento prévio. O valor e a base de eventuais acréscimos deverão ser compreensíveis para o cliente antes do aceite.
 
 Alterações de valor após a aceitação só poderão ocorrer conforme regras transparentes, com autorização específica do cliente e sem prejuízo dos direitos legais.
 
@@ -43,11 +43,11 @@ Ao encerrar e criar novo pedido, a contagem recomeça em zero. Essa regra não e
 
 O prestador deverá informar capacidades reais, agir com segurança, utilizar materiais adequados e observar requisitos legais e profissionais aplicáveis. Não deverá afirmar atendimento realizado sem execução ou tentar cobrar valores não informados/aceitos.
 
-Os critérios de tempo de resposta, cancelamento de chamados, não comparecimento, fiscalização de qualidade e eventual sanção precisam ser estabelecidos com parâmetros justos, verificáveis e juridicamente revisados.
+Parâmetros internos aprovados: convite com janela de 5 minutos; dez ausências em 30 dias encaminhadas à revisão administrativa, sem sanção automática; falhas de entrega da notificação não contam como ausência. Orçamento previsto por 5 minutos; alterações exigem novo aceite. O prestador informa deslocamento e chegada, encerra rastreamento na chegada e apresenta resumo antes de solicitar confirmação. Sem confirmação das duas partes, não há liberação automática. Critérios de execução, cancelamento, qualidade e sanções dependem de verificação e revisão jurídica.
 
 ## 7. Pagamento, comissão e repasse — A DEFINIR
 
-A **decisão comercial interna SM-DEC-014**, aprovada em 12/11/2026, estabelece comissão de **15% sobre o valor dos serviços de borracharia delivery efetivamente pagos pelo aplicativo**. A presente minuta **não transforma essa decisão em obrigação contratual vigente** antes da aprovação final e formalização pelas partes. A base de cálculo, natureza do serviço da plataforma, tarifas de pagamento, impostos, recibos, mecanismo de split, prazo de repasse, estornos e responsabilidade por chargeback deverão ser detalhados em anexo econômico revisado antes de cobranças reais.
+As decisões comerciais internas **SM-DEC-045/046**, de 16/11/2026, substituem a regra anterior de 15%. Para reparo delivery e reboque, prevê-se taxa de **10% da base de SERVIÇO (materiais inclusos) paga pelo solicitante** e **10% da mesma base deduzida do repasse ao prestador**. Deslocamento excluído da base; processamento pago separadamente pelo cliente quando comprovado pelo PSP e informado previamente. Estas regras não constituem obrigação contratual vigente. Natureza e base tributária, recibos, mecanismo de split, prazo de repasse, cancelamentos, estornos e chargebacks exigem anexo revisado, validação do provedor e aprovação formal. Não há promessa de custódia ou repasse antes da homologação.
 
 Nenhuma taxa é devida por mera consulta ao mapa ou visita direta à oficina. O sistema de testes não recebe valores e não gera direito a recebimentos reais.
 
