@@ -34,9 +34,10 @@ function makeHarness({ confirm=true, uploadFails=false, insertFails=false, f1Ena
   lostUploadResponse=false, conflictingUpload=false, delayedSignedUrl=false,
   navigateDuringUpload=false, gpsDuringUpload=false, providerSession=false,
   refreshFailsAfterInsert=false, receiptStore=new Map(), existingRequests=[],
-  nextKey=KEY, receiptStorageUnavailable=false, receiptLookupFails=false }={}) {
+  nextKey=KEY, receiptStorageUnavailable=false, receiptLookupFails=false,
+  openRequestLookupFails=false, confirmDifferentRequest=true }={}) {
   const sent={ uploads:[], requests:[], quotes:[], errors:[], signed:[], downloads:[],
-    orderSelects:[], requestFilters:[], confirmCalls:0 };
+    orderSelects:[], requestFilters:[], confirmCalls:0, duplicateWarnings:0 };
   let rejectUpload=uploadFails;
   let rejectInsert=insertFails;
   let storedDespiteLostResponse=false;
@@ -81,9 +82,16 @@ function makeHarness({ confirm=true, uploadFails=false, insertFails=false, f1Ena
         if(name==="service_requests")sent.requestFilters.push(column);
         return this;
       },
-      in(){return this;},
+      in(column,values){if(column==="status")this.statusFilter=values;return this;},
       order(){return this;},
-      limit(){return Promise.resolve({data:records[name]||[],error:null});},
+      limit(){
+        if(name==="service_requests" && this.statusFilter){
+          if(openRequestLookupFails)return Promise.resolve({data:null,error:{message:"Rede interrompida"}});
+          const rows=records[name].filter(row=>this.filters.every(([key,value])=>row[key]===value)&&this.statusFilter.includes(row.status));
+          return Promise.resolve({data:rows.slice(0,1),error:null});
+        }
+        return Promise.resolve({data:records[name]||[],error:null});
+      },
       maybeSingle(){
         if(name==="service_requests"){
           if(receiptLookupFails) return Promise.resolve({data:null,error:{message:"Consulta interrompida"}});
@@ -219,7 +227,7 @@ function makeHarness({ confirm=true, uploadFails=false, insertFails=false, f1Ena
     scrollTo(){},
     setInterval(fn){heartbeat=fn;},
     addEventListener(name,fn){winListeners[name]=fn;},
-    confirm(){sent.confirmCalls++;return confirm;},
+    confirm(message){sent.confirmCalls++;if(String(message).includes("já tem um pedido em aberto")){sent.duplicateWarnings++;return confirmDifferentRequest;}return confirm;},
     L:null
   };
   const sandbox={
@@ -736,4 +744,33 @@ test("F1: armazenamento de recibo bloqueado impede upload e criação",async()=>
 test("F1: pedido confirmado remove recibo local",async()=>{
   const h=makeHarness();await h.prepare();await h.submit(validFields());
   assert.equal(h.receiptStore.size,0);assert.equal(h.sent.requests.length,1);
+});
+
+test("F1: pedido aberto em outro dispositivo exige escolha explícita antes de criar outro",async()=>{
+  const prior={id:"dddddddd-dddd-4ddd-8ddd-dddddddddddd",customer_id:CLIENT,status:"requested"};
+  for(const confirmDifferentRequest of [false,true]){
+    const h=makeHarness({existingRequests:[prior],nextKey:NEXT_KEY,confirmDifferentRequest});
+    await h.prepare();await h.submit(validFields());
+    assert.equal(h.sent.duplicateWarnings,1);
+    assert.equal(h.sent.uploads.length,confirmDifferentRequest?1:0);
+    assert.equal(h.sent.requests.length,confirmDifferentRequest?1:0);
+    assert.equal(h.sent.confirmCalls,confirmDifferentRequest?2:1);
+  }
+});
+test("F1: pedidos encerrados ou de outra conta não geram aviso de duplicidade",async()=>{
+  const existingRequests=[
+    {id:"dddddddd-dddd-4ddd-8ddd-dddddddddddd",customer_id:CLIENT,status:"completed"},
+    {id:"ffffffff-ffff-4fff-8fff-ffffffffffff",customer_id:"22222222-2222-4222-8222-222222222222",status:"requested"}
+  ];
+  const h=makeHarness({existingRequests,nextKey:NEXT_KEY,confirmDifferentRequest:false});
+  await h.prepare();await h.submit(validFields());
+  assert.equal(h.sent.duplicateWarnings,0);
+  assert.equal(h.sent.requests.length,1);
+});
+test("F1: falha na conferência entre aparelhos impede criação e upload",async()=>{
+  const h=makeHarness({openRequestLookupFails:true});await h.prepare();
+  const form=await h.submit(validFields());
+  assert.match(form.notice.textContent,/Não foi possível conferir os pedidos em aberto/);
+  assert.equal(h.sent.confirmCalls,0);
+  assert.equal(h.sent.uploads.length,0);assert.equal(h.sent.requests.length,0);
 });
