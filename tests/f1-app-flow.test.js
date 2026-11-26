@@ -32,7 +32,8 @@ async function flush() {
 function makeHarness({ confirm=true, uploadFails=false, insertFails=false, f1Enabled=true,
   switchDuringUpload=false, duplicateAfterLostResponse=false,
   lostUploadResponse=false, conflictingUpload=false, delayedSignedUrl=false,
-  navigateDuringUpload=false, gpsDuringUpload=false, providerSession=false }={}) {
+  navigateDuringUpload=false, gpsDuringUpload=false, providerSession=false,
+  refreshFailsAfterInsert=false }={}) {
   const sent={ uploads:[], requests:[], quotes:[], errors:[], signed:[], downloads:[],
     orderSelects:[], requestFilters:[], confirmCalls:0 };
   let rejectUpload=uploadFails;
@@ -124,7 +125,13 @@ function makeHarness({ confirm=true, uploadFails=false, insertFails=false, f1Ena
       throw new Error("RPC inesperada: "+name);
     },
     auth:{
-      getSession:async()=>({data:{session:currentUserId?{access_token:"token-teste",user:{id:currentUserId}}:null},error:null}),
+      getSession:async()=>{
+        if(refreshFailsAfterInsert && records.service_requests.length>0){
+          refreshFailsAfterInsert=false;
+          return {data:null,error:{message:"Leitura da lista interrompida"}};
+        }
+        return {data:{session:currentUserId?{access_token:"token-teste",user:{id:currentUserId}}:null},error:null};
+      },
       getUser:async()=>({data:{user:currentUserId?{id:currentUserId,email:"teste@example.invalid",
         user_metadata:{display_name:"Teste"}}:null},error:null}),
       onAuthStateChange(callback){authCallback=callback;return {data:{subscription:{unsubscribe(){}}}};}
@@ -656,4 +663,22 @@ test("Presença: erro de servidor não é confirmação online e false remove di
   const second=h.ping();h.resolvePing(1,false);await second;
   assert.match(h.container.innerHTML,/⚪ Offline/);
   assert.doesNotMatch(h.container.innerHTML,/🟢 Online/);
+});
+
+test("F1: criação confirmada não vira falha de envio quando a lista não carrega",async()=>{
+  const h=makeHarness({refreshFailsAfterInsert:true});await h.prepare();
+  await h.submit(validFields());
+  assert.equal(h.sent.requests.length,1);
+  assert.equal(h.sent.uploads.length,1);
+  assert.match(h.container.innerHTML,/Pedido completo de TESTE registrado/);
+  assert.match(h.container.innerHTML,/Não foi possível atualizar a lista de pedidos/);
+  assert.doesNotMatch(h.container.innerHTML,/id="request-form"/);
+  // Um submit atrasado da tela antiga não cria novo pedido.
+  await h.submit(validFields());
+  assert.equal(h.sent.requests.length,1);
+  assert.equal(h.sent.uploads.length,1);
+  await h.reload();
+  assert.match(h.container.innerHTML,/Pedidos e orçamentos/);
+  assert.doesNotMatch(h.container.innerHTML,/Leitura da lista interrompida/);
+  assert.equal(h.sent.requests.length,1);
 });
