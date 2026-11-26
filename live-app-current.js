@@ -94,6 +94,24 @@
     if (pending && pending !== key)
       throw new Error("Existe um envio sem confirmação. Confira Meus pedidos antes de criar outro.");
   }
+  // Outra sessão/dispositivo pode ter criado um pedido sem compartilhar
+  // o recibo local. Conferir apenas o estado do próprio cliente no servidor.
+  // Não é uma restrição de um pedido por conta nem um bloqueio transacional.
+  const ACTIVE_REQUEST_STATUSES = ["requested","quoted","awaiting_payment",
+    "no_provider","accepted","in_progress"];
+  async function confirmNewRequest(uid, ensureSession) {
+    checkPendingReceipt(uid, null);
+    const result = await db.from("service_requests").select("id,customer_id,status")
+      .eq("customer_id", uid).in("status", ACTIVE_REQUEST_STATUSES).limit(1);
+    ensureSession();
+    if (result.error || !Array.isArray(result.data))
+      throw new Error("Não foi possível conferir os pedidos em aberto. Nenhum novo pedido foi enviado.");
+    const hasActive = result.data.some(row => row.customer_id === uid &&
+      ACTIVE_REQUEST_STATUSES.includes(row.status));
+    return !hasActive || window.confirm(
+      "Você já tem um pedido em aberto nesta conta, inclusive se foi criado em outro aparelho. "+
+      "Se é o mesmo problema, consulte Meus pedidos. Deseja realmente iniciar uma solicitação diferente?");
+  }
   function savePendingReceipt(uid, key) {
     if (!receiptId.test(key || "")) throw new Error("Identificador de envio inválido.");
     checkPendingReceipt(uid, key);
@@ -1220,6 +1238,8 @@
         destinationAddress:data.get("destination_address"),
         estimatedRouteKm:Number(data.get("route_km"))
       });
+      if (!state.requestKey && !(await confirmNewRequest(uid, ensureSession))) return;
+      ensureSession();
       const summary = window.SMF3Tow.publicSummary(request);
       const confirmation = [
         "PEDIDO DE REBOQUE — SOMENTE TESTE",
@@ -1432,6 +1452,8 @@
         services: data.getAll("services"), problem: data.get("problem"),
         address: data.get("address"), photo
       });
+      if (!state.requestKey && !(await confirmNewRequest(requestUserId, ensureSession))) return;
+      ensureSession();
       const confirmation = [
         "PEDIDO DE TESTE — sem atendimento real",
         "Moto: " + payload.brand + " " + payload.model + " (" + payload.year + ")",
