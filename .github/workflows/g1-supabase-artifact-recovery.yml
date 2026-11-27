@@ -77,8 +77,13 @@ jobs:
           docker run -d --rm --name "$container"             -e POSTGRES_PASSWORD="$password"             -v "$G1_TMP:/work:ro" postgres:17 >/dev/null
           until docker exec "$container" pg_isready -U postgres >/dev/null 2>&1; do sleep 1; done
 
-          docker exec -e PGPASSWORD="$password" "$container"             psql -U postgres -d postgres -v ON_ERROR_STOP=1 -c             "create extension if not exists pgcrypto; create schema if not exists auth; create function auth.uid() returns uuid language sql stable as 'select null::uuid';"
-          docker exec -e PGPASSWORD="$password" "$container"             psql -U postgres -d postgres -v ON_ERROR_STOP=1 -f /work/supabase-testes.sql >/dev/null
+          docker exec -e PGPASSWORD="$password" "$container" \
+            psql -U postgres -d postgres -v ON_ERROR_STOP=1 -c \
+            "create extension if not exists pgcrypto; create schema if not exists auth; create function auth.uid() returns uuid language sql stable as 'select null::uuid'; drop schema public cascade;"
+          # O dump lógico recria o schema public; removê-lo antes evita colisão
+          # e mantém a validação inteiramente no PostgreSQL 17 descartável.
+          docker exec -e PGPASSWORD="$password" "$container" \
+            psql -U postgres -d postgres -v ON_ERROR_STOP=1 -f /work/supabase-testes.sql >/dev/null
 
           restored_tables="$(docker exec -e PGPASSWORD="$password" "$container"             psql -U postgres -d postgres -X -tA -v ON_ERROR_STOP=1 -c             "select count(*) from pg_class c join pg_namespace n on n.oid=c.relnamespace where n.nspname='public' and c.relkind in ('r','p');")"
           [[ "$restored_tables" =~ ^[1-9][0-9]*$ ]]
