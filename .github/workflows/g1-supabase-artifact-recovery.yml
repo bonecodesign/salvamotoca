@@ -55,11 +55,11 @@ jobs:
             exit 23
           }
 
-          docker run --rm --network host -e PGSSLMODE=require -v "$tmp:/work" postgres:17             pg_dump --dbname="$G1_SUPABASE_DB_URL" --format=p --no-owner --no-privileges             --schema=public --schema=supabase_migrations --file=/work/supabase-testes.sql
+          docker run --rm --network host -e PGSSLMODE=require -v "$tmp:/work" postgres:17             pg_dump --dbname="$G1_SUPABASE_DB_URL" --format=p --no-owner --no-privileges             --schema=public --schema=private --schema=supabase_migrations --file=/work/supabase-testes.sql
 
           [[ -s "$tmp/supabase-testes.sql" ]]
           sha256sum "$tmp/supabase-testes.sql" > "$tmp/manifest.sha256"
-          printf '%s\n'             "project_ref=yivkqyjdeouxnwtwfekc"             "environment=TESTES"             "backup_kind=logical_sql"             "storage_objects=0"             "storage_physical_bytes_included=false"             "auth_managed_schema_included=false"             "restore_target=postgresql_17_disposable"             > "$tmp/manifest.txt"
+          printf '%s\n'             "project_ref=yivkqyjdeouxnwtwfekc"             "environment=TESTES"             "backup_kind=logical_sql"             "storage_objects=0"             "storage_physical_bytes_included=false"             "auth_managed_schema_included=false"             "included_schemas=public,private,supabase_migrations"             "restore_target=postgresql_17_disposable"             > "$tmp/manifest.txt"
 
       - name: "Restaurar e validar no PostgreSQL 17 descartável"
         shell: bash
