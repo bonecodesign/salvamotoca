@@ -82,9 +82,7 @@ jobs:
 
           restored_tables="$(docker exec -e PGPASSWORD="$password" "$container"             psql -U postgres -d postgres -X -tA -v ON_ERROR_STOP=1 -c             "select count(*) from pg_class c join pg_namespace n on n.oid=c.relnamespace where n.nspname='public' and c.relkind in ('r','p');")"
           [[ "$restored_tables" =~ ^[1-9][0-9]*$ ]]
-          sha256sum -c /dev/stdin <<EOF
-$(cat "$G1_TMP/manifest.sha256")
-EOF
+          sha256sum -c "$G1_TMP/manifest.sha256"
           echo "G1_POSTGRES17_DISPOSABLE_RESTORE=PASS"
           echo "G1_SUPABASE_TEST_ENV_CHANGED=FALSE"
 
