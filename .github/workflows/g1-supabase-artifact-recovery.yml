@@ -108,7 +108,7 @@ jobs:
           echo "bundle=$G1_TMP/SalvaMotoca-G1-$GITHUB_RUN_ID.tar.gz" >> "$GITHUB_OUTPUT"
 
       - name: "Guardar apenas ciphertext como artefato privado de retenção curta"
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v5
         with:
           name: SalvaMotoca-G1-ciphertext-${{ github.run_id }}
           path: ${{ steps.encrypt.outputs.bundle }}
