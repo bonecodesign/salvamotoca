@@ -9,7 +9,7 @@
 | Gate | Prova exigida | Estado nesta rodada | Restrições |
 |---|---|---|---|
 | G0 — Segurança estática | Todas as flags F1–F6 desligadas, testes Node/Chrome/PG locais aprovados | PASS estático em CI; não é licença de operação | Sem rede ou segredos |
-| G1 — Backup e restauração | Dump privado e restauração real PostgreSQL; escopo Auth e **bytes** Storage; hash e relatório do que foi/ não foi restaurado | **PASS HISTÓRICO TESTES (#123); escopo futuro pendente** | Exigir backup recente e escopo conferido antes de gravações remotas |
+| G1 — Backup e restauração | Dump privado e restauração real PostgreSQL; escopo Auth e **bytes** Storage; hash e relatório do que foi/ não foi restaurado | **RECUPERAÇÃO LÓGICA ATUAL COMPROVADA (#191); cobertura integral pendente** | Exigir cópia independente durável e escopo Auth/Storage conferido antes de gravações remotas |
 | G2 — F1 Auth/Storage/RPC | Usuários fictícios legítimos A/B/C, foto JPEG mínima, isolamento por usuário, URLs assinadas curtas, limpeza Storage API, verificação das 6 RPCs SECURITY DEFINER | **PARCIAL: Native local 29/29 (#124), HTTP hospedado somente leitura 4/4 (#126)** | Sessões Auth/Storage hospedadas e dispositivo físico pendentes; autorização específica |
 | G3 — F2/F3 | Códigos offline integrados e testados; ainda faltam migrations reais confrontadas com schema, RLS remoto, concorrência, homologação de equipamento e notificações | **BLOQUEADO** | Sem despachar prestador real |
 | G4 — F4 financeira | Modelo offline 10% + 10% integrado; ainda faltam política jurídico/financeira, PSP/Connect viáveis no Brasil, webhook oficial, reconciliação, estornos e dupla confirmação real | **BLOQUEADO** | Stripe não é escrow; não criar contas, cobranças ou transferências |
@@ -24,7 +24,7 @@ Os estados acima são **conservadores**: não foram automaticamente promovidos p
 
 | Área | Evidência | Escopo ainda não comprovado |
 |---|---|---|
-| G1 | [Aceite histórico](G1_ACEITE_BACKUP_TESTES_2026-11-23.md), #123 integrado | Novo snapshot, bytes de objetos quando existirem, configurações gerenciadas e segredos |
+| G1 | [Aceite histórico](G1_ACEITE_BACKUP_TESTES_2026-11-23.md), #123 e [recuperação lógica atual](G1_EVIDENCIA_RECUPERACAO_ARTEFATO_2026-11-27.md), #191 | Auth gerenciado, bytes de objetos quando existirem, configurações gerenciadas, segredos e cópia independente durável |
 | G2 | [Native HTTP](F1_NATIVE_HTTP_EVIDENCIA_2026-11-24.md) e [HTTP hospedado somente leitura](F1_HOSTED_READONLY_EVIDENCIA_2026-11-24.md) | Sessões legítimas A/B/C no ambiente hospedado, limpeza e Android |
 | G3–G6 | #127–137: regras, SQL candidatos descartáveis e cinco jornadas integradas | Migrations reais, servidor autenticado, PSP sandbox, notificações e GPS físico |
 | G7 | #138: painel sintético somente leitura; 54 testes | Autenticação e auditoria administrativa reais, escala humana e revisão legal |
@@ -139,3 +139,10 @@ A autorização renovável preparada no #174 ainda não está comprovada no Envi
 A conta Stripe conectada é não-live, mas a auditoria não criou sandbox, conta, chave, cobrança, transferência ou webhook. O sandbox dedicado continua necessário para G4; o test mode compartilhado não deve ser reaproveitado. Os PRs antigos F4 #45 e #47 permanecem históricos/draft e usam regras econômicas supersedidas; não devem ser mesclados. A referência financeira vigente é a cadeia posterior já integrada, com F4 desativada.
 
 **Resultado:** G1 atual, G2 hospedado e G4 sandbox dedicado permanecem BLOCKED; nenhuma evidência local foi promovida a gate remoto. RELEASE=NO_GO.
+
+
+## Atualização G1 — recuperação lógica atual (27/11/2026 BRT)
+
+A execução manual [#10](https://github.com/bonecodesign/salvamotoca/actions/runs/46026655124), no commit `e29f94af75931a0d766c6ab7d9d0771845c65683`, concluiu exportação lógica somente leitura do Supabase de TESTES e restauração bem-sucedida em PostgreSQL 17 descartável. O artefato privado é cifrado e tem retenção curta; a execução não alterou o Supabase hospedado. A evidência pública sem segredos está em [G1_EVIDENCIA_RECUPERACAO_ARTEFATO_2026-11-27.md](G1_EVIDENCIA_RECUPERACAO_ARTEFATO_2026-11-27.md).
+
+A promoção é limitada: a recuperação confirmada inclui `public`, `private` e `supabase_migrations`, com stubs estritamente temporários no laboratório. Auth gerenciado, bytes de Storage e uma cópia durável fora do GitHub não foram comprovados. O workflow interrompe a execução se houver objetos Storage, justamente para não alegar cobertura inexistente. Assim, G1 não autoriza escrita hospedada nem libera G2; o estado global continua **RELEASE=NO_GO**.
